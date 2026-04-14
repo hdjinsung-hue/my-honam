@@ -636,9 +636,12 @@ function startSync(){
 }
 
 function syncAttNames(){
+  // 신인도입 전체 명단(기합격+정시) → 출결 접수자 동기화
   data.forEach((d,i)=>{
     const ex=new Set(att[i].attendees);
-    d.regList.forEach(n=>{if(!ex.has(n)){att[i].attendees.push(n);ex.add(n);}});
+    [].concat(d.passList||[]).concat(d.regList||[]).forEach(function(n){
+      if(!ex.has(n)){att[i].attendees.push(n);ex.add(n);}
+    });
   });
 }
 
@@ -2798,8 +2801,11 @@ function confirmBrmPaste(){
     var item=brmParsed[key];
     var list=item.type==='pass'?data[item.idx].passList:data[item.idx].regList;
     item.names.forEach(function(n){if(list.indexOf(n)<0) list.push(n);});
+    // 출결 접수자에도 즉시 반영
+    fullSync(item.idx, false, false);
   });
   if(dbRef) dbRef.set(data.map(function(d){return {passList:d.passList||[], regList:d.regList||[], goal:d.goal};}));
+  if(attRef) saveAtt();
   render(-1,false);
   document.getElementById('bulk-recruit-modal').style.display='none';
   brmParsed={};
