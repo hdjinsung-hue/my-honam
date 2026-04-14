@@ -426,7 +426,8 @@ input[type=file].xf{display:none}
 <div class="tab-pane" id="tab-att">
 <div class="wrap">
   <div class="att-sum" id="att-sum"></div>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:.625rem">
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:.625rem;flex-wrap:wrap">
+    <button onclick="checkSyncMismatch()" style="padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.3)">🔄 명단 불일치 확인</button>
     <button onclick="document.getElementById('paste-ov').style.display='flex'" style="padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.12);color:var(--blue);border:1px solid rgba(79,168,245,.3)">📋 교육생 명단 붙여넣기 일괄 등록</button>
   </div>
   <!-- 지점별 현황 -->
@@ -636,13 +637,19 @@ function startSync(){
 }
 
 function syncAttNames(){
-  // 신인도입 전체 명단(기합격+정시) → 출결 접수자 동기화
-  data.forEach((d,i)=>{
-    const ex=new Set(att[i].attendees);
+  // 신인도입 전체 명단(기합격+정시) → 출결 접수자 동기화 + Firebase 저장
+  var _changed=false;
+  data.forEach(function(d,i){
+    var ex=new Set(att[i].attendees);
     [].concat(d.passList||[]).concat(d.regList||[]).forEach(function(n){
-      if(!ex.has(n)){att[i].attendees.push(n);ex.add(n);}
+      if(!ex.has(n)){att[i].attendees.push(n);ex.add(n);_changed=true;}
     });
   });
+  // 변경 있으면 Firebase에 즉시 반영
+  if(_changed&&attRef){
+    try{attRef.set(att.map(function(a){return {attendees:a.attendees||[],attendance:a.attendance||{},eliminated:a.eliminated||{},absenceReason:a.absenceReason||{},completed:a.completed||{},completedAt:a.completedAt||{}};}));}catch(e){}
+  }
+  return _changed;
 }
 
 function setLive(cls,txt){
@@ -1848,6 +1855,23 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
   </div>
 </div>
 
+
+<!-- 명단 불일치 확인 모달 -->
+<div id="mismatch-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9000;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
+  <div style="background:#111f38;border:1.5px solid #a78bfa;border-radius:18px;width:100%;max-width:600px;margin:auto;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#7c3aed,#a78bfa);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:15px;font-weight:900;color:#fff">🔄 명단 불일치 확인</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.8)" id="mismatch-sub">신인도입 ↔ 입문출결 명단 비교</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="fixAllMismatch()" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:#fff;color:#7c3aed;border:none">✅ 전체 자동 수정</button>
+        <button onclick="document.getElementById('mismatch-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit">✕</button>
+      </div>
+    </div>
+    <div id="mismatch-body" style="padding:1.25rem;max-height:75vh;overflow-y:auto;font-size:13px"></div>
+  </div>
+</div>
 <!-- 접수인원 명단 모달 -->
 <div id="att-list-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9000;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
   <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:18px;width:100%;max-width:700px;margin:auto;overflow:hidden">
@@ -2012,6 +2036,100 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
 </div>
 
 <script>
+
+// ── 명단 불일치 확인 및 자동 수정 ──
+function checkSyncMismatch(){
+  var mismatches=[];
+  BR.forEach(function(b,i){
+    var d=data[i];
+    var a=att[i];
+    var recAll=[].concat(d.passList||[]).concat(d.regList||[]);
+    var attAll=a.attendees||[];
+
+    // 신인도입에 있지만 출결에 없는 이름
+    var onlyInRec=recAll.filter(function(n){return attAll.indexOf(n)<0;});
+    // 출결에 있지만 신인도입에 없는 이름
+    var onlyInAtt=attAll.filter(function(n){return recAll.indexOf(n)<0;});
+
+    if(onlyInRec.length>0||onlyInAtt.length>0){
+      mismatches.push({
+        idx:i, name:b.name, mgr:b.mgr,
+        recCnt:recAll.length, attCnt:attAll.length,
+        onlyInRec:onlyInRec, onlyInAtt:onlyInAtt
+      });
+    }
+  });
+
+  var sub=document.getElementById('mismatch-sub');
+  if(sub) sub.textContent='불일치 지점: '+mismatches.length+'개 / 전체 '+BR.length+'개';
+
+  var body=document.getElementById('mismatch-body');
+  if(!body) return;
+
+  if(mismatches.length===0){
+    body.innerHTML='<div style="text-align:center;padding:2rem;color:#3ecf8e;font-size:16px;font-weight:700">✅ 모든 지점의 명단이 일치합니다!</div>';
+    document.getElementById('mismatch-modal').style.display='flex';
+    return;
+  }
+
+  var html='<div style="font-size:12px;color:#8899bb;margin-bottom:.875rem;background:rgba(167,139,250,.08);border-radius:8px;padding:8px 12px">'
+    +'<b style="color:#a78bfa">자동 수정 방식</b>: 양쪽 명단을 합쳐서 모두 반영합니다.</div>';
+
+  mismatches.forEach(function(m){
+    var bn=sn(m.name);
+    html+='<div style="background:#0b1628;border:1px solid rgba(167,139,250,.3);border-radius:12px;padding:12px;margin-bottom:10px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+        +'<div><span style="font-size:14px;font-weight:700;color:#e8edf5">'+bn.top+'<span style="font-size:10px;color:var(--or)">'+bn.bot+'</span></span>'
+          +'<span style="font-size:11px;color:#8899bb;margin-left:6px">'+m.mgr+' 지점장</span></div>'
+        +'<button onclick="fixMismatch('+m.idx+')" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.2);color:#3ecf8e;border:1px solid rgba(62,207,142,.4)">수정</button>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+        +'<div style="background:rgba(79,168,245,.08);border-radius:8px;padding:8px">'
+          +'<div style="font-size:10px;color:#4fa8f5;font-weight:700;margin-bottom:4px">📊 신인도입 ('+m.recCnt+'명)</div>'
+          +(m.onlyInRec.length>0?'<div style="font-size:11px;color:#FF8C55">+출결누락: '+m.onlyInRec.join(', ')+'</div>':'<div style="font-size:11px;color:#3ecf8e">일치</div>')
+        +'</div>'
+        +'<div style="background:rgba(62,207,142,.06);border-radius:8px;padding:8px">'
+          +'<div style="font-size:10px;color:#3ecf8e;font-weight:700;margin-bottom:4px">📋 입문출결 ('+m.attCnt+'명)</div>'
+          +(m.onlyInAtt.length>0?'<div style="font-size:11px;color:#FF8C55">+신인도입누락: '+m.onlyInAtt.join(', ')+'</div>':'<div style="font-size:11px;color:#3ecf8e">일치</div>')
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  });
+
+  body.innerHTML=html;
+  document.getElementById('mismatch-modal').style.display='flex';
+}
+
+function fixMismatch(i){
+  // 양방향 완전 합치기
+  var d=data[i], a=att[i];
+  var recAll=[].concat(d.passList||[]).concat(d.regList||[]);
+  var attAll=a.attendees||[];
+
+  // 출결에 없는 신인도입 명단 → 출결 추가
+  recAll.forEach(function(n){if(attAll.indexOf(n)<0)a.attendees.push(n);});
+  // 신인도입에 없는 출결 명단 → 정시접수에 추가
+  a.attendees.forEach(function(n){
+    var all=[].concat(d.passList||[]).concat(d.regList||[]);
+    if(all.indexOf(n)<0){d.regList=d.regList||[];d.regList.push(n);}
+  });
+
+  if(dbRef) dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
+  if(attRef) saveAtt();
+  render(-1,false);
+  // 팝업 재갱신
+  setTimeout(checkSyncMismatch, 500);
+}
+
+function fixAllMismatch(){
+  if(!confirm('모든 지점의 명단을 자동으로 통합하시겠습니까?\n양쪽 명단을 합쳐서 반영합니다.')) return;
+  BR.forEach(function(b,i){ fixMismatch(i); });
+  setTimeout(function(){
+    document.getElementById('mismatch-modal').style.display='none';
+    renderAtt();
+    alert('✅ 전체 명단 동기화 완료!');
+  }, 800);
+}
 
 // ── 미출석 사유 저장 ──
 function saveAbsReason(bi, name, reason){
