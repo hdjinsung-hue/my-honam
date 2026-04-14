@@ -608,6 +608,16 @@ function startSync(){
       }
     }
     data=BR.map((b,i)=>({...b,id:i,passList:arr[i]?.passList||[],regList:arr[i]?.regList||[]}));
+    // passList(기합격)를 att.attendees에서 즉시 제거
+    var _passRemoved=false;
+    data.forEach(function(d,i){
+      var before=att[i].attendees.length;
+      att[i].attendees=att[i].attendees.filter(function(n){
+        return (d.passList||[]).indexOf(n)<0;
+      });
+      if(att[i].attendees.length!==before) _passRemoved=true;
+    });
+    if(_passRemoved&&attRef) saveAtt();
     syncAttNames();
     if(isFirst){isFirst=false;render(-1,false);}
     else if(ci>=0&&ci!==lastOi){showBanner(data[ci].name);render(ci,true);}
@@ -619,7 +629,10 @@ function startSync(){
     if(rem){
       const arr=Array.isArray(rem)?rem:Object.values(rem);
       att=BR.map((b,i)=>({
-        attendees:arr[i]?.attendees||[],
+        // 기합격자(passList)는 attendees에서 제외
+        attendees:(arr[i]?.attendees||[]).filter(function(n){
+          return (data[i]?.passList||[]).indexOf(n)<0;
+        }),
         attendance:arr[i]?.attendance||{},
         eliminated:arr[i]?.eliminated||{},
         absenceReason:arr[i]?.absenceReason||{},
@@ -637,15 +650,21 @@ function startSync(){
 }
 
 function syncAttNames(){
-  // 신인도입 전체 명단(기합격+정시) → 출결 접수자 동기화 + Firebase 저장
+  // 정시접수(regList)만 → 출결 접수자 추가. 기합격(passList)는 절대 추가 안 함.
   var _changed=false;
   data.forEach(function(d,i){
+    // 먼저 기합격자가 attendees에 있으면 제거
+    var before=(att[i].attendees||[]).length;
+    att[i].attendees=(att[i].attendees||[]).filter(function(n){
+      return (d.passList||[]).indexOf(n)<0;
+    });
+    if(att[i].attendees.length!==before) _changed=true;
+    // 정시접수 → attendees 추가
     var ex=new Set(att[i].attendees);
-    [].concat(d.passList||[]).concat(d.regList||[]).forEach(function(n){
+    (d.regList||[]).forEach(function(n){
       if(!ex.has(n)){att[i].attendees.push(n);ex.add(n);_changed=true;}
     });
   });
-  // 변경 있으면 Firebase에 즉시 반영
   if(_changed&&attRef){
     try{attRef.set(att.map(function(a){return {attendees:a.attendees||[],attendance:a.attendance||{},eliminated:a.eliminated||{},absenceReason:a.absenceReason||{},completed:a.completed||{},completedAt:a.completedAt||{}};}));}catch(e){}
   }
@@ -1497,11 +1516,15 @@ function amAdd(){
   const name = inp.value.trim();
   if(!name) return;
   if(!att[amIdx].attendees.includes(name)){
-    att[amIdx].attendees.push(name);
-    if(attRef)saveAtt();
-    // 양방향 동기화
-    fullSync(amIdx, true, false);
-    writeLog(BR[amIdx].name, '출결', '교육생 추가: '+name);
+    // 기합격자면 출결 접수자에 추가하지 않음
+    var _isPass=(data[amIdx].passList||[]).indexOf(name)>=0;
+    if(!_isPass){
+      att[amIdx].attendees.push(name);
+      if(attRef)saveAtt();
+      // 양방향 동기화
+      fullSync(amIdx, true, false);
+      writeLog(BR[amIdx].name, '출결', '교육생 추가: '+name);
+    }
   }
   inp.value = '';
   renderAmModal();
@@ -1588,7 +1611,13 @@ document.getElementById('att-overlay').addEventListener('click', e=>{
 function saveAtt(){
   if(!attRef){console.warn('attRef가 아직 초기화되지 않았습니다.');return;}
   try{
-    attRef.set(att.map(function(a){return {attendees:a.attendees||[],attendance:a.attendance||{},eliminated:a.eliminated||{},absenceReason:a.absenceReason||{},completed:a.completed||{},completedAt:a.completedAt||{}};})).catch(function(e){console.error('saveAtt 오류:',e);});
+    // 저장 시 passList(기합격자)는 attendees에서 제외
+    attRef.set(att.map(function(a,i){
+      var cleanAttendees=(a.attendees||[]).filter(function(n){
+        return (data[i]?.passList||[]).indexOf(n)<0;
+      });
+      return {attendees:cleanAttendees,attendance:a.attendance||{},eliminated:a.eliminated||{},absenceReason:a.absenceReason||{},completed:a.completed||{},completedAt:a.completedAt||{}};
+    })).catch(function(e){console.error('saveAtt 오류:',e);});
   }catch(e){console.error('saveAtt 예외:',e);}
 }
 
@@ -2043,13 +2072,16 @@ function checkSyncMismatch(){
   BR.forEach(function(b,i){
     var d=data[i];
     var a=att[i];
-    var recAll=[].concat(d.passList||[]).concat(d.regList||[]);
+    // 정시접수만 비교 (기합격 제외)
+    var recAll=(d.regList||[]);
     var attAll=a.attendees||[];
 
-    // 신인도입에 있지만 출결에 없는 이름
+    // 정시접수에 있지만 출결에 없는 이름
     var onlyInRec=recAll.filter(function(n){return attAll.indexOf(n)<0;});
-    // 출결에 있지만 신인도입에 없는 이름
-    var onlyInAtt=attAll.filter(function(n){return recAll.indexOf(n)<0;});
+    // 출결에 있지만 정시접수+기합격 모두에 없는 이름
+    var onlyInAtt=attAll.filter(function(n){
+      return (d.passList||[]).indexOf(n)<0&&(d.regList||[]).indexOf(n)<0;
+    });
 
     if(onlyInRec.length>0||onlyInAtt.length>0){
       mismatches.push({
@@ -2101,17 +2133,18 @@ function checkSyncMismatch(){
 }
 
 function fixMismatch(i){
-  // 양방향 완전 합치기
+  // 정시접수 ↔ 출결 양방향 수정 (기합격 제외)
   var d=data[i], a=att[i];
-  var recAll=[].concat(d.passList||[]).concat(d.regList||[]);
-  var attAll=a.attendees||[];
 
-  // 출결에 없는 신인도입 명단 → 출결 추가
-  recAll.forEach(function(n){if(attAll.indexOf(n)<0)a.attendees.push(n);});
-  // 신인도입에 없는 출결 명단 → 정시접수에 추가
+  // 정시접수 → 출결 추가 (기합격은 출결에 넣지 않음)
+  (d.regList||[]).forEach(function(n){
+    if(a.attendees.indexOf(n)<0) a.attendees.push(n);
+  });
+  // 출결 → 정시접수 추가 (기합격에 없는 경우만)
   a.attendees.forEach(function(n){
-    var all=[].concat(d.passList||[]).concat(d.regList||[]);
-    if(all.indexOf(n)<0){d.regList=d.regList||[];d.regList.push(n);}
+    var inPass=(d.passList||[]).indexOf(n)>=0;
+    var inReg=(d.regList||[]).indexOf(n)>=0;
+    if(!inPass&&!inReg){d.regList=d.regList||[];d.regList.push(n);}
   });
 
   if(dbRef) dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
@@ -2348,12 +2381,11 @@ function saveDates(){
 
 // ── 신인도입 ↔ 입문출결 명단 동기화 ──
 function syncRecruitToAtt(branchIdx){
-  // 신인도입 전체 명단 → 입문출결 접수자 (추가만, 삭제 안 함)
+  // 신인도입 정시접수(regList)만 → 출결 접수자 (기합격 제외)
   var d=data[branchIdx];
-  var allNames=[].concat(d.passList||[]).concat(d.regList||[]);
   var a=att[branchIdx];
   var changed=false;
-  allNames.forEach(function(name){
+  (d.regList||[]).forEach(function(name){
     if(a.attendees.indexOf(name)<0){
       a.attendees.push(name);
       changed=true;
@@ -2385,18 +2417,18 @@ function syncAttToRecruit(branchIdx){
 }
 
 function fullSync(branchIdx, saveDb, saveAttRef){
-  // 완전 동기화: 양방향 맞춤
+  // 양방향 동기화: regList ↔ att.attendees (passList 제외)
   var d=data[branchIdx];
   var a=att[branchIdx];
-  // 신인도입 → 출결
-  var allRec=[].concat(d.passList||[]).concat(d.regList||[]);
-  allRec.forEach(function(name){
+  // 신인도입 정시접수 → 출결 접수자 추가
+  (d.regList||[]).forEach(function(name){
     if(a.attendees.indexOf(name)<0) a.attendees.push(name);
   });
-  // 출결 → 신인도입(정시)
+  // 출결 접수자 → 신인도입 정시접수 추가 (기합격에 없는 경우만)
   a.attendees.forEach(function(name){
-    var inRec=[].concat(d.passList||[]).concat(d.regList||[]);
-    if(inRec.indexOf(name)<0){d.regList=d.regList||[];d.regList.push(name);}
+    var inPass=(d.passList||[]).indexOf(name)>=0;
+    var inReg=(d.regList||[]).indexOf(name)>=0;
+    if(!inPass&&!inReg){d.regList=d.regList||[];d.regList.push(name);}
   });
   if(saveDb&&dbRef) dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
   if(saveAttRef&&attRef) saveAtt();
