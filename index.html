@@ -1121,6 +1121,11 @@ function doneAttPanel(i){
   if(!att[i].completedAt)att[i].completedAt={};
   att[i].completedAt[_dk]=Date.now();
   if(attRef)saveAtt();
+  // 완료 로그
+  var _a2=att[i], _elim2=_a2.eliminated||{};
+  var _dm3=DATES.find(function(d){return d.key===_dk;});
+  var _tCnt=((_a2.attendance[_dk])||[]).filter(function(n){return !_elim2[n];}).length;
+  writeLog(BR[i].name,'출결','출결완료 '+(_dm3?_dm3.lbl:_dk)+' · 접수 '+_a2.attendees.length+'명 · 출석 '+_tCnt+'명');
   var bd=document.getElementById('acard-body-'+i);
   var bt=document.getElementById('gc-btn-'+i);
   if(bd)bd.style.display='none';
@@ -1290,6 +1295,7 @@ function togElim(bi,name,isElim){
   var _wasOpen2=document.getElementById('acard-body-'+bi);
   var _panelOpen2=_wasOpen2&&_wasOpen2.style.display==='block';
   if(attRef)saveAtt();
+  writeLog(BR[bi].name,'탈락',name+' '+(isElim?'탈락처리':'탈락취소'));
   if(_panelOpen2){
     var _p2=document.getElementById('acard-body-'+bi);
     var _b2=document.getElementById('gc-btn-'+bi);
@@ -1444,6 +1450,7 @@ function amAdd(){
     if(syncAttToRecruit(amIdx)&&dbRef){
       dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
     }
+    writeLog(BR[amIdx].name, '출결', '교육생 추가: '+name);
   }
   inp.value = '';
   renderAmModal();
@@ -1456,6 +1463,7 @@ function amAdd(){
 
 function amDel(name){
   if(!confirm(`"${name}" 을(를) 명단에서 삭제하시겠습니까?`)) return;
+  writeLog(BR[amIdx].name, '출결', '교육생 삭제: '+name);
   const a = att[amIdx];
   a.attendees = a.attendees.filter(n => n !== name);
   // 출석 기록도 제거
@@ -1578,6 +1586,9 @@ document.getElementById('mcnf').onclick=()=>{
   // 신인도입 명단 → 입문출결 자동 동기화
   var attChanged=syncRecruitToAtt(oi);
   if(attChanged&&attRef)saveAtt();
+  // 변경 로그
+  var _bn=sn(data[oi].name);
+  writeLog(data[oi].name, '신인도입', '기합격 '+pv.length+'명 · 정시접수 '+rv.length+'명 저장');
 
   // Firebase 저장 시도
   if(dbRef){
@@ -1906,7 +1917,24 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
         </div>
         <div id="admin-attend-list" style="font-size:12px;color:var(--t2)"></div>
       </div>
-      <div id="admin-log" style="display:none"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.625rem"><span style="font-size:12px;color:var(--t2)">최근 변경 내역</span><button onclick="loadLog()" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">🔄 새로고침</button></div><div id="admin-log-list" style="font-size:12px;color:var(--t2)">로딩 중...</div></div>
+      <div id="admin-log" style="display:none">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:.625rem;flex-wrap:wrap">
+          <span style="font-size:12px;font-weight:700;color:var(--t2);flex-shrink:0">지점 필터</span>
+          <select id="log-filter-branch" onchange="loadLog()" style="flex:1;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit">
+            <option value="">전체 지점</option>
+          </select>
+          <select id="log-filter-type" onchange="loadLog()" style="padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit">
+            <option value="">전체 항목</option>
+            <option value="신인도입">신인도입</option>
+            <option value="출결">출결</option>
+            <option value="미출석사유">미출석사유</option>
+            <option value="탈락">탈락처리</option>
+          </select>
+          <button onclick="loadLog()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">🔄</button>
+        </div>
+        <div id="log-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:.75rem"></div>
+        <div id="admin-log-list" style="font-size:12px;color:var(--t2)">로딩 중...</div>
+      </div>
     </div>
   </div>
 </div>
@@ -1918,6 +1946,7 @@ function saveAbsReason(bi, name, reason){
   if(!att[bi].absenceReason) att[bi].absenceReason={};
   if(reason.trim()){
     att[bi].absenceReason[name]=reason.trim();
+    writeLog(BR[bi].name,'미출석사유',name+': '+reason.trim());
   } else {
     delete att[bi].absenceReason[name];
   }
@@ -2823,6 +2852,7 @@ function switchAdminTab(tab,el){
   if(tab==='branch')renderAdminBranch();
   if(tab==='attend')renderAdminAttend();
   if(tab==='dates')initCalendar();
+  if(tab==='log'){loadLog(0);}
   document.querySelectorAll('.admin-tab').forEach(function(b){b.style.background='var(--bg3)';b.style.color='var(--t2)';b.style.border='1px solid var(--bd)';});
   el.style.background='#7c3aed';el.style.color='#fff';el.style.border='none';
   if(tab==='log')loadLog();
@@ -2920,15 +2950,111 @@ function renderAdminAttend(){
   var el=document.getElementById('admin-attend-list');
   if(el)el.innerHTML=html;
 }
-function loadLog(){
-  var el=document.getElementById('admin-log-list'); if(!db||!el){if(el)el.innerHTML='Firebase 연결 필요';return;}
-  el.innerHTML='로딩 중...';
-  db.ref('honam_log').orderByChild('ts').limitToLast(30).once('value',function(snap){
-    var logs=[]; snap.forEach(function(c){logs.unshift(c.val());});
-    if(!logs.length){el.innerHTML='기록 없음';return;}
-    el.innerHTML=logs.map(function(l){return '<div style="padding:7px;background:var(--bg3);border-radius:8px;margin-bottom:5px"><div style="display:flex;justify-content:space-between"><span style="font-weight:700;color:var(--or)">'+l.action+'</span><span style="font-size:10px;color:var(--text3)">'+l.time+'</span></div><div style="font-size:11px;color:var(--t2)">'+l.detail+'</div></div>';}).join('');
+
+// ── 지점 활동 로그 ──
+function writeLog(branchName, category, detail){
+  if(!db) return;
+  var t = new Date();
+  var hh = String(t.getHours()).padStart(2,'0');
+  var mm = String(t.getMinutes()).padStart(2,'0');
+  var ss = String(t.getSeconds()).padStart(2,'0');
+  var dateStr = (t.getMonth()+1)+'/'+t.getDate()+' '+hh+':'+mm+':'+ss;
+  var entry = {
+    branchName: branchName||'',
+    category: category||'',
+    detail: detail||'',
+    time: dateStr,
+    ts: Date.now()
+  };
+  db.ref('honam_log').push(entry);
+}
+
+function loadLog(retryCount){
+  var el=document.getElementById('admin-log-list');
+  var sumEl=document.getElementById('log-summary');
+  if(!el)return;
+  // db가 아직 없으면 재시도 (최대 10초)
+  if(!db){
+    var cnt=(retryCount||0)+1;
+    if(cnt<=20){
+      el.innerHTML='<div style="color:var(--t3);font-size:12px">🔄 Firebase 연결 중... ('+cnt+')</div>';
+      setTimeout(function(){loadLog(cnt);},500);
+    }else{
+      el.innerHTML='<div style="color:var(--rd);font-size:12px">Firebase 연결 실패. 앱을 새로고침해주세요.</div>';
+    }
+    return;
+  }
+  el.innerHTML='<div style="color:var(--t3);font-size:12px">로딩 중...</div>';
+
+  // 필터 select에 지점 목록 채우기
+  var brSel=document.getElementById('log-filter-branch');
+  if(brSel&&brSel.options.length<=1){
+    BR.forEach(function(b){
+      var opt=document.createElement('option');
+      opt.value=b.name; opt.textContent=b.name;
+      brSel.appendChild(opt);
+    });
+  }
+  var filterBranch=document.getElementById('log-filter-branch')?document.getElementById('log-filter-branch').value:'';
+  var filterType=document.getElementById('log-filter-type')?document.getElementById('log-filter-type').value:'';
+
+  db.ref('honam_log').orderByChild('ts').limitToLast(200).once('value',function(snap){
+    var logs=[]; snap.forEach(function(child){logs.unshift(child.val());});
+    if(!logs.length){el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:10px 0">기록 없음</div>';return;}
+
+    // 필터 적용
+    var filtered=logs.filter(function(l){
+      if(filterBranch&&l.branchName!==filterBranch)return false;
+      if(filterType&&(!l.category||l.category.indexOf(filterType)<0))return false;
+      return true;
+    });
+
+    // 요약: 지점별 최근 활동
+    var branchMap={};
+    filtered.forEach(function(l){
+      if(!l.branchName)return;
+      if(!branchMap[l.branchName]||l.ts>branchMap[l.branchName].ts)branchMap[l.branchName]=l;
+    });
+    var activeCount=Object.keys(branchMap).length;
+    var todayStr=(new Date().getMonth()+1)+'/'+(new Date().getDate());
+    var todayLogs=filtered.filter(function(l){return l.time&&l.time.indexOf(todayStr)>=0;});
+    if(sumEl){
+      sumEl.innerHTML=
+        '<div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;padding:8px;text-align:center">'
+          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">전체 기록</div>'
+          +'<div style="font-size:18px;font-weight:900;color:#3ecf8e">'+filtered.length+'</div></div>'
+        +'<div style="background:rgba(79,168,245,.08);border:1px solid rgba(79,168,245,.2);border-radius:8px;padding:8px;text-align:center">'
+          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">오늘 활동</div>'
+          +'<div style="font-size:18px;font-weight:900;color:#4fa8f5">'+todayLogs.length+'</div></div>'
+        +'<div style="background:rgba(255,107,43,.08);border:1px solid rgba(255,107,43,.2);border-radius:8px;padding:8px;text-align:center">'
+          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">활동 지점</div>'
+          +'<div style="font-size:18px;font-weight:900;color:var(--or)">'+activeCount+'</div></div>';
+    }
+
+    // 카테고리별 색상
+    var catColor={'신인도입':'#4fa8f5','출결':'#3ecf8e','미출석사유':'#FF8C55','탈락':'#f5605a','지점관리':'#a78bfa'};
+
+    if(!filtered.length){
+      el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:10px 0">해당 조건의 기록 없음</div>';
+      return;
+    }
+
+    el.innerHTML=filtered.slice(0,50).map(function(l){
+      var cat=l.category||'기타';
+      var cc=catColor[cat]||'var(--or)';
+      var bn=l.branchName?sn(l.branchName):{top:l.branchName||'-',bot:''};
+      return '<div style="padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:5px;border-left:3px solid '+cc+'">'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">'
+          +'<span style="font-size:12px;font-weight:700;color:#e8edf5">'+bn.top+'<span style="font-size:9px;color:var(--or)">'+bn.bot+'</span></span>'
+          +'<span style="font-size:10px;font-weight:700;color:'+cc+';background:rgba(255,255,255,.07);padding:1px 7px;border-radius:6px">'+cat+'</span>'
+          +'<span style="margin-left:auto;font-size:10px;color:var(--t3)">'+l.time+'</span>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--t2)">'+l.detail+'</div>'
+      +'</div>';
+    }).join('');
   });
 }
+
 </script>
 </body>
 </html>
