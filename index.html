@@ -924,21 +924,38 @@ function renderAtt(){
         +'<div style="height:3px;width:100%;background:'+barColor+'"></div>'
         // 카드 내용 (포디움과 동일한 텍스트 구조)
         +'<div style="padding:10px 10px 12px;text-align:left">'
-          // 지점명
-          +'<div style="font-size:14px;font-weight:900;color:#e8edf5;line-height:1.2;margin-bottom:3px;letter-spacing:-.2px">'
-            +bn.top
-            +'<span style="font-size:9px;font-weight:700;color:var(--or);margin-left:2px;vertical-align:middle">'+bn.bot+'</span>'
-          +'</div>'
+          // 지점명+완료배지 (flex: 좌=지점명, 우=완료배지)
+          +(function(){
+            var _dm4=DATES.find(function(d){return d.key===_tkey;});
+            var _lbl4=_dm4?_dm4.lbl:_tkey.slice(0,1)+'/'+parseInt(_tkey.slice(2));
+            return '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;margin-bottom:3px">'
+              +'<div style="font-size:14px;font-weight:900;color:#e8edf5;line-height:1.2;letter-spacing:-.2px;min-width:0">'
+                +bn.top
+                +'<span style="font-size:9px;font-weight:700;color:var(--or);margin-left:2px;vertical-align:middle">'+bn.bot+'</span>'
+              +'</div>'
+              +(isDone
+                ?'<div style="flex-shrink:0;display:flex;align-items:center;justify-content:center;'
+                  +'width:62px;height:62px;border-radius:50%;'
+                  +'background:#ffffff;border:2.5px solid #3ecf8e;'
+                  +'box-shadow:0 2px 10px rgba(62,207,142,.35);'
+                  +'text-align:center;line-height:1.3;padding:4px">'
+                  +'<div>'
+                  +'<div style="font-size:11px;font-weight:900;color:#1a7a4a;line-height:1.2">'+_lbl4+'</div>'
+                  +'<div style="font-size:10px;font-weight:700;color:#1a7a4a;line-height:1.2">출석완료</div>'
+                  +'</div>'
+                +'</div>'
+                :'')
+              +'</div>';
+          })()
           // 지점장 이름
           +'<div style="font-size:11px;color:#c0c8d8;font-weight:600;margin-bottom:8px">'+b.mgr+'</div>'
-          // 접수 숫자 (포디움의 pod-cnt 스타일)
+          // 접수 숫자
           +'<div style="font-size:28px;font-weight:900;letter-spacing:-1px;line-height:1;color:'+numColor+';margin-bottom:4px">'+ttl+'<span style="font-size:13px;font-weight:700;margin-left:1px">명</span></div>'
           // 출석 행
           +'<div style="display:flex;align-items:center;gap:4px">'
             +'<span style="font-size:10px;color:#6688aa;font-weight:600">출석</span>'
             +'<span style="font-size:16px;font-weight:900;color:'+numColor+'">'+(attNum==='-'?'―':attNum)+'</span>'
             +(attNum!=='-'?'<span style="font-size:10px;color:'+numColor+';font-weight:700">명</span>':'')
-            +(isDone?'<span style="font-size:9px;color:#3ecf8e;background:rgba(62,207,142,.15);padding:1px 5px;border-radius:5px;margin-left:3px">완료✓</span>':'')
             +(elimCnt>0?'<span style="font-size:9px;color:#f5605a;margin-left:auto">탈락'+elimCnt+'</span>':'')
           +'</div>'
         +'</div>'
@@ -1142,6 +1159,14 @@ function doneAttPanel(i){
   var todayCnt2=(a2.attendance[_tkey2]||[]).filter(function(n){return !elim2[n];}).length;
 
   var isWarn=(ttl2===0||todayCnt2===0);
+
+  // 기합격 인원 + 당일 출석 인원 합산 >= 목표 여부
+  var _d=data[i];
+  var _passCnt=(_d.passList||[]).length;
+  var _combined=_passCnt+todayCnt2; // 기합격 + 당일출석
+  var _rate=_d.goal>0?Math.round(_combined/_d.goal*100):0;
+  var isAchieved=(_rate>=100)&&(!isWarn);
+
   var toast=document.getElementById('att-toast');
   var tokOk=document.getElementById('att-toast-ok');
   var tokWarn=document.getElementById('att-toast-warn');
@@ -1162,6 +1187,24 @@ function doneAttPanel(i){
       }
       toast.style.display='flex';
       setTimeout(function(){toast.style.display='none';if(tokWarn)tokWarn.style.display='none';if(tokOk)tokOk.style.display='block';},3000);
+    } else if(isAchieved) {
+      // 달성률 100% 이상 - 수고 팝업
+      if(tokOk)tokOk.style.display='none';
+      if(tokWarn)tokWarn.style.display='none';
+      var tokCongrats=document.getElementById('att-toast-congrats');
+      if(tokCongrats){
+        tokCongrats.style.display='block';
+        var cn=document.getElementById('att-toast-congrats-name');
+        if(cn)cn.textContent='수고하셨습니다.\n'+BR[i].mgr+' 지점장님';
+        var cr=document.getElementById('att-toast-congrats-rate');
+        if(cr)cr.textContent='달성률 '+_rate+'% 🎉';
+      }
+      toast.style.display='flex';
+      setTimeout(function(){
+        toast.style.display='none';
+        if(tokCongrats)tokCongrats.style.display='none';
+        if(tokOk)tokOk.style.display='block';
+      },3000);
     } else {
       // 정상 완료 팝업
       if(tokOk)tokOk.style.display='block';
@@ -1446,10 +1489,8 @@ function amAdd(){
   if(!att[amIdx].attendees.includes(name)){
     att[amIdx].attendees.push(name);
     if(attRef)saveAtt();
-    // 입문출결 → 신인도입 정시접수 자동 추가
-    if(syncAttToRecruit(amIdx)&&dbRef){
-      dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
-    }
+    // 양방향 동기화
+    fullSync(amIdx, true, false);
     writeLog(BR[amIdx].name, '출결', '교육생 추가: '+name);
   }
   inp.value = '';
@@ -1471,6 +1512,11 @@ function amDel(name){
     a.attendance[d.key] = (a.attendance[d.key]||[]).filter(n => n !== name);
   });
   if(a.eliminated) delete a.eliminated[name];
+  // 신인도입 명단에서도 동시 삭제 (양방향 동기화)
+  var _d2=data[amIdx];
+  _d2.passList=(_d2.passList||[]).filter(function(n){return n!==name;});
+  _d2.regList=(_d2.regList||[]).filter(function(n){return n!==name;});
+  if(dbRef)dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
   if(attRef)saveAtt();
   renderAmModal();
   const open = getOpen();
@@ -1569,7 +1615,14 @@ function addN(t){
   if(t==='pass')pv.push(n);else rv.push(n);
   el.value='';rfModal();el.focus();
 }
-function rmN(t,idx){if(t==='pass')pv.splice(idx,1);else rv.splice(idx,1);rfModal();}
+function rmN(t,idx){
+  var name=t==='pass'?pv[idx]:rv[idx];
+  if(t==='pass')pv.splice(idx,1);else rv.splice(idx,1);
+  rfModal();
+  // 출결 명단에서도 삭제 (저장 시 mcnf onclick에서 처리됨)
+  // 미리 pv/rv에서 빠졌으므로 저장 클릭 시 fullSync로 불일치 발생 가능
+  // → 저장 버튼 클릭 시 fullSync 처리되므로 OK
+}
 document.getElementById('pinp').addEventListener('keydown',e=>{if(e.key==='Enter')addN('pass');});
 document.getElementById('rinp').addEventListener('keydown',e=>{if(e.key==='Enter')addN('reg');});
 document.getElementById('mcls').onclick=()=>{document.getElementById('overlay').style.display='none';};
@@ -1583,9 +1636,18 @@ document.getElementById('mcnf').onclick=()=>{
   data[oi].passList=[...pv];
   data[oi].regList=[...rv];
   lastOi=oi;
-  // 신인도입 명단 → 입문출결 자동 동기화
-  var attChanged=syncRecruitToAtt(oi);
-  if(attChanged&&attRef)saveAtt();
+  // 양방향 완전 동기화
+  // 1) 신인도입 명단에서 삭제된 이름은 출결에서도 제거
+  var _newAll=[].concat(pv).concat(rv);
+  var _a3=att[oi];
+  _a3.attendees=_a3.attendees.filter(function(name){
+    // 신인도입에 없는 이름이 출결에도 없었으면 유지, 신인도입에서 명시적으로 삭제된 경우만 제거
+    // (출결에서 직접 추가한 이름은 유지 → 명시적 삭제는 amDel에서 처리)
+    return true; // 추가만 동기화, 삭제는 amDel에서 처리
+  });
+  // 2) 신인도입 → 출결 추가 동기화
+  fullSync(oi, false, false);
+  if(attRef) saveAtt();
   // 변경 로그
   var _bn=sn(data[oi].name);
   writeLog(data[oi].name, '신인도입', '기합격 '+pv.length+'명 · 정시접수 '+rv.length+'명 저장');
@@ -1768,6 +1830,13 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
     <div style="font-size:22px;font-weight:700;color:#ffffff">출석 완료!</div>
   </div>
   <!-- 개선 필요 -->
+  <!-- 수고 팝업 (달성률 100% 이상) -->
+  <div id="att-toast-congrats" style="display:none;background:linear-gradient(135deg,#1a0e30,#2d1a50);border:3px solid #a78bfa;border-radius:24px;padding:36px 44px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.8),0 0 40px rgba(167,139,250,.4)">
+    <div style="font-size:52px;margin-bottom:12px">🎊</div>
+    <div id="att-toast-congrats-name" style="font-size:24px;font-weight:900;color:#fff;margin-bottom:10px;white-space:pre-line;letter-spacing:-.5px"></div>
+    <div id="att-toast-congrats-rate" style="font-size:16px;font-weight:700;color:#a78bfa;background:rgba(167,139,250,.2);border-radius:20px;padding:5px 20px;display:inline-block"></div>
+  </div>
+
   <div id="att-toast-warn" style="display:none;background:linear-gradient(135deg,#2a0a00,#3a1500);border:3px solid #FF6B2B;border-radius:24px;padding:40px 48px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.8),0 0 40px rgba(255,107,43,.4)">
     <div style="font-size:64px;margin-bottom:12px">⚠️</div>
     <div id="att-toast-warn-name" style="font-size:26px;font-weight:900;color:#FF8C55;margin-bottom:10px;letter-spacing:-0.5px"></div>
@@ -2158,7 +2227,7 @@ function saveDates(){
 
 // ── 신인도입 ↔ 입문출결 명단 동기화 ──
 function syncRecruitToAtt(branchIdx){
-  // 신인도입 명단 → 입문출결 접수자 자동 추가
+  // 신인도입 전체 명단 → 입문출결 접수자 (추가만, 삭제 안 함)
   var d=data[branchIdx];
   var allNames=[].concat(d.passList||[]).concat(d.regList||[]);
   var a=att[branchIdx];
@@ -2179,7 +2248,7 @@ function syncAllRecruitToAtt(){
 }
 
 function syncAttToRecruit(branchIdx){
-  // 입문출결 접수자 → 신인도입 정시접수에 자동 추가 (신인도입에 없는 경우만)
+  // 입문출결 접수자 → 신인도입 정시접수 (신인도입에 없는 이름만 추가)
   var a=att[branchIdx];
   var d=data[branchIdx];
   var allRec=[].concat(d.passList||[]).concat(d.regList||[]);
@@ -2192,6 +2261,24 @@ function syncAttToRecruit(branchIdx){
     }
   });
   return changed;
+}
+
+function fullSync(branchIdx, saveDb, saveAttRef){
+  // 완전 동기화: 양방향 맞춤
+  var d=data[branchIdx];
+  var a=att[branchIdx];
+  // 신인도입 → 출결
+  var allRec=[].concat(d.passList||[]).concat(d.regList||[]);
+  allRec.forEach(function(name){
+    if(a.attendees.indexOf(name)<0) a.attendees.push(name);
+  });
+  // 출결 → 신인도입(정시)
+  a.attendees.forEach(function(name){
+    var inRec=[].concat(d.passList||[]).concat(d.regList||[]);
+    if(inRec.indexOf(name)<0){d.regList=d.regList||[];d.regList.push(name);}
+  });
+  if(saveDb&&dbRef) dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
+  if(saveAttRef&&attRef) saveAtt();
 }
 
 // ── 지역단 이름 관리 ──
