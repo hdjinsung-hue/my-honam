@@ -2803,6 +2803,7 @@ function printAttList(){
     +'tr.tot{background:#fff3eb;font-weight:700}'
     +'.sec{font-size:14px;font-weight:700;color:#FF6B2B;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #FF6B2B}'
     +'.leg{font-size:11px;color:#888;margin-bottom:8px}'
+    +'.reason{color:#e67e22;font-weight:700}'
     +'.bcard{margin-bottom:10px;border:1px solid #ddd;border-radius:6px;overflow:hidden;page-break-inside:avoid}'
     +'.bhdr{background:#f8f8f8;padding:7px 12px;display:flex;justify-content:space-between;border-bottom:1px solid #ddd;font-weight:700;font-size:12px}'
     +'.names{padding:8px 12px;display:flex;flex-wrap:wrap;gap:5px}'
@@ -2830,7 +2831,7 @@ function printAttList(){
   var totActive=s1-s3, totRate=totActive>0?Math.round(s2/totActive*100):0;
   body+='<tr class="tot"><td class="l" colspan="2">합계</td><td>'+s1+'명</td><td>'+s2+'명</td><td>'+s3+'명</td><td>'+totRate+'%</td></tr>';
   body+='</tbody></table><div class="sec">👥 지점별 명단</div>';
-  body+='<div class="leg">🟢 당일 출석(✓) &nbsp; ⬜ 미출석 &nbsp; 🔴 탈락(✕)</div>';
+  body+='<div class="leg">🟢 당일 출석 ✓ &nbsp; ⬜ 미출석 <b style="color:#e67e22">[사유]</b> &nbsp; 🔴 탈락 ✕</div>';
 
   BR.forEach(function(b,i){
     var a=att[i];if(a.attendees.length===0)return;
@@ -2839,11 +2840,31 @@ function printAttList(){
     var active=a.attendees.length-Object.values(elim).filter(function(v){return v;}).length;
     var rate=active>0?Math.round(todayCnt/active*100):0;
     var bn=sn(b.name);
-    var names=a.attendees.map(function(name){
+    // 출석→미출석→탈락 순 정렬 + 미출석 사유 포함
+    var _pAtt2=[],_pAbs2=[],_pElim2=[];
+    a.attendees.forEach(function(name){
       var isE=!!elim[name];
-      var isT=(a.attendance[todayKey]||[]).indexOf(name)>=0&&!isE;
-      return '<span class="tag '+(isE?'elim':isT?'ok':'no')+'">'+name+(isE?' ✕':isT?' ✓':'')+'</span>';
-    }).join('');
+      var isT=!isE&&(a.attendance[todayKey]||[]).indexOf(name)>=0;
+      if(isE)_pElim2.push(name);
+      else if(isT)_pAtt2.push(name);
+      else _pAbs2.push(name);
+    });
+    var names='';
+    if(_pAtt2.length){
+      names+='<div style="width:100%;font-size:10px;color:#1a7a4a;font-weight:700;margin:3px 0 2px">출석 '+_pAtt2.length+'명</div>';
+      names+=_pAtt2.map(function(n){return '<span class="tag ok">'+n+' ✓</span>';}).join('');
+    }
+    if(_pAbs2.length){
+      names+='<div style="width:100%;font-size:10px;color:#555;font-weight:700;margin:5px 0 2px">미출석 '+_pAbs2.length+'명</div>';
+      names+=_pAbs2.map(function(n){
+        var reason=(a.absenceReason&&a.absenceReason[n])||'';
+        return '<span class="tag no">'+n+(reason?' <b style="color:#e67e22">['+reason+']</b>':'')+'</span>';
+      }).join('');
+    }
+    if(_pElim2.length){
+      names+='<div style="width:100%;font-size:10px;color:#c0392b;font-weight:700;margin:5px 0 2px">탈락 '+_pElim2.length+'명</div>';
+      names+=_pElim2.map(function(n){return '<span class="tag elim">'+n+' ✕</span>';}).join('');
+    }
     body+='<div class="bcard"><div class="bhdr"><span>'+bn.top+bn.bot+' ('+b.mgr+' 지점장)</span><span>접수 '+a.attendees.length+'명 · 출석 '+todayCnt+'명 · '+rate+'%</span></div><div class="names">'+names+'</div></div>';
   });
 
