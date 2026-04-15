@@ -655,10 +655,7 @@ function startSync(){
       renderAtt();
       if(_openBefore.length>0)restoreOpen(_openBefore);
     }
-    // 명단 변경이 있을 때만, 출결 데이터 보호 후 저장 (100ms 딜레이)
-    if(_needSave&&!_attSavePending){
-      setTimeout(function(){if(!_attSavePending)saveAtt();},100);
-    }
+    // syncAttNames 결과는 로컬만 반영. 리스너 안에서는 Firebase 쓰기 없음.
   });
 }
 
