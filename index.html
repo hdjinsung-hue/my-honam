@@ -931,7 +931,7 @@ function renderAtt(){
       var ttl=a.attendees.length;
       var elimCnt=Object.values(elim).filter(function(v){return v;}).length;
       var todayCnt=(a.attendance[_tkey]||[]).filter(function(n){return !elim[n];}).length;
-      var isDone=!!(a.completed&&a.completed[_tkey]);
+      var isDone=!!(a.completed&&a.completed[_tkey])&&todayCnt>0;
       var hasAtt=todayCnt>0;
       var clickFn='togAttPanel('+i+')';
 
