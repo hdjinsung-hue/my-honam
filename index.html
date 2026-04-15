@@ -858,10 +858,10 @@ function renderAtt(){
     +'<div class="al" style="color:var(--bl)">접수인원 📋</div>'
     +'<div class="av" style="color:var(--bl)">'+totAtt+'명</div>'
     +'<div class="as" style="color:var(--bl)">탭하면 명단 보기</div></div>'
-    +'<div class="ak">'
-    +'<div class="al">당일 출석인원</div>'
+    +'<div class="ak" onclick="showDailyModal()" style="cursor:pointer">'
+    +'<div class="al">당일 출석인원 📊</div>'
     +'<div class="av" style="color:var(--gr)">'+todayAtt+'명</div>'
-    +'<div class="as">'+todayLbl+' 기준</div></div>'
+    +'<div class="as" style="color:var(--gr)">'+todayLbl+' · 탭하면 날짜별 보기</div></div>'
     +'<div class="ak">'
     +'<div class="al">탈락 인원</div>'
     +'<div class="av" style="color:var(--rd)">'+totElim+'명</div>'
@@ -1925,6 +1925,23 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
 </div>
 
 
+
+<!-- 날짜별 출석 현황 모달 -->
+<div id="daily-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
+  <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:18px;width:100%;max-width:780px;margin:auto;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#0d5c3a,#1a7a50);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:15px;font-weight:900;color:#fff">📊 날짜별 출석 현황</div>
+        <div id="daily-modal-sub" style="font-size:11px;color:rgba(255,255,255,.8)"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="printDailyModal()" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)">🖨️ 출력</button>
+        <button onclick="document.getElementById('daily-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit">✕</button>
+      </div>
+    </div>
+    <div id="daily-modal-body" style="padding:1.25rem;max-height:78vh;overflow-y:auto"></div>
+  </div>
+</div>
 <!-- 명단 불일치 확인 모달 -->
 <div id="mismatch-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9000;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
   <div style="background:#111f38;border:1.5px solid #a78bfa;border-radius:18px;width:100%;max-width:600px;margin:auto;overflow:hidden">
@@ -2105,6 +2122,127 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
 </div>
 
 <script>
+
+// ── 날짜별 출석 현황 모달 ──
+function showDailyModal(){
+  var totAtt2=att.reduce(function(s,a){return s+a.attendees.length;},0);
+  var sub=document.getElementById('daily-modal-sub');
+  if(sub) sub.textContent='전체 접수 '+totAtt2+'명 · '+DATES.length+'일 기준';
+
+  var body=document.getElementById('daily-modal-body');
+  if(!body) return;
+
+  // 날짜별 합계
+  var dateSums=DATES.map(function(d){
+    return att.reduce(function(s,a){
+      return s+(a.attendance[d.key]||[]).filter(function(n){return !(a.eliminated||{})[n];}).length;
+    },0);
+  });
+
+  var html='';
+
+  // 날짜별 합계 카드 행
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;margin-bottom:1rem">';
+  DATES.forEach(function(d,di){
+    var cnt=dateSums[di];
+    html+='<div style="background:#0b1628;border:1px solid #1e3055;border-radius:10px;padding:8px 6px;text-align:center">'
+      +'<div style="font-size:11px;color:#8899bb;margin-bottom:4px">'+d.lbl+'</div>'
+      +'<div style="font-size:22px;font-weight:900;color:'+(cnt>0?'#3ecf8e':'#445566')+'">'+cnt+'</div>'
+      +'<div style="font-size:10px;color:#6688aa">명</div>'
+      +'</div>';
+  });
+  html+='</div>';
+
+  // 지점별 날짜별 표
+  html+='<div style="overflow-x:auto">';
+  html+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">';
+  html+='<thead><tr style="background:#0b1628">'
+    +'<th style="padding:8px 10px;text-align:left;color:#FF8C55;font-weight:700;border-bottom:1px solid #1e3055;position:sticky;left:0;background:#0b1628">지점</th>'
+    +'<th style="padding:8px 6px;color:#4fa8f5;font-weight:700;border-bottom:1px solid #1e3055">접수</th>';
+  DATES.forEach(function(d){
+    html+='<th style="padding:8px 5px;color:#3ecf8e;font-weight:700;border-bottom:1px solid #1e3055;white-space:nowrap">'+d.lbl+'</th>';
+  });
+  html+='<th style="padding:8px 6px;color:#FF8C55;font-weight:700;border-bottom:1px solid #1e3055">합계</th></tr></thead>';
+  html+='<tbody>';
+
+  BR.forEach(function(b,i){
+    var a=att[i];
+    var elim=a.eliminated||{};
+    var ttl=a.attendees.length;
+    var dayCnts=DATES.map(function(d){
+      return (a.attendance[d.key]||[]).filter(function(n){return !elim[n];}).length;
+    });
+    var total=dayCnts.reduce(function(s,x){return s+x;},0);
+    var bn=sn(b.name);
+    var rowBg=total>0?'rgba(62,207,142,.04)':'transparent';
+    html+='<tr style="background:'+rowBg+';border-bottom:1px solid rgba(30,48,85,.5)">'
+      +'<td style="padding:7px 10px;font-weight:700;color:#e8edf5;white-space:nowrap;position:sticky;left:0;background:'+rowBg+'">'+bn.top+'<span style="font-size:9px;color:var(--or)">'+bn.bot+'</span></td>'
+      +'<td style="padding:7px 6px;text-align:center;color:#4fa8f5">'+ttl+'</td>';
+    dayCnts.forEach(function(cnt){
+      html+='<td style="padding:7px 6px;text-align:center;color:'+(cnt>0?'#3ecf8e':'#334466');
+      if(cnt>0) html+=';font-weight:700';
+      html+='">'+( cnt>0?cnt:'-')+'</td>';
+    });
+    html+='<td style="padding:7px 6px;text-align:center;font-weight:700;color:'+(total>0?'#FF8C55':'#334466')+'">'+(total>0?total:'-')+'</td>';
+    html+='</tr>';
+  });
+
+  // 합계 행
+  html+='<tr style="background:rgba(255,107,43,.08);border-top:2px solid rgba(255,107,43,.3)">'
+    +'<td style="padding:8px 10px;font-weight:900;color:#FF8C55;position:sticky;left:0;background:rgba(255,107,43,.08)">전체 합계</td>'
+    +'<td style="padding:8px 6px;text-align:center;font-weight:700;color:#4fa8f5">'+att.reduce(function(s,a){return s+a.attendees.length;},0)+'</td>';
+  dateSums.forEach(function(cnt){
+    html+='<td style="padding:8px 6px;text-align:center;font-weight:900;color:'+(cnt>0?'#3ecf8e':'#334466')+'">'+(cnt>0?cnt:'-')+'</td>';
+  });
+  var grandTotal=dateSums.reduce(function(s,x){return s+x;},0);
+  html+='<td style="padding:8px 6px;text-align:center;font-weight:900;color:#FF8C55">'+grandTotal+'</td>';
+  html+='</tr>';
+
+  html+='</tbody></table></div>';
+  body.innerHTML=html;
+  document.getElementById('daily-modal').style.display='flex';
+}
+
+function printDailyModal(){
+  var w=window.open('','_blank','width=1000,height=700');
+  if(!w){alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');return;}
+  var dateSums=DATES.map(function(d){
+    return att.reduce(function(s,a){return s+(a.attendance[d.key]||[]).filter(function(n){return !(a.eliminated||{})[n];}).length;},0);
+  });
+  var totAtt2=att.reduce(function(s,a){return s+a.attendees.length;},0);
+  var now=new Date();
+  var css='body{font-family:"맑은 고딕","Apple SD Gothic Neo",sans-serif;padding:20px;color:#111}'
+    +'h1{font-size:16px;color:#0d5c3a;margin-bottom:4px}'
+    +'.sub{font-size:11px;color:#666;margin-bottom:14px}'
+    +'table{width:100%;border-collapse:collapse;font-size:11px}'
+    +'th{background:#e8f5ee;padding:6px 5px;border:1px solid #ccc;text-align:center;font-weight:700}'
+    +'th.l{text-align:left}td{padding:5px;border:1px solid #ddd;text-align:center}'
+    +'td.l{text-align:left;font-weight:700}.tot{background:#fff3eb;font-weight:700}'
+    +'.sum{background:#e8f5ee}.zero{color:#ccc}'
+    +'@media print{@page{margin:10mm}body{padding:0}}';
+  var dateHdrs=DATES.map(function(d){return '<th>'+d.lbl+'</th>';}).join('');
+  var rows=BR.map(function(b,i){
+    var a=att[i],elim=a.eliminated||{};
+    var ttl=a.attendees.length;
+    var dayCnts=DATES.map(function(d){return (a.attendance[d.key]||[]).filter(function(n){return !elim[n];}).length;});
+    var total=dayCnts.reduce(function(s,x){return s+x;},0);
+    var bn=sn(b.name);
+    return '<tr><td class="l">'+bn.top+bn.bot+'</td><td>'+ttl+'</td>'
+      +dayCnts.map(function(cnt){return '<td class="'+(cnt===0?'zero':'')+'">'+(cnt>0?cnt:'-')+'</td>';}).join('')
+      +'<td style="font-weight:700;color:'+(total>0?'#217a45':'#ccc')+'">'+(total>0?total:'-')+'</td></tr>';
+  }).join('');
+  var sumRow='<tr class="sum"><td class="l" style="font-weight:700">전체 합계</td><td>'+totAtt2+'</td>'
+    +dateSums.map(function(cnt){return '<td style="font-weight:700">'+(cnt>0?cnt:'-')+'</td>';}).join('')
+    +'<td style="font-weight:700">'+dateSums.reduce(function(s,x){return s+x;},0)+'</td></tr>';
+  var dateStr=now.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
+  var body='<h1>📊 날짜별 출석 현황</h1>'
+    +'<div class="sub">'+dateStr+' 출력 · 전체 접수 '+totAtt2+'명</div>'
+    +'<table><thead><tr><th class="l">지점</th><th>접수</th>'+dateHdrs+'<th>합계</th></tr></thead>'
+    +'<tbody>'+rows+sumRow+'</tbody></table>';
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>날짜별 출석현황</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},600);
+}
 
 // 로컬 출결 상태 보호 (Firebase 덮어쓰기 방지)
 var _localAttState = {}; // {idx: {attendance, completed, completedAt, eliminated, absenceReason}}
