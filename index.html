@@ -897,7 +897,11 @@ function renderAtt(){
   var _tnow=new Date();
   var _tdk=String(_tnow.getMonth()+1).padStart(2,'0')+String(_tnow.getDate()).padStart(2,'0');
   var _tdm=DATES.find(function(d){return d.key===_tdk;});
-  var _tkey=_tdm?_tdm.key:DATES[DATES.length-1].key;
+  // _tkey: 오늘이 교육일정에 있으면 오늘, 없으면 가장 최근 지난 날짜
+  var _tkey=_tdm?_tdm.key:(function(){
+    var past=DATES.filter(function(d){return d.key<=_tdk;});
+    return past.length>0?past[past.length-1].key:DATES[DATES.length-1].key;
+  })();
   // 지점별 현황 - 3열 그리드 + 패널
   // 구조: 3개씩 그룹 → 버튼행 → 각 버튼의 패널
   var attRows = Math.ceil(BR.length / 3);
@@ -1169,6 +1173,16 @@ function togAttPanel(i){
 function doneAttPanel(i){
   var _n=new Date();
   var _dk=String(_n.getMonth()+1).padStart(2,'0')+String(_n.getDate()).padStart(2,'0');
+  // 오늘 날짜가 DATES에 있는지 확인
+  var _dm=DATES.find(function(d){return d.key===_dk;});
+  var _todayKey=_dm?_dm.key:_dk;
+  var _elim=att[i].eliminated||{};
+  var _todayCnt=(att[i].attendance[_todayKey]||[]).filter(function(n){return !_elim[n];}).length;
+  var _ttl=att[i].attendees.length;
+  // 접수자가 있는데 오늘 출석 체크가 하나도 없으면 경고
+  if(_ttl>0&&_todayCnt===0){
+    if(!confirm('오늘('+(_dm?_dm.lbl:_dk)+') 출석 체크가 없습니다.\n그래도 완료 처리하시겠습니까?')) return;
+  }
   if(!att[i].completed)att[i].completed={};
   att[i].completed[_dk]=true;
   // 완료 시각 저장 (배치 정렬 + 관리자 이력용)
