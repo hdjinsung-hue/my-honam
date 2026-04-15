@@ -617,7 +617,7 @@ function startSync(){
       });
       if(att[i].attendees.length!==before) _passRemoved=true;
     });
-    if(_passRemoved&&attRef) saveAtt();
+    // passList 제거 후 syncAttNames로 로컬만 정리 (Firebase 쓰기 없음)
     syncAttNames();
     if(isFirst){isFirst=false;render(-1,false);}
     else if(ci>=0&&ci!==lastOi){showBanner(data[ci].name);render(ci,true);}
@@ -629,31 +629,28 @@ function startSync(){
     if(rem){
       const arr=Array.isArray(rem)?rem:Object.values(rem);
       // 로컬 저장 대기 중이면 출결 전체를 로컬 데이터로 유지
-      if(_attSavePending){
-        // attendees만 Firebase에서 업데이트 (명단 변경 반영)
-        BR.forEach(function(b,i){
-          att[i].attendees=(arr[i]?.attendees||[]).filter(function(n){
-            return (data[i]?.passList||[]).indexOf(n)<0;
-          });
-        });
-      } else {
-        att=BR.map((b,i)=>({
-          attendees:(arr[i]?.attendees||[]).filter(function(n){
-            return (data[i]?.passList||[]).indexOf(n)<0;
-          }),
-          attendance:arr[i]?.attendance||{},
-          eliminated:arr[i]?.eliminated||{},
-          absenceReason:arr[i]?.absenceReason||{},
-          completed:arr[i]?.completed||{},
-          completedAt:arr[i]?.completedAt||{}
-        }));
-      }
+      // 항상 Firebase 데이터 기준으로 업데이트하되,
+      // 로컬 저장 대기 중이면 attendance/completed 계열은 로컬 유지
+      att=BR.map((b,i)=>({
+        attendees:(arr[i]?.attendees||[]).filter(function(n){
+          return (data[i]?.passList||[]).indexOf(n)<0;
+        }),
+        attendance:(_attSavePending&&att[i])?att[i].attendance:(arr[i]?.attendance||{}),
+        eliminated:(_attSavePending&&att[i])?att[i].eliminated:(arr[i]?.eliminated||{}),
+        absenceReason:(_attSavePending&&att[i])?att[i].absenceReason:(arr[i]?.absenceReason||{}),
+        completed:(_attSavePending&&att[i])?att[i].completed:(arr[i]?.completed||{}),
+        completedAt:(_attSavePending&&att[i])?att[i].completedAt:(arr[i]?.completedAt||{})
+      }));
     }
-    syncAttNames();
+    var _needSave=syncAttNames(); // 로컬만 업데이트
     if(document.getElementById('tab-att').classList.contains('on')){
       var _openBefore=getOpen();
       renderAtt();
       if(_openBefore.length>0)restoreOpen(_openBefore);
+    }
+    // 명단 변경이 있을 때만, 출결 데이터 보호 후 저장 (100ms 딜레이)
+    if(_needSave&&!_attSavePending){
+      setTimeout(function(){if(!_attSavePending)saveAtt();},100);
     }
   });
 }
@@ -674,9 +671,7 @@ function syncAttNames(){
       if(!ex.has(n)){att[i].attendees.push(n);ex.add(n);_changed=true;}
     });
   });
-  if(_changed&&attRef){
-    try{attRef.set(att.map(function(a){return {attendees:a.attendees||[],attendance:a.attendance||{},eliminated:a.eliminated||{},absenceReason:a.absenceReason||{},completed:a.completed||{},completedAt:a.completedAt||{}};}));}catch(e){}
-  }
+  // 로컬만 업데이트. Firebase 쓰기는 호출측에서 명시적으로 처리
   return _changed;
 }
 
