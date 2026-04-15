@@ -638,8 +638,8 @@ function startSync(){
         attendance:_recentLocalSave&&att[i]?att[i].attendance:arr[i]?.attendance||{},
         eliminated:_recentLocalSave&&att[i]?att[i].eliminated:arr[i]?.eliminated||{},
         absenceReason:_recentLocalSave&&att[i]?att[i].absenceReason:arr[i]?.absenceReason||{},
-        completed:arr[i]?.completed||{},
-        completedAt:arr[i]?.completedAt||{}
+        completed:_recentLocalSave&&att[i]?att[i].completed:arr[i]?.completed||{},
+        completedAt:_recentLocalSave&&att[i]?att[i].completedAt:arr[i]?.completedAt||{}
       }));
     }
     syncAttNames();
