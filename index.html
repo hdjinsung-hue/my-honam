@@ -628,14 +628,16 @@ function startSync(){
     const rem=snap.val();
     if(rem){
       const arr=Array.isArray(rem)?rem:Object.values(rem);
+      // 로컬 저장 후 2초 이내면 attendance/eliminated/absenceReason은 로컬 데이터 유지
+      var _recentLocalSave=(Date.now()-_localSaveTime)<2000;
       att=BR.map((b,i)=>({
-        // 기합격자(passList)는 attendees에서 제외
         attendees:(arr[i]?.attendees||[]).filter(function(n){
           return (data[i]?.passList||[]).indexOf(n)<0;
         }),
-        attendance:arr[i]?.attendance||{},
-        eliminated:arr[i]?.eliminated||{},
-        absenceReason:arr[i]?.absenceReason||{},
+        // 최근 로컬 저장이 있으면 출결 데이터는 로컬 것 우선
+        attendance:_recentLocalSave&&att[i]?att[i].attendance:arr[i]?.attendance||{},
+        eliminated:_recentLocalSave&&att[i]?att[i].eliminated:arr[i]?.eliminated||{},
+        absenceReason:_recentLocalSave&&att[i]?att[i].absenceReason:arr[i]?.absenceReason||{},
         completed:arr[i]?.completed||{},
         completedAt:arr[i]?.completedAt||{}
       }));
@@ -1610,6 +1612,7 @@ document.getElementById('att-overlay').addEventListener('click', e=>{
 
 function saveAtt(){
   if(!attRef){console.warn('attRef가 아직 초기화되지 않았습니다.');return;}
+  _localSaveTime=Date.now(); // 로컬 저장 시각 기록
   try{
     // 저장 시 passList(기합격자)는 attendees에서 제외
     attRef.set(att.map(function(a,i){
@@ -2065,6 +2068,7 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
 </div>
 
 <script>
+var _localSaveTime=0;
 
 // ── 명단 불일치 확인 및 자동 수정 ──
 function checkSyncMismatch(){
