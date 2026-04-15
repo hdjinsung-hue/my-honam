@@ -628,19 +628,26 @@ function startSync(){
     const rem=snap.val();
     if(rem){
       const arr=Array.isArray(rem)?rem:Object.values(rem);
-      // 로컬 저장 후 2초 이내면 attendance/eliminated/absenceReason은 로컬 데이터 유지
-      var _recentLocalSave=(Date.now()-_localSaveTime)<2000;
-      att=BR.map((b,i)=>({
-        attendees:(arr[i]?.attendees||[]).filter(function(n){
-          return (data[i]?.passList||[]).indexOf(n)<0;
-        }),
-        // 최근 로컬 저장이 있으면 출결 데이터는 로컬 것 우선
-        attendance:_recentLocalSave&&att[i]?att[i].attendance:arr[i]?.attendance||{},
-        eliminated:_recentLocalSave&&att[i]?att[i].eliminated:arr[i]?.eliminated||{},
-        absenceReason:_recentLocalSave&&att[i]?att[i].absenceReason:arr[i]?.absenceReason||{},
-        completed:_recentLocalSave&&att[i]?att[i].completed:arr[i]?.completed||{},
-        completedAt:_recentLocalSave&&att[i]?att[i].completedAt:arr[i]?.completedAt||{}
-      }));
+      // 로컬 저장 대기 중이면 출결 전체를 로컬 데이터로 유지
+      if(_attSavePending){
+        // attendees만 Firebase에서 업데이트 (명단 변경 반영)
+        BR.forEach(function(b,i){
+          att[i].attendees=(arr[i]?.attendees||[]).filter(function(n){
+            return (data[i]?.passList||[]).indexOf(n)<0;
+          });
+        });
+      } else {
+        att=BR.map((b,i)=>({
+          attendees:(arr[i]?.attendees||[]).filter(function(n){
+            return (data[i]?.passList||[]).indexOf(n)<0;
+          }),
+          attendance:arr[i]?.attendance||{},
+          eliminated:arr[i]?.eliminated||{},
+          absenceReason:arr[i]?.absenceReason||{},
+          completed:arr[i]?.completed||{},
+          completedAt:arr[i]?.completedAt||{}
+        }));
+      }
     }
     syncAttNames();
     if(document.getElementById('tab-att').classList.contains('on')){
@@ -1612,16 +1619,27 @@ document.getElementById('att-overlay').addEventListener('click', e=>{
 
 function saveAtt(){
   if(!attRef){console.warn('attRef가 아직 초기화되지 않았습니다.');return;}
-  _localSaveTime=Date.now(); // 로컬 저장 시각 기록
+  _localSaveTime=Date.now();
+  _attSavePending=true; // 저장 대기 플래그
   try{
     // 저장 시 passList(기합격자)는 attendees에서 제외
-    attRef.set(att.map(function(a,i){
+    var payload=att.map(function(a,i){
       var cleanAttendees=(a.attendees||[]).filter(function(n){
         return (data[i]?.passList||[]).indexOf(n)<0;
       });
       return {attendees:cleanAttendees,attendance:a.attendance||{},eliminated:a.eliminated||{},absenceReason:a.absenceReason||{},completed:a.completed||{},completedAt:a.completedAt||{}};
-    })).catch(function(e){console.error('saveAtt 오류:',e);});
-  }catch(e){console.error('saveAtt 예외:',e);}
+    });
+    attRef.set(payload).then(function(){
+      // 저장 성공 확인 후 플래그 해제
+      _attSavePending=false;
+    }).catch(function(e){
+      console.error('saveAtt 오류:',e);
+      _attSavePending=false;
+    });
+  }catch(e){
+    console.error('saveAtt 예외:',e);
+    _attSavePending=false;
+  }
 }
 
 // ─ 신인도입 모달 ─
@@ -2069,6 +2087,7 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
 
 <script>
 var _localSaveTime=0;
+var _attSavePending=false;
 
 // ── 명단 불일치 확인 및 자동 수정 ──
 function checkSyncMismatch(){
