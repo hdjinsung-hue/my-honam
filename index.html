@@ -630,18 +630,22 @@ function startSync(){
     while(att.length<BR.length) att.push({attendees:[],attendance:{},eliminated:{},absenceReason:{},completed:{},completedAt:{}});
     if(rem){
       const arr=Array.isArray(rem)?rem:Object.values(rem);
+      // 저장 진행 중이거나(_saveCounter > _lastSavedCounter),
+      // 로컬 보호 상태가 있으면 항상 로컬 데이터 우선 병합
+      var _isSaving=(_saveCounter>_lastSavedCounter);
       att=BR.map((b,i)=>{
         var fbData=arr[i]||{};
-        var merged=mergeLocalAtt(i, fbData);
+        var local=_localAttState[i];
         return {
           attendees:(fbData.attendees||[]).filter(function(n){
             return (data[i]&&data[i].passList?data[i].passList:[]).indexOf(n)<0;
           }),
-          attendance: merged.attendance||{},
-          eliminated: merged.eliminated||{},
-          absenceReason:merged.absenceReason||{},
-          completed:  merged.completed||{},
-          completedAt:merged.completedAt||{}
+          // 로컬 보호 상태 또는 저장 중이면 로컬 우선
+          attendance: (local||_isSaving)?mergeObj(fbData.attendance||{},local?local.attendance:att[i]?att[i].attendance||{}:{}):(fbData.attendance||{}),
+          eliminated: (local||_isSaving)?mergeObj(fbData.eliminated||{},local?local.eliminated:att[i]?att[i].eliminated||{}:{}):(fbData.eliminated||{}),
+          absenceReason:(local||_isSaving)?mergeObj(fbData.absenceReason||{},local?local.absenceReason:att[i]?att[i].absenceReason||{}:{}):(fbData.absenceReason||{}),
+          completed:  (local||_isSaving)?mergeObj(fbData.completed||{},local?local.completed:att[i]?att[i].completed||{}:{}):(fbData.completed||{}),
+          completedAt:(local||_isSaving)?mergeObj(fbData.completedAt||{},local?local.completedAt:att[i]?att[i].completedAt||{}:{}):(fbData.completedAt||{})
         };
       });
     }
@@ -1619,27 +1623,28 @@ document.getElementById('att-overlay').addEventListener('click', e=>{
 
 function saveAtt(){
   if(!attRef){console.warn('attRef가 아직 초기화되지 않았습니다.');return;}
-  _localSaveTime=Date.now();
-  _attSavePending=true; // 저장 대기 플래그
+  _saveCounter++; // 저장 카운터 증가
+  var myCounter=_saveCounter;
   try{
-    // 저장 시 passList(기합격자)는 attendees에서 제외
+    // 전체 저장 (passList 기합격자 제외)
     var payload=att.map(function(a,i){
       var cleanAttendees=(a.attendees||[]).filter(function(n){
-        return (data[i]?.passList||[]).indexOf(n)<0;
+        return (data[i]&&data[i].passList?data[i].passList:[]).indexOf(n)<0;
       });
-      return {attendees:cleanAttendees,attendance:a.attendance||{},eliminated:a.eliminated||{},absenceReason:a.absenceReason||{},completed:a.completed||{},completedAt:a.completedAt||{}};
+      return {
+        attendees:cleanAttendees,
+        attendance:a.attendance||{},
+        eliminated:a.eliminated||{},
+        absenceReason:a.absenceReason||{},
+        completed:a.completed||{},
+        completedAt:a.completedAt||{}
+      };
     });
     attRef.set(payload).then(function(){
-      // 저장 성공 확인 후 플래그 해제
-      _attSavePending=false;
-    }).catch(function(e){
-      console.error('saveAtt 오류:',e);
-      _attSavePending=false;
-    });
-  }catch(e){
-    console.error('saveAtt 예외:',e);
-    _attSavePending=false;
-  }
+      // 이 저장이 가장 최신 저장이면 _lastSavedCounter 업데이트
+      if(myCounter>=_lastSavedCounter) _lastSavedCounter=myCounter;
+    }).catch(function(e){console.error('saveAtt 오류:',e);});
+  }catch(e){console.error('saveAtt 예외:',e);}
 }
 
 // ─ 신인도입 모달 ─
@@ -2123,6 +2128,8 @@ function mergeObj(fbObj, localObj){
 }
 var _localSaveTime=0;
 var _attSavePending=false;
+var _saveCounter=0;
+var _lastSavedCounter=0;
 
 // ── 명단 불일치 확인 및 자동 수정 ──
 function checkSyncMismatch(){
