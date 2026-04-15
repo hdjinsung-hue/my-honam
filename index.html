@@ -2100,9 +2100,9 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
         <div id="admin-attend-list" style="font-size:12px;color:var(--t2)"></div>
       </div>
       <div id="admin-log" style="display:none">
-        <div style="display:flex;gap:6px;align-items:center;margin-bottom:.625rem;flex-wrap:wrap">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:.5rem;flex-wrap:wrap">
           <span style="font-size:12px;font-weight:700;color:var(--t2);flex-shrink:0">지점 필터</span>
-          <select id="log-filter-branch" onchange="loadLog()" style="flex:1;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit">
+          <select id="log-filter-branch" onchange="loadLog()" style="flex:1;min-width:80px;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit">
             <option value="">전체 지점</option>
           </select>
           <select id="log-filter-type" onchange="loadLog()" style="padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit">
@@ -2113,6 +2113,7 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
             <option value="탈락">탈락처리</option>
           </select>
           <button onclick="loadLog()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">🔄</button>
+          <button onclick="clearAllLogs()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">🗑️ 전체삭제</button>
         </div>
         <div id="log-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:.75rem"></div>
         <div id="admin-log-list" style="font-size:12px;color:var(--t2)">로딩 중...</div>
@@ -2122,6 +2123,29 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
 </div>
 
 <script>
+
+// ── 변경이력 관리 ──
+var _logKeys=[]; // Firebase key 목록 저장
+
+function clearAllLogs(){
+  if(!db){alert('Firebase 연결 필요');return;}
+  if(!confirm('변경이력 전체를 삭제하시겠습니까?\n삭제 후 복구 불가능합니다.'))return;
+  db.ref('honam_log').remove().then(function(){
+    _logKeys=[];
+    var el=document.getElementById('admin-log-list');
+    if(el) el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:10px 0">기록 없음</div>';
+    var sumEl=document.getElementById('log-summary');
+    if(sumEl) sumEl.innerHTML='';
+    alert('✅ 변경이력 전체 삭제 완료');
+  }).catch(function(e){alert('삭제 실패: '+e.message);});
+}
+
+function deleteLog(fbKey){
+  if(!db||!fbKey)return;
+  db.ref('honam_log/'+fbKey).remove().then(function(){
+    loadLog(0);
+  }).catch(function(e){alert('삭제 실패: '+e.message);});
+}
 
 // ── 날짜별 출석 현황 모달 ──
 function showDailyModal(){
@@ -3520,7 +3544,48 @@ function loadLog(retryCount){
       return;
     }
 
-    el.innerHTML=filtered.slice(0,50).map(function(l){
+    // _logKeys 초기화 후 재구성
+    _logKeys=[];
+    var _allItems=[]; // {log, fbKey}
+    snap.forEach(function(child){_allItems.unshift({log:child.val(),fbKey:child.key});});
+
+    // 필터 적용
+    var filteredItems=_allItems.filter(function(item){
+      var l=item.log;
+      if(filterBranch&&l.branchName!==filterBranch)return false;
+      if(filterType&&(!l.category||l.category.indexOf(filterType)<0))return false;
+      return true;
+    });
+
+    // 요약 다시 계산
+    var filtered=filteredItems.map(function(x){return x.log;});
+    var branchMap2={};
+    filtered.forEach(function(l){
+      if(!l.branchName)return;
+      if(!branchMap2[l.branchName]||l.ts>branchMap2[l.branchName].ts)branchMap2[l.branchName]=l;
+    });
+    var todayStr2=(new Date().getMonth()+1)+'/'+(new Date().getDate());
+    var todayLogs2=filtered.filter(function(l){return l.time&&l.time.indexOf(todayStr2)>=0;});
+    if(sumEl){
+      sumEl.innerHTML=
+        '<div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;padding:8px;text-align:center">'
+          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">전체 기록</div>'
+          +'<div style="font-size:18px;font-weight:900;color:#3ecf8e">'+filtered.length+'</div></div>'
+        +'<div style="background:rgba(79,168,245,.08);border:1px solid rgba(79,168,245,.2);border-radius:8px;padding:8px;text-align:center">'
+          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">오늘 활동</div>'
+          +'<div style="font-size:18px;font-weight:900;color:#4fa8f5">'+todayLogs2.length+'</div></div>'
+        +'<div style="background:rgba(255,107,43,.08);border:1px solid rgba(255,107,43,.2);border-radius:8px;padding:8px;text-align:center">'
+          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">활동 지점</div>'
+          +'<div style="font-size:18px;font-weight:900;color:var(--or)">'+Object.keys(branchMap2).length+'</div></div>';
+    }
+
+    if(!filteredItems.length){
+      el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:10px 0">해당 조건의 기록 없음</div>';
+      return;
+    }
+
+    el.innerHTML=filteredItems.slice(0,50).map(function(item){
+      var l=item.log, fbKey=item.fbKey;
       var cat=l.category||'기타';
       var cc=catColor[cat]||'var(--or)';
       var bn=l.branchName?sn(l.branchName):{top:l.branchName||'-',bot:''};
@@ -3529,6 +3594,7 @@ function loadLog(retryCount){
           +'<span style="font-size:12px;font-weight:700;color:#e8edf5">'+bn.top+'<span style="font-size:9px;color:var(--or)">'+bn.bot+'</span></span>'
           +'<span style="font-size:10px;font-weight:700;color:'+cc+';background:rgba(255,255,255,.07);padding:1px 7px;border-radius:6px">'+cat+'</span>'
           +'<span style="margin-left:auto;font-size:10px;color:var(--t3)">'+l.time+'</span>'
+          +'<button data-fk="'+fbKey+'" onclick="deleteLog(this.dataset.fk)" style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">삭제</button>'
         +'</div>'
         +'<div style="font-size:11px;color:var(--t2)">'+l.detail+'</div>'
       +'</div>';
