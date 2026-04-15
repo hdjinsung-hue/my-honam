@@ -631,16 +631,20 @@ function startSync(){
       // 로컬 저장 대기 중이면 출결 전체를 로컬 데이터로 유지
       // 항상 Firebase 데이터 기준으로 업데이트하되,
       // 로컬 저장 대기 중이면 attendance/completed 계열은 로컬 유지
-      att=BR.map((b,i)=>({
-        attendees:(arr[i]?.attendees||[]).filter(function(n){
-          return (data[i]?.passList||[]).indexOf(n)<0;
-        }),
-        attendance:(_attSavePending&&att[i])?att[i].attendance:(arr[i]?.attendance||{}),
-        eliminated:(_attSavePending&&att[i])?att[i].eliminated:(arr[i]?.eliminated||{}),
-        absenceReason:(_attSavePending&&att[i])?att[i].absenceReason:(arr[i]?.absenceReason||{}),
-        completed:(_attSavePending&&att[i])?att[i].completed:(arr[i]?.completed||{}),
-        completedAt:(_attSavePending&&att[i])?att[i].completedAt:(arr[i]?.completedAt||{})
-      }));
+      att=BR.map((b,i)=>{
+        var fbData=arr[i]||{};
+        var merged=mergeLocalAtt(i, fbData); // 로컬 보호 상태 병합
+        return {
+          attendees:(fbData.attendees||[]).filter(function(n){
+            return (data[i]?.passList||[]).indexOf(n)<0;
+          }),
+          attendance: merged.attendance,
+          eliminated: merged.eliminated,
+          absenceReason:merged.absenceReason,
+          completed:  merged.completed,
+          completedAt:merged.completedAt
+        };
+      });
     }
     var _needSave=syncAttNames(); // 로컬만 업데이트
     if(document.getElementById('tab-att').classList.contains('on')){
@@ -1170,6 +1174,8 @@ function doneAttPanel(i){
   // 완료 시각 저장 (배치 정렬 + 관리자 이력용)
   if(!att[i].completedAt)att[i].completedAt={};
   att[i].completedAt[_dk]=Date.now();
+  // 완료 상태 로컬 보호 (Firebase 덮어쓰기 방지)
+  protectLocalAtt(i);
   if(attRef)saveAtt();
   // 완료 로그
   var _a2=att[i], _elim2=_a2.eliminated||{};
@@ -2081,6 +2087,41 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
 </div>
 
 <script>
+
+// 로컬 출결 상태 보호 (Firebase 덮어쓰기 방지)
+var _localAttState = {}; // {idx: {attendance, completed, completedAt, eliminated, absenceReason}}
+
+function protectLocalAtt(i){
+  // 현재 att[i] 상태를 로컬에 보존
+  if(!att[i]) return;
+  _localAttState[i] = {
+    attendance: JSON.parse(JSON.stringify(att[i].attendance||{})),
+    completed:  JSON.parse(JSON.stringify(att[i].completed||{})),
+    completedAt:JSON.parse(JSON.stringify(att[i].completedAt||{})),
+    eliminated: JSON.parse(JSON.stringify(att[i].eliminated||{})),
+    absenceReason:JSON.parse(JSON.stringify(att[i].absenceReason||{}))
+  };
+}
+
+function mergeLocalAtt(i, fbData){
+  // Firebase 데이터와 로컬 보호 상태를 병합 (로컬 우선)
+  var L=_localAttState[i];
+  if(!L) return fbData;
+  return {
+    attendance: mergeObj(fbData.attendance||{}, L.attendance),
+    completed:  mergeObj(fbData.completed||{},  L.completed),
+    completedAt:mergeObj(fbData.completedAt||{},L.completedAt),
+    eliminated: mergeObj(fbData.eliminated||{}, L.eliminated),
+    absenceReason:mergeObj(fbData.absenceReason||{},L.absenceReason)
+  };
+}
+
+function mergeObj(fbObj, localObj){
+  // 로컬에 있는 키는 항상 로컬 값 우선
+  var result = Object.assign({}, fbObj);
+  Object.keys(localObj).forEach(function(k){ result[k]=localObj[k]; });
+  return result;
+}
 var _localSaveTime=0;
 var _attSavePending=false;
 
