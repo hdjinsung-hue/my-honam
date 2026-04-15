@@ -626,23 +626,22 @@ function startSync(){
 
   attRef.on('value',snap=>{
     const rem=snap.val();
+    // att 배열 길이 항상 BR.length에 맞게 보장
+    while(att.length<BR.length) att.push({attendees:[],attendance:{},eliminated:{},absenceReason:{},completed:{},completedAt:{}});
     if(rem){
       const arr=Array.isArray(rem)?rem:Object.values(rem);
-      // 로컬 저장 대기 중이면 출결 전체를 로컬 데이터로 유지
-      // 항상 Firebase 데이터 기준으로 업데이트하되,
-      // 로컬 저장 대기 중이면 attendance/completed 계열은 로컬 유지
       att=BR.map((b,i)=>{
         var fbData=arr[i]||{};
-        var merged=mergeLocalAtt(i, fbData); // 로컬 보호 상태 병합
+        var merged=mergeLocalAtt(i, fbData);
         return {
           attendees:(fbData.attendees||[]).filter(function(n){
-            return (data[i]?.passList||[]).indexOf(n)<0;
+            return (data[i]&&data[i].passList?data[i].passList:[]).indexOf(n)<0;
           }),
-          attendance: merged.attendance,
-          eliminated: merged.eliminated,
-          absenceReason:merged.absenceReason,
-          completed:  merged.completed,
-          completedAt:merged.completedAt
+          attendance: merged.attendance||{},
+          eliminated: merged.eliminated||{},
+          absenceReason:merged.absenceReason||{},
+          completed:  merged.completed||{},
+          completedAt:merged.completedAt||{}
         };
       });
     }
