@@ -897,11 +897,13 @@ function renderAtt(){
   var _tnow=new Date();
   var _tdk=String(_tnow.getMonth()+1).padStart(2,'0')+String(_tnow.getDate()).padStart(2,'0');
   var _tdm=DATES.find(function(d){return d.key===_tdk;});
-  // _tkey: 오늘이 교육일정에 있으면 오늘, 없으면 가장 최근 지난 날짜
+  // _tkey: 출석 체크 기준 날짜 (오늘이 교육일이면 오늘, 아니면 가장 최근 교육일)
   var _tkey=_tdm?_tdm.key:(function(){
     var past=DATES.filter(function(d){return d.key<=_tdk;});
     return past.length>0?past[past.length-1].key:DATES[DATES.length-1].key;
   })();
+  // _todayRealKey: 실제 오늘 날짜 (completed 저장/확인 기준)
+  var _todayRealKey=_tdk;
   // 지점별 현황 - 3열 그리드 + 패널
   // 구조: 3개씩 그룹 → 버튼행 → 각 버튼의 패널
   var attRows = Math.ceil(BR.length / 3);
@@ -935,7 +937,8 @@ function renderAtt(){
       var ttl=a.attendees.length;
       var elimCnt=Object.values(elim).filter(function(v){return v;}).length;
       var todayCnt=(a.attendance[_tkey]||[]).filter(function(n){return !elim[n];}).length;
-      var isDone=!!(a.completed&&a.completed[_tkey])&&todayCnt>0;
+      // isDone: 실제 오늘 날짜에 완료저장 + 오늘 교육날짜에 출석 있어야 완료
+      var isDone=!!(a.completed&&a.completed[_todayRealKey])&&todayCnt>0&&!!_tdm;
       var hasAtt=todayCnt>0;
       var clickFn='togAttPanel('+i+')';
 
@@ -967,8 +970,8 @@ function renderAtt(){
         +'<div style="padding:10px 10px 12px;text-align:left">'
           // 지점명+완료배지 (flex: 좌=지점명, 우=완료배지)
           +(function(){
-            var _dm4=DATES.find(function(d){return d.key===_tkey;});
-            var _lbl4=_dm4?_dm4.lbl:_tkey.slice(0,1)+'/'+parseInt(_tkey.slice(2));
+            var _dm4=DATES.find(function(d){return d.key===_tdk;});
+            var _lbl4=_dm4?_dm4.lbl:_tdk.slice(0,2).replace(/^0/,'')+'/'+parseInt(_tdk.slice(2));
             return '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;margin-bottom:3px">'
               +'<div style="font-size:14px;font-weight:900;color:#e8edf5;line-height:1.2;letter-spacing:-.2px;min-width:0">'
                 +bn.top
