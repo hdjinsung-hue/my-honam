@@ -534,8 +534,8 @@ const BR=[
 ];
 let DATES=[
   {key:'0415',lbl:'4/15(수)'},{key:'0416',lbl:'4/16(목)'},{key:'0417',lbl:'4/17(금)'},
-  {key:'0420',lbl:'4/20(일)'},{key:'0421',lbl:'4/21(월)'},{key:'0422',lbl:'4/22(화)'},
-  {key:'0423',lbl:'4/23(수)'},{key:'0424',lbl:'4/24(목)'}
+  {key:'0420',lbl:'4/20(월)'},{key:'0421',lbl:'4/21(화)'},{key:'0422',lbl:'4/22(수)'},
+  {key:'0423',lbl:'4/23(목)'},{key:'0424',lbl:'4/24(금)'}
 ];
 
 let data=BR.map((b,i)=>({...b,id:i,passList:[],regList:[]}));
@@ -2183,14 +2183,21 @@ function printDailyModal(){
   });
   var totAtt2=att.reduce(function(s,a){return s+a.attendees.length;},0);
   var now=new Date();
-  var css='body{font-family:"맑은 고딕","Apple SD Gothic Neo",sans-serif;padding:20px;color:#111}'
+  var css='body{font-family:"맑은 고딕","Apple SD Gothic Neo",sans-serif;padding:20px;color:#111;font-size:13px}'
     +'h1{font-size:16px;color:#0d5c3a;margin-bottom:4px}'
     +'.sub{font-size:11px;color:#666;margin-bottom:14px}'
-    +'table{width:100%;border-collapse:collapse;font-size:11px}'
+    +'table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px}'
     +'th{background:#e8f5ee;padding:6px 5px;border:1px solid #ccc;text-align:center;font-weight:700}'
     +'th.l{text-align:left}td{padding:5px;border:1px solid #ddd;text-align:center}'
     +'td.l{text-align:left;font-weight:700}.tot{background:#fff3eb;font-weight:700}'
     +'.sum{background:#e8f5ee}.zero{color:#ccc}'
+    +'.sec{font-size:14px;font-weight:700;color:#0d5c3a;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #0d5c3a}'
+    +'.leg{font-size:11px;color:#888;margin-bottom:8px}'
+    +'.bcard{margin-bottom:10px;border:1px solid #ddd;border-radius:6px;overflow:hidden;page-break-inside:avoid}'
+    +'.bhdr{background:#f8f8f8;padding:7px 12px;display:flex;justify-content:space-between;border-bottom:1px solid #ddd;font-weight:700;font-size:12px}'
+    +'.names{padding:8px 12px;display:flex;flex-wrap:wrap;gap:5px}'
+    +'.tag{font-size:11px;padding:3px 9px;border-radius:12px;font-weight:600}'
+    +'.ok{background:#e8f9f0;color:#1a7a4a}.no{background:#f5f5f5;color:#555}.elim{background:#fde8e8;color:#c0392b}'
     +'@media print{@page{margin:10mm}body{padding:0}}';
   var dateHdrs=DATES.map(function(d){return '<th>'+d.lbl+'</th>';}).join('');
   var rows=BR.map(function(b,i){
@@ -2207,11 +2214,59 @@ function printDailyModal(){
     +dateSums.map(function(cnt){return '<td style="font-weight:700">'+(cnt>0?cnt:'-')+'</td>';}).join('')
     +'<td style="font-weight:700">'+dateSums.reduce(function(s,x){return s+x;},0)+'</td></tr>';
   var dateStr=now.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
+
+  // 오늘 날짜 키
+  var _pn=new Date();
+  var _pdk=String(_pn.getMonth()+1).padStart(2,'0')+String(_pn.getDate()).padStart(2,'0');
+  var _pdm=DATES.find(function(d){return d.key===_pdk;});
+  var _ptkey=_pdm?_pdm.key:DATES[DATES.length-1].key;
+  var _ptlbl=_pdm?_pdm.lbl:DATES[DATES.length-1].lbl;
+
   var body='<h1>📊 날짜별 출석 현황</h1>'
     +'<div class="sub">'+dateStr+' 출력 · 전체 접수 '+totAtt2+'명</div>'
     +'<table><thead><tr><th class="l">지점</th><th>접수</th>'+dateHdrs+'<th>합계</th></tr></thead>'
     +'<tbody>'+rows+sumRow+'</tbody></table>';
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">');
+
+  // 지점별 세부 명단 (오늘 날짜 기준 출석/미출석/사유)
+  body+='<div class="sec">👥 지점별 세부 출석 현황 ('+_ptlbl+')</div>';
+  body+='<div class="leg">🟢 출석 ✓ &nbsp; ⬜ 미출석 <b style="color:#e67e22">[사유]</b> &nbsp; 🔴 탈락 ✕</div>';
+
+  BR.forEach(function(b,i){
+    var a=att[i];
+    if(a.attendees.length===0) return;
+    var elim=a.eliminated||{};
+    var todayCnt=(a.attendance[_ptkey]||[]).filter(function(n){return !elim[n];}).length;
+    var active=a.attendees.length-Object.values(elim).filter(function(v){return v;}).length;
+    var rate=active>0?Math.round(todayCnt/active*100):0;
+    var bn=sn(b.name);
+    var _pAtt=[],_pAbs=[],_pElim=[];
+    a.attendees.forEach(function(name){
+      var isE=!!elim[name];
+      var isT=!isE&&(a.attendance[_ptkey]||[]).indexOf(name)>=0;
+      if(isE) _pElim.push(name);
+      else if(isT) _pAtt.push(name);
+      else _pAbs.push(name);
+    });
+    var names='';
+    if(_pAtt.length){
+      names+='<div style="width:100%;font-size:10px;color:#1a7a4a;font-weight:700;margin:3px 0 2px">출석 '+_pAtt.length+'명</div>';
+      names+=_pAtt.map(function(n){return '<span class="tag ok">'+n+' ✓</span>';}).join('');
+    }
+    if(_pAbs.length){
+      names+='<div style="width:100%;font-size:10px;color:#555;font-weight:700;margin:5px 0 2px">미출석 '+_pAbs.length+'명</div>';
+      names+=_pAbs.map(function(n){
+        var reason=(a.absenceReason&&a.absenceReason[n])||'';
+        return '<span class="tag no">'+n+(reason?' <b style="color:#e67e22">['+reason+']</b>':'')+'</span>';
+      }).join('');
+    }
+    if(_pElim.length){
+      names+='<div style="width:100%;font-size:10px;color:#c0392b;font-weight:700;margin:5px 0 2px">탈락 '+_pElim.length+'명</div>';
+      names+=_pElim.map(function(n){return '<span class="tag elim">'+n+' ✕</span>';}).join('');
+    }
+    body+='<div class="bcard"><div class="bhdr"><span>'+bn.top+bn.bot+' ('+b.mgr+' 지점장)</span><span>접수 '+a.attendees.length+'명 · 출석 '+todayCnt+'명 · '+rate+'%</span></div><div class="names">'+names+'</div></div>';
+  });
+
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>날짜별 출석현황</title><style>'+css+'</style></head><body>'+body+'</body></html>');
   w.document.close();
   setTimeout(function(){w.print();},600);
 }
@@ -3057,7 +3112,7 @@ function printAttList(){
     body+='<div class="bcard"><div class="bhdr"><span>'+bn.top+bn.bot+' ('+b.mgr+' 지점장)</span><span>접수 '+a.attendees.length+'명 · 출석 '+todayCnt+'명 · '+rate+'%</span></div><div class="names">'+names+'</div></div>';
   });
 
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>날짜별 출석현황</title><style>'+css+'</style></head><body>'+body+'</body></html>');
   w.document.close();
   setTimeout(function(){w.print();},600);
 }
