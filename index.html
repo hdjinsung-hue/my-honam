@@ -945,6 +945,7 @@ function renderAtt(){
       // 오렌지 배경 기반 색상 체계
       var bg, bdr, numColor, barColor;
       // 로컬 완료 맵 우선 체크 (Firebase 리스너 영향 없음)
+      // 오늘 날짜 기준으로만 _doneMap 체크 (자정 지나면 자동 초기화)
       var _localDone=window._doneMap&&window._doneMap[i+'_'+_todayRealKey];
       var _isNoShowCard=(_localDone==='noshow')||(!!(a.completed&&a.completed[_todayRealKey])&&todayCnt===0&&!!_tdm);
       var _isDoneLocal=(_localDone==='done')||isDone;
@@ -1216,7 +1217,16 @@ function doneAttPanel(i){
   att[i].completedAt[_dk]=Date.now();
   // 완료 상태 로컬 보호 (Firebase 덮어쓰기 방지)
   protectLocalAtt(i);
-  if(attRef)saveAtt();
+  // 전체 saveAtt 대신 해당 지점의 completed/completedAt만 개별 업데이트 (데이터 안전)
+  if(attRef){
+    var _updatePayload={
+      completed: att[i].completed||{},
+      completedAt: att[i].completedAt||{}
+    };
+    attRef.child(String(i)).update(_updatePayload).catch(function(e){
+      console.error('완료 저장 오류:',e);
+    });
+  }
   // 완료 로그
   var _a2=att[i], _elim2=_a2.eliminated||{};
   var _dm3=DATES.find(function(d){return d.key===_dk;});
