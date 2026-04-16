@@ -1038,7 +1038,9 @@ function renderAtt(){
         // 미출석자(탈락 아님, 출석 0일)에게 사유 입력란
         var abReason=(a.absenceReason&&a.absenceReason[name])||'';
         var absCell='';
-        if(!isE&&pDay2===0){
+        // 오늘 날짜 미출석인 경우 사유 입력란 표시
+        var _todayChk=(a.attendance[_tkey]||[]).indexOf(name)>=0;
+        if(!isE&&!_todayChk){
           var safeR=abReason.replace(/"/g,'&quot;');
           absCell='<td colspan="1" style="padding:2px 4px">'
             +'<input type="text" value="'+safeR+'" placeholder="미출석 사유" maxlength="30"'
