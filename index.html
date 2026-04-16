@@ -572,36 +572,77 @@ function parseGlobalAtt(){
   if(!text){alert('내용을 입력해주세요.');return;}
   var lines=text.split('\n');
   var result=[];
-  var currentDate=null;
+  // 오늘 날짜를 기본값으로
+  var _now=new Date();
+  var _defKey=String(_now.getMonth()+1).padStart(2,'0')+String(_now.getDate()).padStart(2,'0');
+  var currentDate=_defKey;
+
   for(var li=0;li<lines.length;li++){
     var line=lines[li].trim();
     if(!line) continue;
+
     // 날짜 인식: 4/16, 4/16(목), 0416 등
     var dm=line.match(/^(\d{1,2})[\/-](\d{1,2})/);
     if(dm){currentDate=('0'+dm[1]).slice(-2)+('0'+dm[2]).slice(-2);continue;}
     var km=line.match(/^(\d{4})$/);
     if(km){currentDate=km[1];continue;}
-    if(!currentDate) continue;
-    // 지점명: 이름들 형식
-    var ci=line.indexOf(':');
-    if(ci<0) continue;
-    var brPart=line.slice(0,ci).trim();
-    var nmPart=line.slice(ci+1).trim();
-    // 지점 찾기
+
+    // 지점+이름 파싱 (콜론 또는 공백 구분 모두 허용)
+    // 형식1: "광주제일지점: 홍길동 김철수"
+    // 형식2: "광주제일지점  홍길동" (공백 구분)
+    // 형식3: "광주제일지점 :홍길동"
     var brIdx=-1;
-    for(var bi=0;bi<BR.length;bi++){
-      if(BR[bi].name.indexOf(brPart)>=0||brPart.indexOf(BR[bi].name.replace(/지점|TC지점/g,''))>=0){brIdx=bi;break;}
+    var nmPart='';
+
+    // 먼저 지점명 매칭 시도 (가장 긴 지점명부터)
+    var sortedBR=[].concat(BR).sort(function(a,b){return b.name.length-a.name.length;});
+    for(var bi=0;bi<sortedBR.length;bi++){
+      var bn=sortedBR[bi].name;
+      // 지점명 또는 지점명 앞부분으로 시작하는지 확인
+      var shortName=bn.replace(/지점$/,'').replace(/TC지점$/,'TC');
+      if(line.indexOf(bn)===0){
+        // 전체 지점명 매칭
+        brIdx=BR.indexOf(sortedBR[bi]);
+        nmPart=line.slice(bn.length).replace(/^[\s:：]+/,'').trim();
+        break;
+      } else if(line.indexOf(shortName)===0&&shortName.length>=2){
+        // 단축 지점명 매칭
+        brIdx=BR.indexOf(sortedBR[bi]);
+        nmPart=line.slice(shortName.length).replace(/^[\s:：지점]+/,'').trim();
+        break;
+      }
     }
-    if(brIdx<0) continue;
-    var names=nmPart.split(/[\s,]+/).map(function(n){return n.trim();}).filter(function(n){return n.length>0&&n.length<=10;});
+
+    // 콜론 방식으로도 시도
+    if(brIdx<0){
+      var ci=line.indexOf(':');
+      if(ci<0) ci=line.indexOf('：');
+      if(ci>=0){
+        var brPart=line.slice(0,ci).trim();
+        nmPart=line.slice(ci+1).trim();
+        for(var bi2=0;bi2<BR.length;bi2++){
+          if(BR[bi2].name.indexOf(brPart)>=0||brPart.indexOf(BR[bi2].name.replace(/지점|TC지점/g,''))>=0){
+            brIdx=bi2; break;
+          }
+        }
+      }
+    }
+
+    if(brIdx<0||!nmPart) continue;
+
+    // 이름 파싱 (공백/쉼표 구분)
+    var names=nmPart.split(/[\s,，]+/).map(function(n){return n.trim();}).filter(function(n){return n.length>0&&n.length<=10;});
     if(!names.length) continue;
+
     result.push({dateKey:currentDate,branchIdx:brIdx,branchName:BR[brIdx].name,names:names});
   }
+
   _globalAttParsed=result;
   var prev=document.getElementById('global-att-preview');
   var ok=document.getElementById('global-att-ok');
   if(!result.length){
-    if(prev){prev.style.display='block';prev.innerHTML='<span style="color:var(--rd)">인식된 데이터가 없습니다.</span>';}
+    if(prev){prev.style.display='block';prev.innerHTML='<div style="color:var(--rd);font-size:12px">인식된 데이터가 없습니다.<br><span style="color:#8899bb;font-size:11px">형식: 지점명: 이름1 이름2</span></div>';}
+    if(ok)ok.style.display='none';
     return;
   }
   var html='<div style="font-size:11px;font-weight:700;color:#3ecf8e;margin-bottom:6px">'+result.length+'건 인식</div>';
@@ -3679,6 +3720,7 @@ if('serviceWorker' in navigator){
         <button onclick="parseGlobalAtt()" style="flex:1;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🔍 미리보기</button>
         <button onclick="confirmGlobalAtt()" id="global-att-ok" style="display:none;flex:2;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#0d5c3a;color:#3ecf8e;border:1px solid rgba(62,207,142,.4)">✅ 전체 반영</button>
       </div>
+      <button onclick="parseGlobalAtt()||setTimeout(function(){var o=document.getElementById('global-att-ok');if(o&&o.style.display!=='none')confirmGlobalAtt();},100)" style="width:100%;margin-top:6px;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#185fa5,#0d5c3a);color:#fff;border:none">⚡ 미리보기 없이 바로 반영</button>
     </div>
   </div>
 </div>
