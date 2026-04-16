@@ -515,34 +515,81 @@ input[type=file].xf{display:none}
 <button class="stbtn" id="stbtn" onclick="showSetup()">⚙️</button>
 
 <script>
-const BR=[
-  {name:'광주제일지점',mgr:'구상옥',goal:2},{name:'새광주지점',mgr:'이진명',goal:2},
-  {name:'상무중앙지점',mgr:'김청훈',goal:3},{name:'상무제일지점',mgr:'양성호',goal:3},
-  {name:'동광주TC지점',mgr:'김도경',goal:3},{name:'광주지점',mgr:'마성현',goal:2},
-  {name:'광주미래지점',mgr:'조병성',goal:2},{name:'광주직할지점',mgr:'문형진',goal:2},
-  {name:'신광주지점',mgr:'조화영',goal:3},{name:'광주TC지점',mgr:'강유미',goal:3},
-  {name:'전남지점',mgr:'나병훈',goal:3},{name:'목포지점',mgr:'박재순',goal:2},
-  {name:'전남제일지점',mgr:'박동선',goal:1},{name:'전남TC지점',mgr:'김소운',goal:2},
-  {name:'순천지점',mgr:'안동호',goal:2},{name:'여수지점',mgr:'두진아',goal:2},
-  {name:'여수제일지점',mgr:'임주회',goal:3},{name:'광양지점',mgr:'권양미',goal:2},
-  {name:'호남TC지점',mgr:'김미연',goal:3}
-];
-let DATES=[
-  {key:'0415',lbl:'4/15(화)'},{key:'0416',lbl:'4/16(수)'},{key:'0417',lbl:'4/17(목)'},
-  {key:'0420',lbl:'4/20(일)'},{key:'0421',lbl:'4/21(월)'},{key:'0422',lbl:'4/22(화)'},
-  {key:'0423',lbl:'4/23(수)'},{key:'0424',lbl:'4/24(목)'}
-];
 
-let data=BR.map((b,i)=>({...b,id:i,passList:[],regList:[]}));
-let att=BR.map(()=>({attendees:[],attendance:{},eliminated:{},absenceReason:{},completed:{},completedAt:{}}));
-let selIdx=null,pv=[],rv=[],prevRk={},lastOi=-1;
-let db=null,dbRef=null,attRef=null,isFirst=true;
+// ── 출석 일괄입력 ──
+var _bulkAttIdx = -1;
 
-// 날짜
-const now=new Date();
-const dstr=now.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
-document.getElementById('dt').textContent=dstr;
-document.getElementById('rhdt').textContent=dstr+' 기준';
+function openBulkAtt(i){
+  _bulkAttIdx = i;
+  var title = document.getElementById('bulk-att-title');
+  if(title) title.textContent = '📋 ' + BR[i].name + ' 출석 일괄입력';
+  var inp = document.getElementById('bulk-att-inp');
+  if(inp) inp.value = '';
+  var prev = document.getElementById('bulk-att-preview');
+  if(prev) prev.textContent = '';
+  document.getElementById('bulk-att-modal').style.display = 'flex';
+  setTimeout(function(){if(inp)inp.focus();}, 200);
+}
+
+function confirmBulkAtt(){
+  if(_bulkAttIdx < 0) return;
+  var i = _bulkAttIdx;
+  var inp = document.getElementById('bulk-att-inp');
+  if(!inp) return;
+  var text = inp.value.trim();
+  if(!text){ alert('이름을 입력해주세요.'); return; }
+
+  // 이름 파싱
+  var lines2 = text.split('\n');
+  var names = [];
+  for(var li=0;li<lines2.length;li++){
+    var nm = lines2[li].trim();
+    if(nm.length>0 && nm.length<=10) names.push(nm);
+  }
+
+  if(names.length === 0){ alert('인식된 이름이 없습니다.'); return; }
+
+  // 오늘 날짜 키
+  var _n = new Date();
+  var _dk = String(_n.getMonth()+1).padStart(2,'0') + String(_n.getDate()).padStart(2,'0');
+
+  var added = 0, checked = 0, already = 0;
+  var a = att[i];
+  if(!a.attendance) a.attendance = {};
+  if(!a.attendance[_dk]) a.attendance[_dk] = [];
+  var todayList = a.attendance[_dk];
+
+  for(var ni=0;ni<names.length;ni++){
+    var name = names[ni];
+    // 접수자 명단에 없으면 추가
+    if((a.attendees||[]).indexOf(name) < 0){
+      a.attendees = a.attendees || [];
+      a.attendees.push(name);
+      if(data[i]){ data[i].regList = data[i].regList||[]; if(data[i].regList.indexOf(name)<0) data[i].regList.push(name); }
+      added++;
+    }
+    // 오늘 출석 체크
+    if(todayList.indexOf(name) < 0){
+      todayList.push(name);
+      checked++;
+    } else {
+      already++;
+    }
+  }
+
+  // 저장
+  if(attRef) saveAtt();
+  if(dbRef && added > 0) dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
+  writeLog(BR[i].name, '출결', '출석 일괄입력: '+names.join(', '));
+
+  var msg = '완료! 출석 체크: '+checked+'명';
+  if(added > 0) msg += '  신규 등록: '+added+'명';
+  if(already > 0) msg += '  이미 체크: '+already+'명';
+  alert(msg);
+
+  document.getElementById('bulk-att-modal').style.display = 'none';
+  var open = getOpen(); renderAtt(); restoreOpen(open);
+}
 
 function sn(full){
   const m=full.match(/^(.+?)(TC지점|지점)$/);
@@ -1130,8 +1177,9 @@ function renderAtt(){
       cardsHtml+='<div id="acard-body-'+i+'" style="display:none;background:#111f38;border:2px solid #FF6B2B;border-top:2px solid #FF6B2B;border-radius:0 0 12px 12px;padding:.875rem 1rem;margin-bottom:8px">'
         +panelInner
         +'<div style="display:flex;gap:8px;justify-content:center;margin-top:.625rem;padding-top:.625rem;border-top:1px solid #1e3055">'
-        +'<button onclick="openAttModal('+i+')" style="padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,107,43,.15);color:#FF6B2B;border:1px solid rgba(255,107,43,.3)">✏️ 명단 관리</button>'
-        +'<button onclick="doneAttPanel('+i+')" style="padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.3)">✅ 완료</button>'
+        +'<button onclick="openAttModal('+i+')" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,107,43,.15);color:#FF6B2B;border:1px solid rgba(255,107,43,.3)">✏️ 명단 관리</button>'
+        +'<button onclick="openBulkAtt('+i+')" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">📋 출석 일괄입력</button>'
+        +'<button onclick="doneAttPanel('+i+')" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.3)">✅ 완료</button>'
         +'</div></div>';
     });
   }
@@ -3510,6 +3558,31 @@ function loadLog(retryCount){
       </div>
     </div>
     <div id="daily-modal-body" style="padding:1.25rem;max-height:78vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- 출석 일괄입력 모달 -->
+<div id="bulk-att-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9100;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
+  <div style="background:#111f38;border:1.5px solid #4fa8f5;border-radius:18px;width:100%;max-width:500px;margin:auto;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#185fa5,#4fa8f5);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:15px;font-weight:900;color:#fff" id="bulk-att-title">📋 출석 일괄입력</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.8)">이름을 붙여넣으면 오늘 출석으로 체크됩니다</div>
+      </div>
+      <button onclick="document.getElementById('bulk-att-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit">✕</button>
+    </div>
+    <div style="padding:1.25rem">
+      <div style="font-size:12px;color:#8899bb;margin-bottom:.5rem;line-height:1.6">
+        📌 이름을 한 줄에 하나씩 입력하거나 붙여넣기 하세요<br>
+        <span style="color:#4fa8f5">· 명단에 없는 이름은 자동으로 접수자로 추가됩니다</span>
+      </div>
+      <textarea id="bulk-att-inp" rows="8" style="width:100%;padding:10px;border:1px solid #1e3055;border-radius:10px;background:#0b1628;color:#e8edf5;font-size:13px;font-family:inherit;resize:none;line-height:1.8" placeholder="홍길동&#10;김철수&#10;이영희&#10;..."></textarea>
+      <div id="bulk-att-preview" style="margin-top:.625rem;font-size:12px;color:#8899bb"></div>
+      <div style="display:flex;gap:8px;margin-top:.75rem">
+        <button onclick="document.getElementById('bulk-att-modal').style.display='none'" style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">취소</button>
+        <button onclick="confirmBulkAtt()" style="flex:2;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#185fa5;color:#fff;border:none">✅ 오늘 출석으로 등록</button>
+      </div>
+    </div>
   </div>
 </div>
 <!-- 명단 불일치 확인 모달 -->
