@@ -1216,7 +1216,19 @@ function doneAttPanel(i){
   var elim2=a2.eliminated||{};
   var todayCnt2=(a2.attendance[_tkey2]||[]).filter(function(n){return !elim2[n];}).length;
 
-  var isWarn=(ttl2===0||todayCnt2===0);
+  // 접수자는 있지만 출석 0명인 경우: 미출석 사유가 모두 입력되어 있으면 경고 아님
+  var _a2att=att[i];
+  var _allHaveReason=false;
+  if(ttl2>0&&todayCnt2===0){
+    var _elim3=_a2att.eliminated||{};
+    var _nonElim=_a2att.attendees.filter(function(n){return !_elim3[n];});
+    if(_nonElim.length>0){
+      _allHaveReason=_nonElim.every(function(n){
+        return !!(_a2att.absenceReason&&_a2att.absenceReason[n]&&_a2att.absenceReason[n].trim());
+      });
+    }
+  }
+  var isWarn=(ttl2===0||(todayCnt2===0&&!_allHaveReason));
 
   // 기합격 인원 + 당일 출석 인원 합산 >= 목표 여부
   var _d=data[i];
