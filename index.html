@@ -2093,9 +2093,11 @@ document.getElementById('manifest-link').href=URL.createObjectURL(bl);
         </div>
       </div>
       <div id="admin-attend" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.625rem">
-          <span style="font-size:12px;color:var(--t2)">지점별 당일 출석 완료 시각</span>
-          <button onclick="renderAdminAttend()" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">🔄 새로고침</button>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:.625rem;flex-wrap:wrap">
+          <span style="font-size:12px;font-weight:700;color:var(--t2)">날짜</span>
+          <select id="attend-date-sel" onchange="renderAdminAttend()" style="flex:1;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit"></select>
+          <button onclick="renderAdminAttend()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">🔄</button>
+          <button onclick="printAdminAttend()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.12);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 출력</button>
         </div>
         <div id="admin-attend-list" style="font-size:12px;color:var(--t2)"></div>
       </div>
@@ -3392,10 +3394,23 @@ function adminResetBranch(i,typeN){
 
 // ── 출석완료 현황 ──
 function renderAdminAttend(){
-  var _n=new Date();
-  var _dk=String(_n.getMonth()+1).padStart(2,'0')+String(_n.getDate()).padStart(2,'0');
-  var _dm=DATES.find(function(d){return d.key===_dk;});
-  var todayLbl=_dm?_dm.lbl:'오늘';
+  // 날짜 선택기 채우기
+  var dSel=document.getElementById('attend-date-sel');
+  if(dSel&&dSel.options.length===0){
+    DATES.forEach(function(d){
+      var opt=document.createElement('option');
+      opt.value=d.key; opt.textContent=d.lbl;
+      dSel.appendChild(opt);
+    });
+    // 오늘 날짜 기본 선택
+    var _tnow=new Date();
+    var _tdk=String(_tnow.getMonth()+1).padStart(2,'0')+String(_tnow.getDate()).padStart(2,'0');
+    dSel.value=_tdk;
+    if(!dSel.value&&DATES.length>0) dSel.value=DATES[0].key;
+  }
+  var _dk=(dSel&&dSel.value)?dSel.value:'';
+  if(!_dk&&DATES.length>0)_dk=DATES[0].key;
+  var _dm=DATES.find(function(d){return d.key===_dk;})||{lbl:_dk};
 
   var items=BR.map(function(b,i){
     var a=att[i];
@@ -3404,17 +3419,22 @@ function renderAdminAttend(){
     var elim=a.eliminated||{};
     var elimCnt=Object.values(elim).filter(function(v){return v;}).length;
     var todayCnt=(a.attendance[_dk]||[]).filter(function(n){return !elim[n];}).length;
-    return {i:i,b:b,ts:ts,ttl:ttl,todayCnt:todayCnt,elimCnt:elimCnt};
+    var isDoneDay=!!(a.completed&&a.completed[_dk])&&todayCnt>0;
+    return {i:i,b:b,ts:ts,ttl:ttl,todayCnt:todayCnt,elimCnt:elimCnt,isDoneDay:isDoneDay};
   });
 
-  // 완료순 정렬
   var done=items.filter(function(x){return x.ts;}).sort(function(a,b){return a.ts-b.ts;});
   var undone=items.filter(function(x){return !x.ts;});
 
-  var html='<div style="font-size:11px;font-weight:700;color:var(--or);margin-bottom:6px">📅 '+todayLbl+' 기준 출석완료 현황</div>';
+  var html='<div style="font-size:11px;font-weight:700;color:var(--or);margin-bottom:6px">📅 '+_dm.lbl+' 기준 출석완료 현황</div>';
+  html+='<div style="display:flex;gap:8px;margin-bottom:8px">'
+    +'<div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;padding:6px 10px;text-align:center;flex:1"><div style="font-size:9px;color:var(--t2)">완료</div><div style="font-size:16px;font-weight:900;color:#3ecf8e">'+done.length+'</div></div>'
+    +'<div style="background:rgba(255,107,43,.08);border:1px solid rgba(255,107,43,.2);border-radius:8px;padding:6px 10px;text-align:center;flex:1"><div style="font-size:9px;color:var(--t2)">미완료</div><div style="font-size:16px;font-weight:900;color:var(--or)">'+undone.length+'</div></div>'
+    +'<div style="background:rgba(79,168,245,.08);border:1px solid rgba(79,168,245,.2);border-radius:8px;padding:6px 10px;text-align:center;flex:1"><div style="font-size:9px;color:var(--t2)">전체출석</div><div style="font-size:16px;font-weight:900;color:#4fa8f5">'+items.reduce(function(s,x){return s+x.todayCnt;},0)+'명</div></div>'
+  +'</div>';
 
   if(done.length===0){
-    html+='<div style="font-size:12px;color:var(--t3);padding:10px 0">아직 완료한 지점이 없습니다.</div>';
+    html+='<div style="font-size:12px;color:var(--t3);padding:8px 0">완료한 지점이 없습니다.</div>';
   } else {
     html+='<div style="font-size:11px;font-weight:700;color:#3ecf8e;margin-bottom:5px">✅ 완료 '+done.length+'개 지점 (완료 순서)</div>';
     done.forEach(function(x,rank){
@@ -3424,16 +3444,15 @@ function renderAdminAttend(){
       var mm=String(t.getMinutes()).padStart(2,'0');
       var ss=String(t.getSeconds()).padStart(2,'0');
       var isWarn=(x.ttl===0||x.todayCnt===0);
-      var warnMsg=x.ttl===0?'접수 미등록':x.todayCnt===0?'출석 0명':'';
       var rowBg=isWarn?'background:rgba(255,107,43,.08);border:1px solid rgba(255,107,43,.3);':'background:rgba(62,207,142,.07);border:1px solid rgba(62,207,142,.2);';
       var timeColor=isWarn?'#FF8C55':'#3ecf8e';
-      var timeBg=isWarn?'rgba(255,107,43,.15)':'rgba(62,207,142,.15)';
-      html+='<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;'+rowBg+'border-radius:8px;margin-bottom:4px">'
-        +'<span style="font-size:13px;font-weight:900;color:'+(isWarn?'#FF6B2B':'#3ecf8e')+';min-width:22px">'+(rank+1)+'위</span>'
-        +'<span style="flex:1;font-size:13px;font-weight:700;color:var(--t)">'+bn.top+'<span style="font-size:10px;color:var(--or)">'+bn.bot+'</span></span>'
-        +'<span style="font-size:11px;color:var(--t2)">'+x.b.mgr+'</span>'
-        +(isWarn?'<span style="font-size:10px;font-weight:700;color:#FF6B2B;background:rgba(255,107,43,.15);padding:2px 7px;border-radius:5px">⚠️ '+warnMsg+'</span>':'<span style="font-size:10px;color:#8899bb">접수'+x.ttl+'/출석'+x.todayCnt+'명</span>')
-        +'<span style="font-size:13px;font-weight:700;color:'+timeColor+';background:'+timeBg+';padding:3px 9px;border-radius:6px;min-width:64px;text-align:center">'+hh+':'+mm+':'+ss+'</span>'
+      var warnMsg=x.ttl===0?'접수 미등록':x.todayCnt===0?'출석 0명':'';
+      html+='<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;'+rowBg+'border-radius:8px;margin-bottom:4px">'
+        +'<span style="font-size:12px;font-weight:900;color:'+(isWarn?'#FF6B2B':'#3ecf8e')+';min-width:22px">'+(rank+1)+'위</span>'
+        +'<span style="flex:1;font-size:12px;font-weight:700;color:var(--t)">'+bn.top+'<span style="font-size:9px;color:var(--or)">'+bn.bot+'</span></span>'
+        +'<span style="font-size:10px;color:var(--t2)">'+x.b.mgr+'</span>'
+        +(isWarn?'<span style="font-size:9px;font-weight:700;color:#FF6B2B;background:rgba(255,107,43,.15);padding:1px 6px;border-radius:5px">⚠️ '+warnMsg+'</span>':'<span style="font-size:10px;color:#8899bb">'+x.todayCnt+'명</span>')
+        +'<span style="font-size:12px;font-weight:700;color:'+timeColor+';background:rgba(255,255,255,.05);padding:2px 8px;border-radius:6px;min-width:60px;text-align:center">'+hh+':'+mm+':'+ss+'</span>'
         +'</div>';
     });
   }
@@ -3444,19 +3463,72 @@ function renderAdminAttend(){
       var bn=sn(x.b.name);
       var statusTxt=x.ttl===0?'미등록':x.todayCnt>0?'출석 '+x.todayCnt+'명 (미완료)':'출석 미입력';
       var statusColor=x.ttl===0?'#5a6e8c':x.todayCnt>0?'#FF6B2B':'#8899bb';
-      html+='<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,107,43,.05);border:1px solid rgba(255,107,43,.15);border-radius:8px;margin-bottom:4px">'
-        +'<span style="font-size:13px;font-weight:700;color:var(--t)">'+bn.top+'<span style="font-size:10px;color:var(--or)">'+bn.bot+'</span></span>'
-        +'<span style="font-size:11px;color:var(--t2)">'+x.b.mgr+'</span>'
-        +'<span style="margin-left:auto;font-size:11px;color:'+statusColor+'">'+statusTxt+'</span>'
+      html+='<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:rgba(255,107,43,.04);border:1px solid rgba(255,107,43,.12);border-radius:8px;margin-bottom:4px">'
+        +'<span style="flex:1;font-size:12px;font-weight:700;color:var(--t)">'+bn.top+'<span style="font-size:9px;color:var(--or)">'+bn.bot+'</span></span>'
+        +'<span style="font-size:10px;color:var(--t2)">'+x.b.mgr+'</span>'
+        +'<span style="margin-left:auto;font-size:10px;color:'+statusColor+'">'+statusTxt+'</span>'
         +'</div>';
     });
   }
 
   var el=document.getElementById('admin-attend-list');
-  if(el)el.innerHTML=html;
+  if(el) el.innerHTML=html;
 }
 
-// ── 지점 활동 로그 ──
+function printAdminAttend(){
+  var dSel=document.getElementById('attend-date-sel');
+  var _dk=(dSel&&dSel.value)?dSel.value:'';
+  if(!_dk&&DATES.length>0)_dk=DATES[0].key;
+  var _dm=DATES.find(function(d){return d.key===_dk;})||{lbl:_dk};
+
+  var items=BR.map(function(b,i){
+    var a=att[i];
+    var ts=a.completedAt&&a.completedAt[_dk]?a.completedAt[_dk]:null;
+    var elim=a.eliminated||{};
+    var todayCnt=(a.attendance[_dk]||[]).filter(function(n){return !elim[n];}).length;
+    return {b:b,ts:ts,ttl:a.attendees.length,todayCnt:todayCnt};
+  });
+  var done=items.filter(function(x){return x.ts;}).sort(function(a,b){return a.ts-b.ts;});
+  var undone=items.filter(function(x){return !x.ts;});
+
+  var w=window.open('','_blank','width=800,height=600');
+  if(!w){alert('팝업 차단됨. 허용 후 다시 시도해주세요.');return;}
+  var css='body{font-family:"맑은 고딕","Apple SD Gothic Neo",sans-serif;padding:20px;color:#111;font-size:12px}'
+    +'h1{font-size:16px;color:#0d5c3a;margin-bottom:3px}.sub{font-size:11px;color:#666;margin-bottom:12px}'
+    +'table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px}'
+    +'th{background:#e8f5ee;padding:6px 8px;border:1px solid #ccc;font-weight:700}'
+    +'td{padding:5px 8px;border:1px solid #ddd}.warn{color:#e67e22;font-weight:700}'
+    +'.undone{color:#888}.rank{font-weight:900;color:#1a7a4a}'
+    +'@media print{@page{margin:10mm}}';
+  var doneRows=done.map(function(x,rank){
+    var t=new Date(x.ts);
+    var hh=String(t.getHours()).padStart(2,'0');
+    var mm=String(t.getMinutes()).padStart(2,'0');
+    var ss=String(t.getSeconds()).padStart(2,'0');
+    var bn=sn(x.b.name);
+    var isW=(x.ttl===0||x.todayCnt===0);
+    return '<tr><td class="rank" style="text-align:center">'+(rank+1)+'위</td>'
+      +'<td>'+bn.top+bn.bot+'</td><td>'+x.b.mgr+'</td>'
+      +'<td style="text-align:center">'+x.ttl+'명</td>'
+      +'<td style="text-align:center;'+(isW?'color:#e67e22;':'color:#1a7a4a;font-weight:700')+'">'+x.todayCnt+'명</td>'
+      +'<td style="text-align:center;font-weight:700;'+(isW?'color:#e67e22':'')+'">'+hh+':'+mm+':'+ss+'</td></tr>';
+  }).join('');
+  var undoneRows=undone.map(function(x){
+    var bn=sn(x.b.name);
+    return '<tr class="undone"><td style="text-align:center">-</td><td>'+bn.top+bn.bot+'</td><td>'+x.b.mgr+'</td><td style="text-align:center">'+x.ttl+'명</td><td colspan="2" style="text-align:center;color:#888">미완료</td></tr>';
+  }).join('');
+  var dateStr=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>출석완료 현황</title><style>'+css+'</style></head><body>'
+    +'<h1>⏱️ 출석완료 현황 — '+_dm.lbl+'</h1>'
+    +'<div class="sub">출력일: '+dateStr+' · 완료 '+done.length+'개 지점 / 전체 '+BR.length+'개</div>'
+    +'<table><thead><tr><th>순위</th><th>지점명</th><th>지점장</th><th>접수</th><th>출석</th><th>완료시각</th></tr></thead>'
+    +'<tbody>'+doneRows+undoneRows+'</tbody></table>'
+    +'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},600);
+}
+
+
 function writeLog(branchName, category, detail){
   if(!db) return;
   var t = new Date();
@@ -3478,114 +3550,59 @@ function loadLog(retryCount){
   var el=document.getElementById('admin-log-list');
   var sumEl=document.getElementById('log-summary');
   if(!el)return;
-  // db가 아직 없으면 재시도 (최대 10초)
   if(!db){
     var cnt=(retryCount||0)+1;
     if(cnt<=20){
       el.innerHTML='<div style="color:var(--t3);font-size:12px">🔄 Firebase 연결 중... ('+cnt+')</div>';
       setTimeout(function(){loadLog(cnt);},500);
     }else{
-      el.innerHTML='<div style="color:var(--rd);font-size:12px">Firebase 연결 실패. 앱을 새로고침해주세요.</div>';
+      el.innerHTML='<div style="color:var(--rd);font-size:12px">Firebase 연결 실패. 새로고침해주세요.</div>';
     }
     return;
   }
   el.innerHTML='<div style="color:var(--t3);font-size:12px">로딩 중...</div>';
 
-  // 필터 select에 지점 목록 채우기
+  // 지점 필터 목록 채우기
   var brSel=document.getElementById('log-filter-branch');
   if(brSel&&brSel.options.length<=1){
-    BR.forEach(function(b){
-      var opt=document.createElement('option');
-      opt.value=b.name; opt.textContent=b.name;
-      brSel.appendChild(opt);
-    });
+    BR.forEach(function(b){var opt=document.createElement('option');opt.value=b.name;opt.textContent=b.name;brSel.appendChild(opt);});
   }
-  var filterBranch=document.getElementById('log-filter-branch')?document.getElementById('log-filter-branch').value:'';
-  var filterType=document.getElementById('log-filter-type')?document.getElementById('log-filter-type').value:'';
+  var filterBranch=(document.getElementById('log-filter-branch')||{}).value||'';
+  var filterType=(document.getElementById('log-filter-type')||{}).value||'';
 
-  db.ref('honam_log').orderByChild('ts').limitToLast(200).once('value',function(snap){
-    var logs=[]; snap.forEach(function(child){logs.unshift(child.val());});
-    if(!logs.length){el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:10px 0">기록 없음</div>';return;}
+  db.ref('honam_log').orderByChild('ts').limitToLast(300).once('value',function(snap){
+    if(!snap.val()){el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:10px 0">기록 없음</div>';if(sumEl)sumEl.innerHTML='';return;}
 
-    // 필터 적용
-    var filtered=logs.filter(function(l){
+    // fbKey 포함 배열 구성
+    var allItems=[];
+    snap.forEach(function(child){allItems.unshift({log:child.val(),fbKey:child.key});});
+
+    // 필터
+    var items=allItems.filter(function(x){
+      var l=x.log;
       if(filterBranch&&l.branchName!==filterBranch)return false;
       if(filterType&&(!l.category||l.category.indexOf(filterType)<0))return false;
       return true;
     });
+    var filtered=items.map(function(x){return x.log;});
 
-    // 요약: 지점별 최근 활동
-    var branchMap={};
-    filtered.forEach(function(l){
-      if(!l.branchName)return;
-      if(!branchMap[l.branchName]||l.ts>branchMap[l.branchName].ts)branchMap[l.branchName]=l;
-    });
-    var activeCount=Object.keys(branchMap).length;
+    // 요약 카드
+    var bmap={};
+    filtered.forEach(function(l){if(l.branchName&&(!bmap[l.branchName]||l.ts>bmap[l.branchName].ts))bmap[l.branchName]=l;});
     var todayStr=(new Date().getMonth()+1)+'/'+(new Date().getDate());
-    var todayLogs=filtered.filter(function(l){return l.time&&l.time.indexOf(todayStr)>=0;});
+    var todayCnt=filtered.filter(function(l){return l.time&&l.time.indexOf(todayStr)>=0;}).length;
     if(sumEl){
       sumEl.innerHTML=
-        '<div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;padding:8px;text-align:center">'
-          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">전체 기록</div>'
-          +'<div style="font-size:18px;font-weight:900;color:#3ecf8e">'+filtered.length+'</div></div>'
-        +'<div style="background:rgba(79,168,245,.08);border:1px solid rgba(79,168,245,.2);border-radius:8px;padding:8px;text-align:center">'
-          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">오늘 활동</div>'
-          +'<div style="font-size:18px;font-weight:900;color:#4fa8f5">'+todayLogs.length+'</div></div>'
-        +'<div style="background:rgba(255,107,43,.08);border:1px solid rgba(255,107,43,.2);border-radius:8px;padding:8px;text-align:center">'
-          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">활동 지점</div>'
-          +'<div style="font-size:18px;font-weight:900;color:var(--or)">'+activeCount+'</div></div>';
+        '<div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--t2);margin-bottom:2px">전체 기록</div><div style="font-size:18px;font-weight:900;color:#3ecf8e">'+filtered.length+'</div></div>'
+        +'<div style="background:rgba(79,168,245,.08);border:1px solid rgba(79,168,245,.2);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--t2);margin-bottom:2px">오늘 활동</div><div style="font-size:18px;font-weight:900;color:#4fa8f5">'+todayCnt+'</div></div>'
+        +'<div style="background:rgba(255,107,43,.08);border:1px solid rgba(255,107,43,.2);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--t2);margin-bottom:2px">활동 지점</div><div style="font-size:18px;font-weight:900;color:var(--or)">'+Object.keys(bmap).length+'</div></div>';
     }
 
-    // 카테고리별 색상
+    if(!items.length){el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:10px 0">해당 조건의 기록 없음</div>';return;}
+
     var catColor={'신인도입':'#4fa8f5','출결':'#3ecf8e','미출석사유':'#FF8C55','탈락':'#f5605a','지점관리':'#a78bfa'};
-
-    if(!filtered.length){
-      el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:10px 0">해당 조건의 기록 없음</div>';
-      return;
-    }
-
-    // _logKeys 초기화 후 재구성
-    _logKeys=[];
-    var _allItems=[]; // {log, fbKey}
-    snap.forEach(function(child){_allItems.unshift({log:child.val(),fbKey:child.key});});
-
-    // 필터 적용
-    var filteredItems=_allItems.filter(function(item){
-      var l=item.log;
-      if(filterBranch&&l.branchName!==filterBranch)return false;
-      if(filterType&&(!l.category||l.category.indexOf(filterType)<0))return false;
-      return true;
-    });
-
-    // 요약 다시 계산
-    var filtered=filteredItems.map(function(x){return x.log;});
-    var branchMap2={};
-    filtered.forEach(function(l){
-      if(!l.branchName)return;
-      if(!branchMap2[l.branchName]||l.ts>branchMap2[l.branchName].ts)branchMap2[l.branchName]=l;
-    });
-    var todayStr2=(new Date().getMonth()+1)+'/'+(new Date().getDate());
-    var todayLogs2=filtered.filter(function(l){return l.time&&l.time.indexOf(todayStr2)>=0;});
-    if(sumEl){
-      sumEl.innerHTML=
-        '<div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;padding:8px;text-align:center">'
-          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">전체 기록</div>'
-          +'<div style="font-size:18px;font-weight:900;color:#3ecf8e">'+filtered.length+'</div></div>'
-        +'<div style="background:rgba(79,168,245,.08);border:1px solid rgba(79,168,245,.2);border-radius:8px;padding:8px;text-align:center">'
-          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">오늘 활동</div>'
-          +'<div style="font-size:18px;font-weight:900;color:#4fa8f5">'+todayLogs2.length+'</div></div>'
-        +'<div style="background:rgba(255,107,43,.08);border:1px solid rgba(255,107,43,.2);border-radius:8px;padding:8px;text-align:center">'
-          +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">활동 지점</div>'
-          +'<div style="font-size:18px;font-weight:900;color:var(--or)">'+Object.keys(branchMap2).length+'</div></div>';
-    }
-
-    if(!filteredItems.length){
-      el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:10px 0">해당 조건의 기록 없음</div>';
-      return;
-    }
-
-    el.innerHTML=filteredItems.slice(0,50).map(function(item){
-      var l=item.log, fbKey=item.fbKey;
+    el.innerHTML=items.slice(0,50).map(function(x){
+      var l=x.log,fbKey=x.fbKey;
       var cat=l.category||'기타';
       var cc=catColor[cat]||'var(--or)';
       var bn=l.branchName?sn(l.branchName):{top:l.branchName||'-',bot:''};
@@ -3594,7 +3611,7 @@ function loadLog(retryCount){
           +'<span style="font-size:12px;font-weight:700;color:#e8edf5">'+bn.top+'<span style="font-size:9px;color:var(--or)">'+bn.bot+'</span></span>'
           +'<span style="font-size:10px;font-weight:700;color:'+cc+';background:rgba(255,255,255,.07);padding:1px 7px;border-radius:6px">'+cat+'</span>'
           +'<span style="margin-left:auto;font-size:10px;color:var(--t3)">'+l.time+'</span>'
-          +'<button data-fk="'+fbKey+'" onclick="deleteLog(this.dataset.fk)" style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">삭제</button>'
+          +'<button data-fk="'+fbKey+'" onclick="deleteLog(this.dataset.fk)" style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">삭제</button>'
         +'</div>'
         +'<div style="font-size:11px;color:var(--t2)">'+l.detail+'</div>'
       +'</div>';
@@ -3602,6 +3619,4 @@ function loadLog(retryCount){
   });
 }
 
-</script>
-</body>
-</html>
+
