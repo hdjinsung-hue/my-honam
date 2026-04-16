@@ -944,8 +944,11 @@ function renderAtt(){
 
       // 오렌지 배경 기반 색상 체계
       var bg, bdr, numColor, barColor;
-      var _isNoShowCard=!!(a.completed&&a.completed[_todayRealKey])&&todayCnt===0&&!!_tdm;
-      if(isDone){
+      // 로컬 완료 맵 우선 체크 (Firebase 리스너 영향 없음)
+      var _localDone=window._doneMap&&window._doneMap[i+'_'+_todayRealKey];
+      var _isNoShowCard=(_localDone==='noshow')||(!!(a.completed&&a.completed[_todayRealKey])&&todayCnt===0&&!!_tdm);
+      var _isDoneLocal=(_localDone==='done')||isDone;
+      if(_isDoneLocal){
         bg='linear-gradient(160deg,#2a1400,#1e0e00)'; bdr='2px solid #3ecf8e';
         numColor='#3ecf8e'; barColor='#3ecf8e';
       } else if(_isNoShowCard){
@@ -961,7 +964,7 @@ function renderAtt(){
         bg='linear-gradient(160deg,#2a1400,#1e0e00)'; bdr='1.5px solid rgba(255,107,43,.3)';
         numColor='#FF6B2B'; barColor='rgba(255,107,43,.4)';
       }
-      var attNum=isDone||hasAtt?todayCnt:(ttl>0?0:'-');
+      var attNum=_isDoneLocal||hasAtt?todayCnt:(ttl>0?0:'-');
 
       cardsHtml+=
         '<button id="gc-btn-'+i+'" onclick="'+clickFn+'" style="'
@@ -984,7 +987,7 @@ function renderAtt(){
               +(function(){
                 // 완료했지만 출석 0명 = 미출석 완료
                 var _isNoShow=!!(a.completed&&a.completed[_todayRealKey])&&todayCnt===0&&!!_tdm;
-                if(isDone){
+                if(_isDoneLocal){
                   return '<div style="flex-shrink:0;display:flex;align-items:center;justify-content:center;'
                     +'width:62px;height:62px;border-radius:50%;'
                     +'background:#ffffff;border:2.5px solid #3ecf8e;'
@@ -2023,7 +2026,7 @@ function printDailyModal(){
     +'<div class="sub">'+dateStr+' 출력 · 전체 접수 '+totAtt2+'명</div>'
     +'<table><thead><tr><th class="l">지점</th><th>접수</th>'+dateHdrs+'<th>합계</th></tr></thead>'
     +'<tbody>'+rows+sumRow+'</tbody></table>';
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>날짜별 출석현황</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">');
   w.document.close();
   setTimeout(function(){w.print();},600);
 }
@@ -2869,7 +2872,7 @@ function printAttList(){
     body+='<div class="bcard"><div class="bhdr"><span>'+bn.top+bn.bot+' ('+b.mgr+' 지점장)</span><span>접수 '+a.attendees.length+'명 · 출석 '+todayCnt+'명 · '+rate+'%</span></div><div class="names">'+names+'</div></div>';
   });
 
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>전체 접수인원 명단</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">');
   w.document.close();
   setTimeout(function(){w.print();},600);
 }
@@ -3276,7 +3279,7 @@ function printAdminAttend(){
     return '<tr class="undone"><td style="text-align:center">-</td><td>'+bn.top+bn.bot+'</td><td>'+x.b.mgr+'</td><td style="text-align:center">'+x.ttl+'명</td><td colspan="2" style="text-align:center;color:#888">미완료</td></tr>';
   }).join('');
   var dateStr=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>출석완료 현황</title><style>'+css+'</style></head><body>'
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<h1>⏱️ 출석완료 현황 — '+_dm.lbl+'</h1>'
     +'<div class="sub">출력일: '+dateStr+' · 완료 '+done.length+'개 지점 / 전체 '+BR.length+'개</div>'
     +'<table><thead><tr><th>순위</th><th>지점명</th><th>지점장</th><th>접수</th><th>출석</th><th>완료시각</th></tr></thead>'
