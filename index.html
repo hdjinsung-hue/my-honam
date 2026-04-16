@@ -624,6 +624,36 @@ function startSync(){
     else{render(-1,false);}
   },()=>setLive('','연결 오류'));
 
+  // 완료 상태 별도 로드 (honam_completed)
+  db.ref('honam_completed').on('value',function(snap){
+    var data2=snap.val();
+    if(!data2)return;
+    if(!window._doneMap)window._doneMap={};
+    var _nowD=new Date();
+    var _nowKey=String(_nowD.getMonth()+1).padStart(2,'0')+String(_nowD.getDate()).padStart(2,'0');
+    Object.keys(data2).forEach(function(idx){
+      var entry=data2[idx];
+      if(!entry)return;
+      var comp=entry.completed||{};
+      var compAt=entry.completedAt||{};
+      // att[idx] 업데이트 (완료 상태만)
+      var ii=parseInt(idx);
+      if(att[ii]){
+        att[ii].completed=comp;
+        att[ii].completedAt=compAt;
+      }
+      // 오늘 날짜 완료 여부 → _doneMap 복원
+      if(comp[_nowKey]&&!window._doneMap[idx+'_'+_nowKey]){
+        var _eMap=(att[ii]&&att[ii].eliminated)||{};
+        var _cnt=((att[ii]&&att[ii].attendance[_nowKey])||[]).filter(function(n){return !_eMap[n];}).length;
+        window._doneMap[idx+'_'+_nowKey]=_cnt>0?'done':'noshow';
+      }
+    });
+    if(document.getElementById('tab-att').classList.contains('on')){
+      var _ob=getOpen();renderAtt();if(_ob.length)restoreOpen(_ob);
+    }
+  });
+
   attRef.on('value',snap=>{
     const rem=snap.val();
     // att 배열 길이 항상 BR.length에 맞게 보장
@@ -1217,15 +1247,13 @@ function doneAttPanel(i){
   att[i].completedAt[_dk]=Date.now();
   // 완료 상태 로컬 보호 (Firebase 덮어쓰기 방지)
   protectLocalAtt(i);
-  // 전체 saveAtt 대신 해당 지점의 completed/completedAt만 개별 업데이트 (데이터 안전)
-  if(attRef){
-    var _updatePayload={
+  // 완료 상태는 별도 Firebase 경로에 저장 → 출결 데이터 절대 건드리지 않음
+  if(db){
+    var _cref=db.ref('honam_completed/'+i);
+    _cref.update({
       completed: att[i].completed||{},
       completedAt: att[i].completedAt||{}
-    };
-    attRef.child(String(i)).update(_updatePayload).catch(function(e){
-      console.error('완료 저장 오류:',e);
-    });
+    }).catch(function(e){console.error('완료 저장 오류:',e);});
   }
   // 완료 로그
   var _a2=att[i], _elim2=_a2.eliminated||{};
