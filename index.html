@@ -428,7 +428,8 @@ input[type=file].xf{display:none}
   <div class="att-sum" id="att-sum"></div>
   <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:.625rem;flex-wrap:wrap">
     <button onclick="checkSyncMismatch()" style="padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.3)">🔄 명단 불일치 확인</button>
-    <button onclick="document.getElementById('paste-ov').style.display='flex'" style="padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.12);color:var(--blue);border:1px solid rgba(79,168,245,.3)">📋 교육생 명단 붙여넣기 일괄 등록</button>
+    <button onclick="document.getElementById('paste-ov').style.display='flex'" style="padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.12);color:var(--blue);border:1px solid rgba(79,168,245,.3)">📋 교육생 명단 붙여넣기 일괄 등록</button>
+    <button onclick="openGlobalAttPaste()" style="padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.12);color:#3ecf8e;border:1px solid rgba(62,207,142,.3)">✅ 날짜별 출석 일괄 업로드</button>
   </div>
   <!-- 지점별 현황 -->
   <div style="margin-bottom:1rem">
@@ -515,6 +516,143 @@ input[type=file].xf{display:none}
 <button class="stbtn" id="stbtn" onclick="showSetup()">⚙️</button>
 
 <script>
+const BR=[
+  {name:'광주제일지점',mgr:'구상옥',goal:2},{name:'새광주지점',mgr:'이진명',goal:2},
+  {name:'상무중앙지점',mgr:'김청훈',goal:3},{name:'상무제일지점',mgr:'양성호',goal:3},
+  {name:'동광주TC지점',mgr:'김도경',goal:3},{name:'광주지점',mgr:'마성현',goal:2},
+  {name:'광주미래지점',mgr:'조병성',goal:2},{name:'광주직할지점',mgr:'문형진',goal:2},
+  {name:'신광주지점',mgr:'조화영',goal:3},{name:'광주TC지점',mgr:'강유미',goal:3},
+  {name:'전남지점',mgr:'나병훈',goal:3},{name:'목포지점',mgr:'박재순',goal:2},
+  {name:'전남제일지점',mgr:'박동선',goal:1},{name:'전남TC지점',mgr:'김소운',goal:2},
+  {name:'순천지점',mgr:'안동호',goal:2},{name:'여수지점',mgr:'두진아',goal:2},
+  {name:'여수제일지점',mgr:'임주회',goal:3},{name:'광양지점',mgr:'권양미',goal:2},
+  {name:'호남TC지점',mgr:'김미연',goal:3}
+];
+let DATES=[
+  {key:'0415',lbl:'4/15(수)'},{key:'0416',lbl:'4/16(목)'},{key:'0417',lbl:'4/17(금)'},
+  {key:'0420',lbl:'4/20(일)'},{key:'0421',lbl:'4/21(월)'},{key:'0422',lbl:'4/22(화)'},
+  {key:'0423',lbl:'4/23(수)'},{key:'0424',lbl:'4/24(목)'}
+];
+
+let data=BR.map((b,i)=>({...b,id:i,passList:[],regList:[]}));
+let att=BR.map(()=>({attendees:[],attendance:{},eliminated:{},absenceReason:{},completed:{},completedAt:{}}));
+let selIdx=null,pv=[],rv=[],prevRk={},lastOi=-1;
+let db=null,dbRef=null,attRef=null,isFirst=true;
+
+// 날짜
+const now=new Date();
+const dstr=now.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+document.getElementById('dt').textContent=dstr;
+document.getElementById('rhdt').textContent=dstr+' 기준';
+
+
+
+// ── 날짜별 전체 출석 일괄 업로드 ──
+var _globalAttParsed = null;
+
+function openGlobalAttPaste(){
+  _globalAttParsed = null;
+  var inp = document.getElementById('global-att-inp');
+  if(inp) inp.value = '';
+  var prev = document.getElementById('global-att-preview');
+  if(prev){ prev.style.display='none'; prev.innerHTML=''; }
+  var ok = document.getElementById('global-att-ok');
+  if(ok) ok.style.display='none';
+  document.getElementById('global-att-modal').style.display='flex';
+}
+
+function parseGlobalAtt(){
+  var inp=document.getElementById('global-att-inp');
+  if(!inp)return;
+  var text=inp.value.trim();
+  if(!text){alert('내용을 입력해주세요.');return;}
+  var lines=text.split('\n');
+  var result=[];
+  var currentDate=null;
+  for(var li=0;li<lines.length;li++){
+    var line=lines[li].trim();
+    if(!line) continue;
+    // 날짜 인식: 4/16, 4/16(목), 0416 등
+    var dm=line.match(/^(\d{1,2})[\/-](\d{1,2})/);
+    if(dm){currentDate=('0'+dm[1]).slice(-2)+('0'+dm[2]).slice(-2);continue;}
+    var km=line.match(/^(\d{4})$/);
+    if(km){currentDate=km[1];continue;}
+    if(!currentDate) continue;
+    // 지점명: 이름들 형식
+    var ci=line.indexOf(':');
+    if(ci<0) continue;
+    var brPart=line.slice(0,ci).trim();
+    var nmPart=line.slice(ci+1).trim();
+    // 지점 찾기
+    var brIdx=-1;
+    for(var bi=0;bi<BR.length;bi++){
+      if(BR[bi].name.indexOf(brPart)>=0||brPart.indexOf(BR[bi].name.replace(/지점|TC지점/g,''))>=0){brIdx=bi;break;}
+    }
+    if(brIdx<0) continue;
+    var names=nmPart.split(/[\s,]+/).map(function(n){return n.trim();}).filter(function(n){return n.length>0&&n.length<=10;});
+    if(!names.length) continue;
+    result.push({dateKey:currentDate,branchIdx:brIdx,branchName:BR[brIdx].name,names:names});
+  }
+  _globalAttParsed=result;
+  var prev=document.getElementById('global-att-preview');
+  var ok=document.getElementById('global-att-ok');
+  if(!result.length){
+    if(prev){prev.style.display='block';prev.innerHTML='<span style="color:var(--rd)">인식된 데이터가 없습니다.</span>';}
+    return;
+  }
+  var html='<div style="font-size:11px;font-weight:700;color:#3ecf8e;margin-bottom:6px">'+result.length+'건 인식</div>';
+  var byDate={};
+  result.forEach(function(r){if(!byDate[r.dateKey])byDate[r.dateKey]=[];byDate[r.dateKey].push(r);});
+  Object.keys(byDate).sort().forEach(function(dk){
+    var dm2=DATES.find(function(d){return d.key===dk;});
+    html+='<div style="color:#FF8C55;font-weight:700;margin-top:4px">'+(dm2?dm2.lbl:dk)+'</div>';
+    byDate[dk].forEach(function(r){html+='<div style="margin-left:8px;color:#e8edf5">'+r.branchName+': <span style="color:#4fa8f5">'+r.names.join(', ')+'</span></div>';});
+  });
+  if(prev){prev.style.display='block';prev.innerHTML=html;}
+  if(ok)ok.style.display='block';
+}
+
+function confirmGlobalAtt(){
+  if(!_globalAttParsed || !_globalAttParsed.length){ alert('먼저 미리보기를 실행해주세요.'); return; }
+
+  var totalChecked = 0, totalAdded = 0;
+  var branchesChanged = new Set();
+
+  _globalAttParsed.forEach(function(r){
+    var i = r.branchIdx;
+    var a = att[i];
+    if(!a.attendance) a.attendance={};
+    if(!a.attendance[r.dateKey]) a.attendance[r.dateKey]=[];
+    var dayList = a.attendance[r.dateKey];
+
+    r.names.forEach(function(name){
+      // 접수자에 없으면 추가
+      if((a.attendees||[]).indexOf(name)<0){
+        a.attendees=a.attendees||[];
+        a.attendees.push(name);
+        if(data[i]){data[i].regList=data[i].regList||[];if(data[i].regList.indexOf(name)<0)data[i].regList.push(name);}
+        totalAdded++;
+      }
+      // 해당 날짜 출석 체크
+      if(dayList.indexOf(name)<0){
+        dayList.push(name);
+        totalChecked++;
+      }
+    });
+    branchesChanged.add(i);
+    writeLog(BR[i].name,'출결',r.dateKey+' 출석 일괄: '+r.names.join(','));
+  });
+
+  // 저장
+  if(attRef) saveAtt();
+  if(dbRef && totalAdded>0) dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
+
+  document.getElementById('global-att-modal').style.display='none';
+  _globalAttParsed=null;
+
+  var open=getOpen(); renderAtt(); restoreOpen(open);
+  alert('완료! 출석 체크: '+totalChecked+'명  신규 등록: '+totalAdded+'명  적용 지점: '+branchesChanged.size+'개');
+}
 
 // ── 출석 일괄입력 ──
 var _bulkAttIdx = -1;
@@ -655,16 +793,7 @@ function startSync(){
       }
     }
     data=BR.map((b,i)=>({...b,id:i,passList:arr[i]?.passList||[],regList:arr[i]?.regList||[]}));
-    // passList(기합격)를 att.attendees에서 즉시 제거
-    var _passRemoved=false;
-    data.forEach(function(d,i){
-      var before=att[i].attendees.length;
-      att[i].attendees=att[i].attendees.filter(function(n){
-        return (d.passList||[]).indexOf(n)<0;
-      });
-      if(att[i].attendees.length!==before) _passRemoved=true;
-    });
-    // passList 제거 후 syncAttNames로 로컬만 정리 (Firebase 쓰기 없음)
+    // syncAttNames로 regList → att.attendees 추가 (삭제 없음)
     syncAttNames();
     if(isFirst){isFirst=false;render(-1,false);}
     else if(ci>=0&&ci!==lastOi){showBanner(data[ci].name);render(ci,true);}
@@ -747,13 +876,8 @@ function syncAttNames(){
   var _changed=false;
   data.forEach(function(d,i){
     // 먼저 기합격자가 attendees에 있으면 제거
-    var before=(att[i].attendees||[]).length;
-    att[i].attendees=(att[i].attendees||[]).filter(function(n){
-      return (d.passList||[]).indexOf(n)<0;
-    });
-    if(att[i].attendees.length!==before) _changed=true;
-    // 정시접수 → attendees 추가
-    var ex=new Set(att[i].attendees);
+    // passList 삭제 코드 제거 - Firebase 데이터 보호
+    var ex=new Set(att[i].attendees||[]);
     (d.regList||[]).forEach(function(n){
       if(!ex.has(n)){att[i].attendees.push(n);ex.add(n);_changed=true;}
     });
@@ -1185,80 +1309,7 @@ function renderAtt(){
   }
   document.getElementById('att-cards').innerHTML=cardsHtml;
 }
-function _SKIP_OLD_CARDS_(b,i){
-    const a=att[i];
-    const ttl=a.attendees.length;
-    const elim=a.eliminated||{};
-    const elimCnt=Object.values(elim).filter(v=>v).length;
-    const dayCnts=DATES.map(d=>(a.attendance[d.key]||[]).filter(n=>!elim[n]).length);
-    const totDay=dayCnts.reduce((s,c)=>s+c,0);
-    const bn=sn(b.name);
-    const hasAtt=totDay>0;
 
-    // 날짜 헤더
-    const dHdrs=DATES.map((d,di)=>`<th class="dh"><span class="dl">${d.lbl}</span><span class="dc">${dayCnts[di]>0?dayCnts[di]+'명':'-'}</span></th>`).join('');
-
-    // 인원 행
-    const bodyRows=a.attendees.map(name=>{
-      const ns=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      const isElim=!!elim[name];
-      const dCells=DATES.map(d=>{
-        const chk=(a.attendance[d.key]||[]).includes(name);
-        return`<td><input type="checkbox" class="cb" ${chk?'checked':''} ${isElim?'disabled':''} onchange="togAtt(${i},'${d.key}','${ns}',this.checked)"></td>`;
-      }).join('');
-      const pDay=isElim?0:DATES.filter(d=>(a.attendance[d.key]||[]).includes(name)).length;
-      return`<tr class="${isElim?'elim':''}">
-        <td class="ntd">${name}${isElim?`<span class="elim-badge">탈락</span>`:''}</td>
-        <td><input type="checkbox" class="ecb" ${isElim?'checked':''} title="탈락 처리" onchange="togElim(${i},'${ns}',this.checked)"></td>
-        ${dCells}
-        <td class="std">${isElim?`<span style="color:var(--rd);font-size:10px">탈락</span>`:pDay>0?pDay+'일':'-'}</td>
-      </tr>`;
-    }).join('');
-
-    // 합계행
-    const footCols=DATES.map((d,di)=>`<td class="ds">${dayCnts[di]>0?dayCnts[di]:'0'}</td>`).join('');
-
-    return`<div class="acard${hasAtt?' has':''}" id="ac-${i}">
-      <div class="acard-hdr" onclick="togCard(${i})">
-        <div class="acard-left">
-          <div>
-            <span class="abn">${bn.top}<span class="abs">${bn.bot}</span></span>
-            <div class="amgr">${b.mgr} 지점장 · 접수 ${ttl}명${elimCnt>0?' · 탈락 '+elimCnt+'명':''}</div>
-          </div>
-        </div>
-        <div class="acard-right">
-          <div class="acnt${hasAtt?' has':''}">${totDay>0?'누적 '+totDay+'명':'미입력'}</div>
-          <span class="atog" id="at-${i}">▼</span>
-        </div>
-      </div>
-      <div class="acard-body" id="ab-${i}">
-        ${ttl>0?`
-        <div class="grid-wrap">
-          <table class="grid-tbl">
-            <thead><tr>
-              <th class="nh">이름</th>
-              <th class="eh">탈락</th>
-              ${dHdrs}
-              <th class="sh">합계</th>
-            </tr></thead>
-            <tbody>${bodyRows}</tbody>
-            <tfoot><tr>
-              <td class="ntd">📊 일별 출석</td><td></td>
-              ${footCols}
-              <td class="ds">${totDay}</td>
-            </tr></tfoot>
-          </table>
-        </div>`:`<div class="empty-msg">접수자가 없습니다</div>`}
-        <div class="add-sec" style="border-top:1px solid var(--bd);padding-top:.625rem;margin-top:.5rem;text-align:center">
-          <button onclick="openAttModal(${i})" style="padding:7px 18px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or3);color:var(--or);border:1px solid rgba(255,107,43,.3)">✏️ 명단 관리 (추가·삭제)</button>
-        </div>
-      </div>
-    </div>`;
-  restoreOpen(open);
-}
-
-
-// ── 출결 패널 토글 ──
 function togAttPanel(i){
   var body=document.getElementById('acard-body-'+i);
   var btn=document.getElementById('gc-btn-'+i);
@@ -3585,6 +3636,34 @@ function loadLog(retryCount){
     </div>
   </div>
 </div>
+
+<!-- 날짜별 출석 전체 업로드 모달 -->
+<div id="global-att-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9200;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
+  <div style="background:#111f38;border:1.5px solid #3ecf8e;border-radius:18px;width:100%;max-width:600px;margin:auto;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#0d5c3a,#3ecf8e);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:15px;font-weight:900;color:#fff">✅ 날짜별 출석 일괄 업로드</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.85)">전체 지점 · 전체 날짜 한번에 입력</div>
+      </div>
+      <button onclick="document.getElementById('global-att-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit">✕</button>
+    </div>
+    <div style="padding:1.25rem">
+      <div style="background:#0b1628;border-radius:10px;padding:10px 12px;margin-bottom:.75rem;font-size:11px;color:#8899bb;line-height:1.9">
+        <b style="color:#3ecf8e">입력 형식:</b><br>
+        <span style="color:#FF8C55">날짜: 4/16</span> 또는 <span style="color:#FF8C55">0416</span><br>
+        <span style="color:#e8edf5">지점명: 이름1 이름2 이름3</span><br>
+        <span style="color:#6688aa">예시)</span><br>
+        <span style="color:#4fa8f5">4/16<br>광주제일: 홍길동 김철수<br>새광주: 이혜림<br>4/15<br>광주제일: 홍길동</span>
+      </div>
+      <textarea id="global-att-inp" rows="10" style="width:100%;padding:10px;border:1px solid #1e3055;border-radius:10px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit;resize:none;line-height:1.7" placeholder="4/16&#10;광주제일지점: 홍길동 김철수&#10;새광주지점: 이혜림&#10;상무중앙지점: 박민수&#10;&#10;4/15&#10;광주제일지점: 홍길동"></textarea>
+      <div id="global-att-preview" style="display:none;margin-top:.625rem;background:#0b1628;border-radius:8px;padding:10px;max-height:150px;overflow-y:auto;font-size:11px"></div>
+      <div style="display:flex;gap:8px;margin-top:.75rem">
+        <button onclick="parseGlobalAtt()" style="flex:1;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🔍 미리보기</button>
+        <button onclick="confirmGlobalAtt()" id="global-att-ok" style="display:none;flex:2;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#0d5c3a;color:#3ecf8e;border:1px solid rgba(62,207,142,.4)">✅ 전체 반영</button>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- 명단 불일치 확인 모달 -->
 <div id="mismatch-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9000;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
   <div style="background:#111f38;border:1.5px solid #a78bfa;border-radius:18px;width:100%;max-width:600px;margin:auto;overflow:hidden">
@@ -3769,3 +3848,4 @@ function loadLog(retryCount){
 
 </body>
 </html>
+                                                                                                                                                                                                                                                                                                                                                                             
