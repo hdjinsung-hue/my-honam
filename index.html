@@ -663,9 +663,7 @@ function startSync(){
         var fbData=arr[i]||{};
         var local=_localAttState[i];
         return {
-          attendees:(fbData.attendees||[]).filter(function(n){
-            return (data[i]&&data[i].passList?data[i].passList:[]).indexOf(n)<0;
-          }),
+          attendees:(fbData.attendees||[]), // Firebase 저장 명단 그대로 로드
           // 로컬 보호 상태 또는 저장 중이면 로컬 우선
           attendance: (local||_isSaving)?mergeObj(fbData.attendance||{},local?local.attendance:att[i]?att[i].attendance||{}:{}):(fbData.attendance||{}),
           eliminated: (local||_isSaving)?mergeObj(fbData.eliminated||{},local?local.eliminated:att[i]?att[i].eliminated||{}:{}):(fbData.eliminated||{}),
@@ -1723,11 +1721,8 @@ function saveAtt(){
   try{
     // 전체 저장 (passList 기합격자 제외)
     var payload=att.map(function(a,i){
-      var cleanAttendees=(a.attendees||[]).filter(function(n){
-        return (data[i]&&data[i].passList?data[i].passList:[]).indexOf(n)<0;
-      });
       return {
-        attendees:cleanAttendees,
+        attendees:a.attendees||[],
         attendance:a.attendance||{},
         eliminated:a.eliminated||{},
         absenceReason:a.absenceReason||{},
