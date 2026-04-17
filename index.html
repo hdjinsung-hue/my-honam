@@ -823,6 +823,27 @@ if(document.readyState==='loading'){
   initFirebaseApp();
 }
 
+// honam_completed 데이터로 _doneMap 재계산 (att 로드 완료 후 호출)
+function _rebuildDoneMap(){
+  if(!window._completedRaw) return;
+  if(!window._doneMap) window._doneMap={};
+  var _nowD=new Date();
+  var _nowKey=String(_nowD.getMonth()+1).padStart(2,'0')+String(_nowD.getDate()).padStart(2,'0');
+  Object.keys(window._completedRaw).forEach(function(idx){
+    var entry=window._completedRaw[idx];
+    if(!entry) return;
+    var comp=entry.completed||{};
+    if(comp[_nowKey]){
+      var ii=parseInt(idx);
+      // att[ii]가 로드됐으면 출석 수로 done/noshow 판단
+      var _eMap=(att&&att[ii]&&att[ii].eliminated)||{};
+      var _attDk=(att&&att[ii]&&att[ii].attendance&&att[ii].attendance[_nowKey])||[];
+      var _cnt=_attDk.filter(function(n){return !_eMap[n];}).length;
+      window._doneMap[ii+'_'+_nowKey]=_cnt>0?'done':'noshow';
+    }
+  });
+}
+
 function startSync(){
   setLive('on','실시간 연결됨');
   loadBranchConfig();
@@ -847,28 +868,14 @@ function startSync(){
 
   // 완료 상태 별도 로드 (honam_completed) - att 데이터는 절대 건드리지 않음
   db.ref('honam_completed').on('value',function(snap){
-    var data2=snap.val();
-    if(!window._doneMap)window._doneMap={};
-    if(!data2)return;
-    var _nowD=new Date();
-    var _nowKey=String(_nowD.getMonth()+1).padStart(2,'0')+String(_nowD.getDate()).padStart(2,'0');
-    Object.keys(data2).forEach(function(idx){
-      var entry=data2[idx];
-      if(!entry)return;
-      var comp=entry.completed||{};
-      // _doneMap만 업데이트 (att 배열 건드리지 않음)
-      if(comp[_nowKey]){
-        var ii=parseInt(idx);
-        if(!window._doneMap[idx+'_'+_nowKey]){
-          // att[ii] 안전하게 접근
-          var _eMap=(att&&att[ii]&&att[ii].eliminated)||{};
-          var _attDk=(att&&att[ii]&&att[ii].attendance&&att[ii].attendance[_nowKey])||[];
-          var _cnt=_attDk.filter(function(n){return !_eMap[n];}).length;
-          window._doneMap[idx+'_'+_nowKey]=_cnt>0?'done':'noshow';
-        }
-      }
-    });
-    // 렌더링은 attRef.on 이후에만 (att 데이터 확실히 로드된 후)
+    // honam_completed 데이터를 전역 보관 (att 로드 후 재계산용)
+    if(!window._doneMap) window._doneMap={};
+    window._completedRaw = snap.val()||{};
+    // att가 이미 로드됐으면 즉시 _doneMap 갱신
+    _rebuildDoneMap();
+    if(document.getElementById('tab-att').classList.contains('on')){
+      var _ob=getOpen(); renderAtt(); if(_ob.length) restoreOpen(_ob);
+    }
   });
 
   attRef.on('value',snap=>{
@@ -895,18 +902,8 @@ function startSync(){
       });
     }
     var _needSave=syncAttNames(); // 로컬만 업데이트
-    // att 로드 후 _doneMap 갱신 (honam_completed 기준)
-    if(window._doneMap){
-      var _nowD2=new Date();
-      var _nowKey2=String(_nowD2.getMonth()+1).padStart(2,'0')+String(_nowD2.getDate()).padStart(2,'0');
-      att.forEach(function(a,idx){
-        if(a.completed&&a.completed[_nowKey2]&&!window._doneMap[idx+'_'+_nowKey2]){
-          var _eMap2=a.eliminated||{};
-          var _cnt2=(a.attendance[_nowKey2]||[]).filter(function(n){return !_eMap2[n];}).length;
-          window._doneMap[idx+'_'+_nowKey2]=_cnt2>0?'done':'noshow';
-        }
-      });
-    }
+    // att 로드 완료 → honam_completed 기준으로 _doneMap 재계산
+    _rebuildDoneMap();
     if(document.getElementById('tab-att').classList.contains('on')){
       var _openBefore=getOpen();
       renderAtt();
