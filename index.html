@@ -597,63 +597,6 @@ input[type=file].xf{display:none}
 </div>
 <button class="stbtn" id="stbtn" onclick="showSetup()">⚙️</button>
 
-<!-- 모의고사 탭 -->
-<div class="tab-pane" id="tab-exam">
-<div class="wrap" style="padding-bottom:2rem">
-  <!-- 합격 현황 카드 -->
-  <div id="exam-pass-card" style="background:#111f38;border:1.5px solid rgba(167,139,250,.4);border-radius:14px;padding:1rem;margin-bottom:.875rem;display:none">
-    <div style="font-size:13px;font-weight:900;color:#a78bfa;margin-bottom:.625rem">⭐ 합격 현황</div>
-    <div id="exam-pass-body" style="font-size:12px"></div>
-  </div>
-
-  <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:1rem;margin-bottom:.875rem">
-    <div style="font-size:14px;font-weight:900;color:#FF8C55;margin-bottom:.75rem">📝 모의고사 점수 입력</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-      <div>
-        <div style="font-size:11px;color:#8899bb;margin-bottom:4px">지점 선택</div>
-        <select id="exam-branch-sel" onchange="onExamBranchChange()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit"></select>
-      </div>
-
-    </div>
-    <div style="margin-bottom:8px">
-      <div style="font-size:11px;color:#8899bb;margin-bottom:4px">수험자 선택</div>
-      <select id="exam-person-sel" onchange="onExamPersonChange()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit"></select>
-    </div>
-    <div style="margin-bottom:8px">
-      <div style="font-size:11px;color:#8899bb;margin-bottom:4px">형 선택</div>
-      <select id="exam-type-sel" onchange="renderExamScores()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit">
-        <option value="all">전체</option>
-      </select>
-    </div>
-    <!-- 손보 합격/불합격 -->
-    <div style="background:#0b1628;border:1px solid rgba(79,168,245,.25);border-radius:10px;padding:10px 12px;margin-bottom:8px">
-      <div style="font-size:11px;color:#4fa8f5;font-weight:700;margin-bottom:8px">📋 손보 (손해보험)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-        <button id="exam-son-pass" onclick="setExamResult('son','pass')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.1);color:#3ecf8e;border:2px solid rgba(62,207,142,.3)">✅ 합격</button>
-        <button id="exam-son-fail" onclick="setExamResult('son','fail')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:#f5605a;border:2px solid rgba(245,96,90,.3)">❌ 불합격</button>
-        <button id="exam-son-partial" onclick="setExamResult('son','partial')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.1);color:#a78bfa;border:2px solid rgba(167,139,250,.3)">★ 부분합격</button>
-      </div>
-    </div>
-    <!-- 제3보험 점수 입력 -->
-    <div style="background:#0b1628;border:1px solid rgba(62,207,142,.25);border-radius:10px;padding:10px 12px;margin-bottom:8px">
-      <div style="font-size:11px;color:#3ecf8e;font-weight:700;margin-bottom:8px">📋 제3보험</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-        <button id="exam-je3-pass" onclick="setExamResult('je3','pass')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.1);color:#3ecf8e;border:2px solid rgba(62,207,142,.3)">✅ 합격</button>
-        <button id="exam-je3-fail" onclick="setExamResult('je3','fail')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:#f5605a;border:2px solid rgba(245,96,90,.3)">❌ 불합격</button>
-        <button id="exam-je3-partial" onclick="setExamResult('je3','partial')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.1);color:#a78bfa;border:2px solid rgba(167,139,250,.3)">★ 부분합격</button>
-      </div>
-    </div>
-    <button onclick="saveExamScore()" style="width:100%;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#FF6B2B,#FF8C55);color:#fff;border:none">💾 점수 저장</button>
-  </div>
-  <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:1rem">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.625rem">
-      <div style="font-size:13px;font-weight:700;color:#e8edf5">📊 점수 현황</div>
-      <button onclick="printExamScores()" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 출력</button>
-    </div>
-    <div id="exam-scores-body" style="font-size:12px;color:#8899bb">지점과 수험자를 선택해주세요.</div>
-  </div>
-</div>
-</div>
 
 
 <script>
@@ -1994,6 +1937,10 @@ function startSync(){
       var _openBefore=getOpen();
       renderAtt();
       if(_openBefore.length>0)restoreOpen(_openBefore);
+    }
+    // 모의고사 탭이 열려있으면 지점 목록 갱신
+    if(document.getElementById('tab-exam')&&document.getElementById('tab-exam').classList.contains('on')){
+      renderExam();
     }
     // syncAttNames 결과는 로컬만 반영. 리스너 안에서는 Firebase 쓰기 없음.
   });
