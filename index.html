@@ -658,6 +658,20 @@ input[type=file].xf{display:none}
 
 <script>
 
+function clearExamPerson(btn){
+  if(!_examRef) return;
+  var bi=btn.getAttribute('data-bi2');
+  var personKey=btn.getAttribute('data-key2');
+  var brSel=document.getElementById('exam-person-sel');
+  var name=brSel?brSel.options[brSel.selectedIndex].text:'수험자';
+  if(!confirm(name+' 의 모의고사 점수 전체를 초기화하시겠습니까?\n삭제 후 복구 불가능합니다.')) return;
+  _examRef.child(bi+'/'+personKey).remove().then(function(){
+    renderExamScores();
+    _calcAutoRound();
+    renderExamPassCard();
+  }).catch(function(e){alert('초기화 실패: '+e.message);});
+}
+
 function deleteExamScore(btn){
   if(!_examRef) return;
   var bi=btn.getAttribute('data-bi');
@@ -665,11 +679,26 @@ function deleteExamScore(btn){
   var round=btn.getAttribute('data-round');
   var type=btn.getAttribute('data-type');
   if(!confirm(round+'회차 '+type+' 점수를 삭제하시겠습니까?')) return;
-  var path=bi+'/'+personKey+'/round'+round+'/'+type;
-  _examRef.child(path).remove().then(function(){
-    renderExamScores();
-    _calcAutoRound();
-    renderExamPassCard();
+  // 형 삭제
+  var typePath=bi+'/'+personKey+'/round'+round+'/'+type;
+  _examRef.child(typePath).remove().then(function(){
+    // 해당 회차에 남은 형이 있는지 확인
+    var roundRef=_examRef.child(bi+'/'+personKey+'/round'+round);
+    roundRef.once('value',function(snap){
+      var remaining=snap.val();
+      if(!remaining||Object.keys(remaining).length===0){
+        // 회차 전체 삭제
+        roundRef.remove().then(function(){
+          renderExamScores();
+          _calcAutoRound();
+          renderExamPassCard();
+        });
+      } else {
+        renderExamScores();
+        _calcAutoRound();
+        renderExamPassCard();
+      }
+    });
   }).catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
@@ -1319,88 +1348,84 @@ function renderExamScores(){
   var personKey=personVal.replace(/[.#$]/g,'_').replace(/[[\]]/g,'_');
   var name=personVal.replace(/^(pass|reg)_/,'');
   var isKiPerson=!!(data[bi]&&data[bi].passList&&data[bi].passList.indexOf(name)>=0);
-  var branchData=(_examData[bi]||{});
-  var personData=branchData[personKey]||{};
+  var personData=(_examData[bi]||{})[personKey]||{};
 
-  // 표시할 회차: 입력된 데이터가 있는 회차만 탭으로 표시
+  // 데이터 있는 회차 목록
   var activeRounds=[];
   for(var r=1;r<=15;r++){
-    var rd=personData['round'+r]||{};
-    if(Object.keys(rd).length>0) activeRounds.push(r);
+    if(Object.keys(personData['round'+r]||{}).length>0) activeRounds.push(r);
   }
-  // 현재 선택 회차 데이터
   var roundData=personData['round'+round]||{};
   var types=typeFilter==='all'?EXAM_TYPES:[typeFilter];
-  var hasData=false;
 
-  var html='<div style="font-size:12px;font-weight:700;color:#FF8C55;margin-bottom:8px">'
-    +name+(isKiPerson?' <span style="font-size:10px;color:#a78bfa;background:rgba(167,139,250,.15);padding:2px 7px;border-radius:6px">기합격</span>':'')+'</div>';
+  // 헤더
+  var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+    +'<div style="font-size:12px;font-weight:700;color:#FF8C55">'+name+(isKiPerson?' <span style="font-size:10px;color:#a78bfa;background:rgba(167,139,250,.15);padding:2px 7px;border-radius:6px">기합격</span>':'')+'</div>'
+    +'<button data-bi2="'+bi+'" data-key2="'+personKey+'" onclick="clearExamPerson(this)" style="padding:4px 10px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:#f5605a;border:1px solid rgba(245,96,90,.3)">🗑️ 전체 초기화</button>'
+    +'</div>';
 
-  // 회차 탭 (데이터 있는 것만)
+  // 회차 탭
   if(activeRounds.length>0){
     html+='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">';
     activeRounds.forEach(function(r){
-      var isActive=String(r)===String(round);
-      html+='<button data-rv="'+r+'" onclick="switchExamRound(this)" '
-        +'style="padding:4px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;'
-        +(isActive?'background:#FF6B2B;color:#fff;border:none':'background:var(--bg3);color:var(--t2);border:1px solid var(--bd)')+'">'+r+'회차</button>';
+      var isA=String(r)===String(round);
+      html+='<button data-rv="'+r+'" onclick="switchExamRound(this)" style="padding:4px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;'
+        +(isA?'background:#FF6B2B;color:#fff;border:none':'background:var(--bg3);color:var(--t2);border:1px solid var(--bd)')+'">'+r+'회차</button>';
     });
     html+='</div>';
   }
 
+  // 점수 표
   html+='<table style="width:100%;border-collapse:collapse;font-size:11px">'
     +'<thead><tr style="background:#0b1628">'
     +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #1e3055;color:#8899bb">형</th>'
     +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">손보</th>'
     +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">제3보험</th>'
     +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#FF8C55">합격여부</th>'
-    +'<th style="padding:6px 5px;border-bottom:1px solid #1e3055;width:50px"></th>'
+    +'<th style="padding:6px 5px;border-bottom:1px solid #1e3055;width:45px"></th>'
     +'</tr></thead><tbody>';
 
+  var hasData=false;
   types.forEach(function(t){
     var td=roundData[t]||{};
-    // kipass 포함 합격 판단
-    var sonPass=td.son==='pass'||td.son==='kipass'||td.son==='partial'
-      ||(typeof td.sonScore==='number'&&td.sonScore>=60)||(isKiPerson&&!td.son);
-    var je3Pass=td.je3==='pass'||td.je3==='kipass'||td.je3==='partial'
-      ||(typeof td.je3Score==='number'&&td.je3Score>=60)||(isKiPerson&&!td.je3);
-    // 텍스트 표시
-    var sonTxt='-', je3Txt='-', sonColor='#334466', je3Color='#334466';
-    if(td.son||typeof td.sonScore==='number'){
-      if(td.son==='kipass'){sonTxt='기합격★';sonColor='#a78bfa';}
-      else{sonTxt=(typeof td.sonScore==='number'?td.sonScore+'점 ':''+(sonPass?'합격':'불합격'));sonColor=sonPass?'#3ecf8e':'#f5605a';}
-    } else if(isKiPerson){
-      sonTxt='기합격★'; sonColor='#a78bfa';
-    }
-    if(td.je3||typeof td.je3Score==='number'){
-      if(td.je3==='kipass'){je3Txt='기합격★';je3Color='#a78bfa';}
-      else{je3Txt=(typeof td.je3Score==='number'?td.je3Score+'점 ':''+(je3Pass?'합격':'불합격'));je3Color=je3Pass?'#3ecf8e':'#f5605a';}
-    } else if(isKiPerson){
-      je3Txt='기합격★'; je3Color='#a78bfa';
-    }
     var hasEntry=!!(td.son||td.je3||typeof td.sonScore==='number'||typeof td.je3Score==='number');
-    if(hasEntry) hasData=true;
-    var resultTxt='', resultBg='';
-    if(hasEntry||isKiPerson){
-      if(sonPass&&je3Pass){resultTxt='합격';resultBg='color:#3ecf8e;background:rgba(62,207,142,.1)';}
-      else if(sonPass||je3Pass){resultTxt='부분합격';resultBg='color:#a78bfa;background:rgba(167,139,250,.1)';}
-      else{resultTxt='불합격';resultBg='color:#f5605a;background:rgba(245,96,90,.1)';}
+    if(!hasEntry) return; // 데이터 없는 형은 스킵
+
+    hasData=true;
+    var sonPass=td.son==='pass'||td.son==='kipass'||td.son==='partial'||(typeof td.sonScore==='number'&&td.sonScore>=60);
+    var je3Pass=td.je3==='pass'||td.je3==='kipass'||td.je3==='partial'||(typeof td.je3Score==='number'&&td.je3Score>=60);
+    var sonTxt='-', je3Txt='-', sonColor='#334466', je3Color='#334466';
+    if(td.son==='kipass'){sonTxt='기합격★';sonColor='#a78bfa';}
+    else if(td.son||typeof td.sonScore==='number'){
+      sonTxt=(typeof td.sonScore==='number'?td.sonScore+'점 ':'')+(sonPass?'합격✅':'불합격❌');
+      sonColor=sonPass?'#3ecf8e':'#f5605a';
     }
-    if(!hasEntry&&!isKiPerson) return; // 데이터 없으면 행 생략
-    var safeKey=personKey.replace(/'/g,"\'");
-    var safeType=t.replace(/'/g,"\'");
+    if(td.je3==='kipass'){je3Txt='기합격★';je3Color='#a78bfa';}
+    else if(td.je3||typeof td.je3Score==='number'){
+      je3Txt=(typeof td.je3Score==='number'?td.je3Score+'점 ':'')+(je3Pass?'합격✅':'불합격❌');
+      je3Color=je3Pass?'#3ecf8e':'#f5605a';
+    }
+    var resultTxt='',resultBg='';
+    if(sonPass&&je3Pass){resultTxt='합격';resultBg='color:#3ecf8e;background:rgba(62,207,142,.1)';}
+    else if(sonPass||je3Pass){resultTxt='부분합격';resultBg='color:#a78bfa;background:rgba(167,139,250,.1)';}
+    else{resultTxt='불합격';resultBg='color:#f5605a;background:rgba(245,96,90,.1)';}
+
     html+='<tr style="border-bottom:1px solid rgba(30,48,85,.5)">'
       +'<td style="padding:5px 8px;font-weight:700;color:#e8edf5">'+t+'</td>'
       +'<td style="padding:5px 8px;text-align:center;color:'+sonColor+';font-weight:700">'+sonTxt+'</td>'
       +'<td style="padding:5px 8px;text-align:center;color:'+je3Color+';font-weight:700">'+je3Txt+'</td>'
       +'<td style="padding:5px 8px;text-align:center;font-weight:900;'+resultBg+'">'+resultTxt+'</td>'
-      +(hasEntry?'<td style="padding:3px 5px"><button data-bi="'+bi+'" data-key="'+safeKey+'" data-round="'+round+'" data-type="'+safeType+'" onclick="deleteExamScore(this)" style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:#f5605a;border:1px solid rgba(245,96,90,.3)">삭제</button></td>':'<td></td>')
+      +'<td style="padding:3px 5px;text-align:center">'
+        +'<button data-bi="'+bi+'" data-key="'+personKey+'" data-round="'+round+'" data-type="'+t+'" onclick="deleteExamScore(this)" '
+        +'style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:#f5605a;border:1px solid rgba(245,96,90,.3)">삭제</button>'
+      +'</td>'
       +'</tr>';
   });
   html+='</tbody></table>';
-  if(!hasData&&!isKiPerson) html+='<div style="color:#8899bb;font-size:11px;margin-top:6px">입력된 점수가 없습니다.</div>';
+  if(!hasData) html+='<div style="color:#8899bb;font-size:11px;margin-top:6px">'+round+'회차 입력된 점수가 없습니다.</div>';
   body.innerHTML=html;
 }
+
 
 function printExamScores(){
   var bi = parseInt(document.getElementById('exam-branch-sel').value);
