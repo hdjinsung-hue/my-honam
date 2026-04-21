@@ -354,6 +354,7 @@ input[type=file].xf{display:none}
 <div class="tabs" style="display:flex;align-items:center">
   <button class="tab on" id="tbtn-main" onclick="goTab('main')">📊 신인도입 현황</button>
   <button class="tab" id="tbtn-att" onclick="goTab('att')">📋 입문 출결</button>
+  <button class="tab" id="tbtn-exam" onclick="goTab('exam')">📝 모의고사</button>
   <button onclick="openAdmin()" style="margin-left:auto;padding:6px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3);white-space:nowrap">⚙️ 관리자</button>
 </div>
 
@@ -450,6 +451,83 @@ input[type=file].xf{display:none}
   </div>
   <div class="footer" id="att-footer">현대해상 <span id="att-footer-region">호남지역단</span> 신인도입 현황판</div>
 </div>
+  <div class="footer" id="att-footer">현대해상 <span id="att-footer-region">호남지역단</span> 신인도입 현황판</div>
+</div>
+
+<!-- 모의고사 탭 -->
+<div class="tab-pane" id="tab-exam">
+<div class="wrap" style="padding-bottom:2rem">
+  <!-- 상단 필터 -->
+  <!-- 합격 현황 카드 -->
+  <div id="exam-pass-card" style="background:#111f38;border:1.5px solid rgba(167,139,250,.4);border-radius:14px;padding:1rem;margin-bottom:.875rem;display:none">
+    <div style="font-size:13px;font-weight:900;color:#a78bfa;margin-bottom:.625rem">⭐ 합격 현황</div>
+    <div id="exam-pass-body" style="font-size:12px"></div>
+  </div>
+
+  <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:1rem;margin-bottom:.875rem">
+    <div style="font-size:14px;font-weight:900;color:#FF8C55;margin-bottom:.75rem">📝 모의고사 점수 입력</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div>
+        <div style="font-size:11px;color:#8899bb;margin-bottom:4px">지점 선택</div>
+        <select id="exam-branch-sel" onchange="onExamBranchChange()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit"></select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#8899bb;margin-bottom:4px">회차 (자동)</div>
+        <div id="exam-round-display" style="width:100%;padding:7px 8px;border:1px solid rgba(255,107,43,.4);border-radius:8px;background:#0b1628;color:#FF8C55;font-size:14px;font-family:inherit;font-weight:900;text-align:center">-회</div>
+        <input type="hidden" id="exam-round-sel" value="1">
+      </div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;color:#8899bb;margin-bottom:4px">수험자 선택</div>
+      <select id="exam-person-sel" onchange="onExamPersonChange()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit"></select>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;color:#8899bb;margin-bottom:4px">형 선택</div>
+      <select id="exam-type-sel" onchange="renderExamScores()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit">
+        <option value="all">전체</option>
+      </select>
+    </div>
+    <!-- 손보 점수 입력 -->
+    <div style="background:#0b1628;border:1.5px solid rgba(79,168,245,.25);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+        <span style="font-size:11px;color:#4fa8f5;font-weight:700">📋 손보 (손해보험)</span>
+        <span id="son-badge" style="display:none;font-size:10px;padding:2px 9px;border-radius:10px;font-weight:700"></span>
+      </div>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin-bottom:7px;padding:6px 8px;background:rgba(167,139,250,.08);border-radius:7px;border:1px solid rgba(167,139,250,.25)">
+        <input type="checkbox" id="chk-son-kipass" onchange="onKipassCheck('son')" style="width:17px;height:17px;accent-color:#a78bfa;cursor:pointer">
+        <span style="font-size:12px;color:#a78bfa;font-weight:700">★ 기합격 (점수 입력 불필요)</span>
+      </label>
+      <div id="son-input-wrap" style="display:flex;align-items:center;gap:8px">
+        <input type="number" id="exam-score-son" min="0" max="100" placeholder="점수 입력 (0~100)" oninput="onExamScoreInput()" style="flex:1;padding:8px 10px;border:1.5px solid rgba(79,168,245,.4);border-radius:8px;background:#111f38;color:#4fa8f5;font-size:14px;font-family:inherit;font-weight:700">
+        <span style="font-size:12px;color:#6688aa">점</span>
+      </div>
+    </div>
+    <!-- 제3보험 점수 입력 -->
+    <div style="background:#0b1628;border:1.5px solid rgba(62,207,142,.25);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+        <span style="font-size:11px;color:#3ecf8e;font-weight:700">📋 제3보험</span>
+        <span id="je3-badge" style="display:none;font-size:10px;padding:2px 9px;border-radius:10px;font-weight:700"></span>
+      </div>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin-bottom:7px;padding:6px 8px;background:rgba(167,139,250,.08);border-radius:7px;border:1px solid rgba(167,139,250,.25)">
+        <input type="checkbox" id="chk-je3-kipass" onchange="onKipassCheck('je3')" style="width:17px;height:17px;accent-color:#a78bfa;cursor:pointer">
+        <span style="font-size:12px;color:#a78bfa;font-weight:700">★ 기합격 (점수 입력 불필요)</span>
+      </label>
+      <div id="je3-input-wrap" style="display:flex;align-items:center;gap:8px">
+        <input type="number" id="exam-score-je3" min="0" max="100" placeholder="점수 입력 (0~100)" oninput="onExamScoreInput()" style="flex:1;padding:8px 10px;border:1.5px solid rgba(62,207,142,.4);border-radius:8px;background:#111f38;color:#3ecf8e;font-size:14px;font-family:inherit;font-weight:700">
+        <span style="font-size:12px;color:#6688aa">점</span>
+      </div>
+    </div>
+    <!-- 결과 미리보기 -->
+    <div id="exam-result-preview" style="display:none;text-align:center;padding:9px;border-radius:9px;font-size:13px;font-weight:700;margin-bottom:8px"></div>
+    <button onclick="saveExamScore()" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#FF6B2B,#FF8C55);color:#fff;border:none">💾 저장</button>
+  </div>
+  <!-- 점수 현황 -->
+  <div id="exam-scores-area" style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:1rem">
+    <div style="font-size:13px;font-weight:700;color:#e8edf5;margin-bottom:.625rem">📊 점수 현황</div>
+    <div id="exam-scores-body" style="font-size:12px;color:#8899bb">지점과 수험자를 선택해주세요.</div>
+  </div>
+</div>
+</div>
 </div>
 
 <!-- 신인도입 명단 모달 -->
@@ -519,7 +597,841 @@ input[type=file].xf{display:none}
 </div>
 <button class="stbtn" id="stbtn" onclick="showSetup()">⚙️</button>
 
+<!-- 모의고사 탭 -->
+<div class="tab-pane" id="tab-exam">
+<div class="wrap" style="padding-bottom:2rem">
+  <!-- 합격 현황 카드 -->
+  <div id="exam-pass-card" style="background:#111f38;border:1.5px solid rgba(167,139,250,.4);border-radius:14px;padding:1rem;margin-bottom:.875rem;display:none">
+    <div style="font-size:13px;font-weight:900;color:#a78bfa;margin-bottom:.625rem">⭐ 합격 현황</div>
+    <div id="exam-pass-body" style="font-size:12px"></div>
+  </div>
+
+  <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:1rem;margin-bottom:.875rem">
+    <div style="font-size:14px;font-weight:900;color:#FF8C55;margin-bottom:.75rem">📝 모의고사 점수 입력</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div>
+        <div style="font-size:11px;color:#8899bb;margin-bottom:4px">지점 선택</div>
+        <select id="exam-branch-sel" onchange="onExamBranchChange()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit"></select>
+      </div>
+
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;color:#8899bb;margin-bottom:4px">수험자 선택</div>
+      <select id="exam-person-sel" onchange="onExamPersonChange()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit"></select>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;color:#8899bb;margin-bottom:4px">형 선택</div>
+      <select id="exam-type-sel" onchange="renderExamScores()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit">
+        <option value="all">전체</option>
+      </select>
+    </div>
+    <!-- 손보 합격/불합격 -->
+    <div style="background:#0b1628;border:1px solid rgba(79,168,245,.25);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:11px;color:#4fa8f5;font-weight:700;margin-bottom:8px">📋 손보 (손해보험)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        <button id="exam-son-pass" onclick="setExamResult('son','pass')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.1);color:#3ecf8e;border:2px solid rgba(62,207,142,.3)">✅ 합격</button>
+        <button id="exam-son-fail" onclick="setExamResult('son','fail')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:#f5605a;border:2px solid rgba(245,96,90,.3)">❌ 불합격</button>
+        <button id="exam-son-partial" onclick="setExamResult('son','partial')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.1);color:#a78bfa;border:2px solid rgba(167,139,250,.3)">★ 부분합격</button>
+      </div>
+    </div>
+    <!-- 제3보험 점수 입력 -->
+    <div style="background:#0b1628;border:1px solid rgba(62,207,142,.25);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:11px;color:#3ecf8e;font-weight:700;margin-bottom:8px">📋 제3보험</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        <button id="exam-je3-pass" onclick="setExamResult('je3','pass')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.1);color:#3ecf8e;border:2px solid rgba(62,207,142,.3)">✅ 합격</button>
+        <button id="exam-je3-fail" onclick="setExamResult('je3','fail')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:#f5605a;border:2px solid rgba(245,96,90,.3)">❌ 불합격</button>
+        <button id="exam-je3-partial" onclick="setExamResult('je3','partial')" style="padding:10px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.1);color:#a78bfa;border:2px solid rgba(167,139,250,.3)">★ 부분합격</button>
+      </div>
+    </div>
+    <button onclick="saveExamScore()" style="width:100%;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#FF6B2B,#FF8C55);color:#fff;border:none">💾 점수 저장</button>
+  </div>
+  <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:1rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.625rem">
+      <div style="font-size:13px;font-weight:700;color:#e8edf5">📊 점수 현황</div>
+      <button onclick="printExamScores()" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 출력</button>
+    </div>
+    <div id="exam-scores-body" style="font-size:12px;color:#8899bb">지점과 수험자를 선택해주세요.</div>
+  </div>
+</div>
+</div>
+
+
 <script>
+
+function switchExamRound(btn){
+  var rv = btn.getAttribute('data-rv');
+  var el = document.getElementById('exam-round-sel');
+  if(el) el.value = rv;
+  renderExamScores();
+}
+
+function showExamPersonDetail(bi,pKey,name){
+  var branchRaw=(_examData[bi]||{});
+  var pData=branchRaw[pKey]||{};
+  var a=att[bi]||{};
+  var isKi=(data[bi]&&data[bi].passList&&data[bi].passList.indexOf(name)>=0);
+  var _rMap={pass:'합격 V',fail:'불합격 X',kipass:'기합격 *',partial:'부분합격'};
+  var html='<div id="exam-detail-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto" onclick="document.getElementById(\'exam-detail-overlay\').remove()">'
+    +'<div style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;width:100%;max-width:500px;padding:1.25rem;margin:auto" onclick="event.stopPropagation()">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem">'
+      +'<div><div style="font-size:15px;font-weight:900;color:#e8edf5">'+name+(isKi?' <span style="color:#a78bfa;font-size:11px;padding:2px 7px;background:rgba(167,139,250,.15);border-radius:8px">기합격</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:#8899bb;margin-top:2px">'+BR[bi].name+'</div></div>'
+      +'<button id="exam-detail-close" onclick="document.getElementById(\'exam-detail-overlay\').remove()" style="background:rgba(255,255,255,.1);border:none;color:#fff;font-size:18px;cursor:pointer;border-radius:8px;width:30px;height:30px;font-family:inherit">X</button>'
+    +'</div>'
+    +'<div style="background:#0b1628;border-radius:10px;padding:10px;margin-bottom:.75rem">'
+      +'<div style="font-size:11px;color:#4fa8f5;font-weight:700;margin-bottom:5px">출결 현황</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:4px">'
+      +DATES.map(function(d){var ok=(a.attendance[d.key]||[]).indexOf(name)>=0;return '<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:'+(ok?'rgba(62,207,142,.2)':'rgba(30,48,85,.5)')+';color:'+(ok?'#3ecf8e':'#334466')+';font-weight:700">'+d.lbl+(ok?' V':'')+'</span>';}).join('')
+      +'</div></div>'
+    +'<div style="font-size:11px;color:#FF8C55;font-weight:700;margin-bottom:5px">모의고사 점수</div>'
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">'
+    +'<thead><tr style="background:#0b1628"><th style="padding:5px;border:1px solid #1e3055;text-align:left;color:#8899bb">회차/형</th><th style="padding:5px;border:1px solid #1e3055;color:#4fa8f5">손보</th><th style="padding:5px;border:1px solid #1e3055;color:#3ecf8e">제3</th><th style="padding:5px;border:1px solid #1e3055;color:#FF8C55">결과</th></tr></thead><tbody>';
+  var hasAny=false;
+  for(var r=1;r<=15;r++){
+    var roundData=pData['round'+r]||{};
+    EXAM_TYPES.forEach(function(t){
+      var td=roundData[t]||{};
+      if(!td.son&&!td.je3) return;
+      hasAny=true;
+      var sP=td.son==='pass'||td.son==='kipass'||(typeof td.sonScore==='number'&&td.sonScore>=60);
+      var jP=td.je3==='pass'||td.je3==='kipass'||(typeof td.je3Score==='number'&&td.je3Score>=60);
+      var sV=(td.son?(_rMap[td.son]||td.son):'-')+(typeof td.sonScore==='number'?' ('+td.sonScore+'점)':'');
+      var jV=(td.je3?(_rMap[td.je3]||td.je3):'-')+(typeof td.je3Score==='number'?' ('+td.je3Score+'점)':'');
+      var res=sP&&jP?'합격':(sP||jP?'부분합격':'불합격');
+      var rc=sP&&jP?'#3ecf8e':(sP||jP?'#a78bfa':'#f5605a');
+      html+='<tr><td style="padding:4px 6px;border:1px solid rgba(30,48,85,.5);font-weight:700;color:#e8edf5;white-space:nowrap">'+r+'회 '+t+'</td>'
+        +'<td style="padding:4px;border:1px solid rgba(30,48,85,.5);text-align:center;font-size:10px;color:'+(sP?'#3ecf8e':'#f5605a')+'">'+sV+'</td>'
+        +'<td style="padding:4px;border:1px solid rgba(30,48,85,.5);text-align:center;font-size:10px;color:'+(jP?'#3ecf8e':'#f5605a')+'">'+jV+'</td>'
+        +'<td style="padding:4px;border:1px solid rgba(30,48,85,.5);text-align:center;color:'+rc+';font-weight:700">'+res+'</td></tr>';
+    });
+  }
+  if(!hasAny) html+='<tr><td colspan="4" style="padding:8px;text-align:center;color:#334466">입력된 데이터 없음</td></tr>';
+  html+='</tbody></table></div></div></div>';
+  var el=document.createElement('div');el.innerHTML=html;
+  document.body.appendChild(el.firstChild);
+}
+
+// ── 기합격 체크박스 처리 ──
+function onKipassCheck(which){
+  var chk=document.getElementById('chk-'+which+'-kipass');
+  var inp=document.getElementById('exam-score-'+which);
+  var wrap=document.getElementById(which+'-input-wrap');
+  var badge=document.getElementById(which+'-badge');
+  if(!chk||!inp) return;
+  if(chk.checked){
+    // 기합격 체크 → 점수 입력 비활성화
+    inp.disabled=true; inp.value=''; inp.style.opacity='0.35';
+    if(badge){badge.textContent='기합격 ★';badge.style.background='rgba(167,139,250,.25)';badge.style.color='#a78bfa';badge.style.border='1px solid rgba(167,139,250,.5)';badge.style.display='inline-block';}
+  } else {
+    inp.disabled=false; inp.style.opacity='1';
+    if(badge) badge.style.display='none';
+  }
+  onExamScoreInput();
+}
+
+// 저장 시 기합격 체크 반영
+function _getKipassFlags(){
+  return {
+    son: !!(document.getElementById('chk-son-kipass')&&document.getElementById('chk-son-kipass').checked),
+    je3: !!(document.getElementById('chk-je3-kipass')&&document.getElementById('chk-je3-kipass').checked)
+  };
+}
+
+// ── 모의고사 점수 입력 관련 ──
+function toggleExamBtn(which, result){ /* 구버전 호환 */ }
+
+function onExamScoreInput(){
+  var sonInp=document.getElementById('exam-score-son');
+  var je3Inp=document.getElementById('exam-score-je3');
+  var prev=document.getElementById('exam-result-preview');
+  if(!prev) return;
+
+  var son=sonInp&&sonInp.value!==''?parseInt(sonInp.value):null;
+  var je3=je3Inp&&je3Inp.value!==''?parseInt(je3Inp.value):null;
+
+  // 기합격자 여부 확인
+  var perSel=document.getElementById('exam-person-sel');
+  var brSel=document.getElementById('exam-branch-sel');
+  var bi=brSel?parseInt(brSel.value):-1;
+  var personVal=perSel?perSel.value:'';
+  var name=personVal.replace(/^(pass|reg)_/,'');
+  var isKiPass=bi>=0&&data[bi]&&data[bi].passList&&data[bi].passList.indexOf(name)>=0;
+  // 체크박스 기합격 여부
+  var chkSon=!!(document.getElementById('chk-son-kipass')&&document.getElementById('chk-son-kipass').checked);
+  var chkJe3=!!(document.getElementById('chk-je3-kipass')&&document.getElementById('chk-je3-kipass').checked);
+
+  var sonPass=isKiPass||chkSon||(son!==null&&son>=60);
+  var je3Pass=isKiPass||chkJe3||(je3!==null&&je3>=60);
+  var sonHas=isKiPass||chkSon||(son!==null);
+  var je3Has=isKiPass||chkJe3||(je3!==null);
+
+  if(!sonHas&&!je3Has){prev.style.display='none';return;}
+
+  var txt,bg,color;
+  if(isKiPass){
+    // 기합격자: 입력한 과목이 합격이면 전체 합격, 불합격이면 부분합격
+    var newPass=(son!==null&&son>=60)||(je3!==null&&je3>=60);
+    var newFail=(son!==null&&son<60)||(je3!==null&&je3<60);
+    var scoreInfo=son!==null?('손보 '+son+'점'):(je3!==null?'제3 '+je3+'점':'');
+    if(son===null&&je3===null){
+      txt='⭐ 기합격자 - 점수 입력 후 최종 결과 확인';bg='rgba(167,139,250,.1)';color='#a78bfa';
+    } else if(newPass&&!newFail){
+      txt='🎉 합격! (기합격 ★ + '+scoreInfo+' ✅)';bg='rgba(62,207,142,.15)';color='#3ecf8e';
+    } else {
+      txt='⭐ 부분합격 (기합격 ★ + '+scoreInfo+(newFail?' ❌':' -')+')';bg='rgba(167,139,250,.15)';color='#a78bfa';
+    }
+  } else if(sonHas&&je3Has){
+    if(sonPass&&je3Pass){txt='🎉 합격 (손보 '+son+'점✅ + 제3 '+je3+'점✅)';bg='rgba(62,207,142,.15)';color='#3ecf8e';}
+    else if(sonPass||je3Pass){
+      var sT=son!==null?'손보 '+son+'점'+(sonPass?'✅':'❌'):'손보-';
+      var j3T=je3!==null?'제3 '+je3+'점'+(je3Pass?'✅':'❌'):'제3-';
+      txt='⭐ 부분합격 ('+sT+' / '+j3T+')';bg='rgba(167,139,250,.15)';color='#a78bfa';
+    } else {
+      txt='❌ 불합격 (손보 '+son+'점 / 제3 '+je3+'점)';bg='rgba(245,96,90,.15)';color='#f5605a';
+    }
+  } else if(son!==null){
+    txt=(sonPass?'✅ 손보 합격 ('+son+'점)':'❌ 손보 불합격 ('+son+'점)');bg=sonPass?'rgba(62,207,142,.15)':'rgba(245,96,90,.15)';color=sonPass?'#3ecf8e':'#f5605a';
+  } else {
+    txt=(je3Pass?'✅ 제3 합격 ('+je3+'점)':'❌ 제3 불합격 ('+je3+'점)');bg=je3Pass?'rgba(62,207,142,.15)':'rgba(245,96,90,.15)';color=je3Pass?'#3ecf8e':'#f5605a';
+  }
+  prev.style.display='block';prev.style.background=bg;prev.style.color=color;
+  prev.style.border='1px solid '+color;prev.textContent=txt;
+}
+
+// 수험자/형 선택 시 기합격 여부 + 기존 합격 뱃지 표시
+function showExamBadges(){
+  var brSel=document.getElementById('exam-branch-sel');
+  var perSel=document.getElementById('exam-person-sel');
+  var rdSel=document.getElementById('exam-round-sel');
+  var tySel=document.getElementById('exam-type-sel');
+  if(!brSel||!perSel||!rdSel||!tySel) return;
+  // 초기화
+  ['son','je3'].forEach(function(w){
+    var badge=document.getElementById(w+'-badge');
+    var wrap=document.getElementById(w+'-input-wrap');
+    var inp=document.getElementById('exam-score-'+w);
+    if(badge) badge.style.display='none';
+    if(wrap) wrap.style.display='flex';
+    if(inp){inp.value='';inp.disabled=false;inp.style.opacity='1';}
+  });
+  var prev=document.getElementById('exam-result-preview');
+  if(prev) prev.style.display='none';
+
+  var bi=parseInt(brSel.value);
+  var personVal=perSel.value;
+  var round=rdSel.value;
+  var type=tySel.value;
+  if(!personVal) return;
+
+  var name=personVal.replace(/^(pass|reg)_/,'');
+  var isKiPass=(data[bi]&&data[bi].passList&&data[bi].passList.indexOf(name)>=0);
+
+  // 기합격자 처리
+  if(isKiPass){
+    ['son','je3'].forEach(function(w){
+      var badge=document.getElementById(w+'-badge');
+      if(badge){
+        badge.textContent='기합격 ★';
+        badge.style.background='rgba(167,139,250,.25)';
+        badge.style.color='#a78bfa';
+        badge.style.border='1px solid rgba(167,139,250,.5)';
+        badge.style.display='inline-block';
+      }
+    });
+    // 기합격자도 점수 입력 가능 (나머지 과목 확인용)
+    if(prev){
+      prev.style.display='block';
+      prev.style.background='rgba(167,139,250,.1)';
+      prev.style.color='#a78bfa';
+      prev.style.border='1px solid rgba(167,139,250,.4)';
+      prev.textContent='⭐ 기합격자 - 점수 입력 후 최종 결과 확인';
+    }
+    return;
+  }
+
+  if(type==='all') return;
+  // 기존 저장 데이터 확인
+  var personKey=personVal.replace(/[.#$\[\]]/g,'_');
+  var roundData=((_examData[bi]||{})[personKey]||{})['round'+round]||{};
+  var typeTd=(roundData[type])||{};
+
+  ['son','je3'].forEach(function(w){
+    var badge=document.getElementById(w+'-badge');
+    var wrap=document.getElementById(w+'-input-wrap');
+    var inp=document.getElementById('exam-score-'+w);
+    var val=typeTd[w];
+    var score=typeTd[w+'Score'];
+    if(!badge||!wrap) return;
+    var passed=(val==='pass')||(typeof score==='number'&&score>=60);
+    if(passed){
+      var scoreStr=typeof score==='number'?'('+score+'점) ':'';
+      badge.textContent='합격 ✅ '+scoreStr;
+      badge.style.background='rgba(62,207,142,.2)';
+      badge.style.color='#3ecf8e';
+      badge.style.border='1px solid rgba(62,207,142,.4)';
+      badge.style.display='inline-block';
+      // 이미 합격한 과목은 입력란 비활성화
+      if(inp){inp.disabled=true;inp.style.opacity='0.4';inp.placeholder='이미 합격';}
+    } else {
+      badge.style.display='none';
+    }
+  });
+}
+
+function renderExamPassCard(){
+  var card=document.getElementById('exam-pass-card');
+  var body=document.getElementById('exam-pass-body');
+  if(!card||!body) return;
+
+  var brSel=document.getElementById('exam-branch-sel');
+  if(!brSel||brSel.options.length===0){card.style.display='none';return;}
+  var bi=parseInt(brSel.value);
+
+  var items=[]; // {name, type, tags:[]}
+  var nameMap={}; // name → tags[]
+
+  // 기합격자 (passList)
+  (data[bi]&&data[bi].passList||[]).forEach(function(name){
+    if(!nameMap[name]) nameMap[name]=[];
+    nameMap[name].push({txt:'기합격', color:'#a78bfa', bg:'rgba(167,139,250,.15)'});
+  });
+
+  // 부분합격자 (모의고사 데이터에서)
+  var branchRaw=(_examData&&_examData[bi])||{};
+  Object.keys(branchRaw).forEach(function(pKey){
+    var pData=branchRaw[pKey]||{};
+    var realName=pKey.replace(/^(pass_|reg_)/,'');
+    Object.keys(pData).forEach(function(rk){ // round1~15
+      var roundData=pData[rk]||{};
+      Object.keys(roundData).forEach(function(type){
+        var td=roundData[type]||{};
+        if(td.son==='partial'||td.je3==='partial'){
+          if(!nameMap[realName]) nameMap[realName]=[];
+          // 중복 없이 형 추가
+          var already=nameMap[realName].some(function(t){return t.txt===type+'부분';});
+          if(!already){
+            var label=rk.replace('round','')+'회 '+type;
+            if(td.son==='partial') label+=' 손보부분';
+            if(td.je3==='partial') label+=' 제3부분';
+            nameMap[realName].push({txt:label, color:'#FF8C55', bg:'rgba(255,107,43,.15)'});
+          }
+        }
+        if(td.son==='pass'&&td.je3==='pass'){
+          if(!nameMap[realName]) nameMap[realName]=[];
+          var already2=nameMap[realName].some(function(t){return t.txt===rk+type+'합';});
+          if(!already2){
+            nameMap[realName].push({
+              txt:rk.replace('round','')+'회 '+type+' 합격',
+              color:'#3ecf8e', bg:'rgba(62,207,142,.15)', _key:rk+type+'합'
+            });
+          }
+        }
+      });
+    });
+  });
+
+  var names=Object.keys(nameMap);
+  if(!names.length){card.style.display='none';return;}
+
+  card.style.display='block';
+  var html=names.map(function(name){
+    var tags=nameMap[name].map(function(t){
+      return '<span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;background:'+t.bg+';color:'+t.color+'">'+t.txt+'</span>';
+    }).join(' ');
+    return '<div style="display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-bottom:1px solid rgba(30,48,85,.4);flex-wrap:wrap">'
+      +'<span style="font-size:12px;font-weight:700;color:#e8edf5;min-width:60px;flex-shrink:0">'+name+'</span>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:3px">'+tags+'</div>'
+      +'</div>';
+  }).join('');
+  body.innerHTML=html;
+}
+
+// ── 관리자 모의고사 현황 ──
+function renderAdminExamStat(){
+  var brSel=document.getElementById('aes-branch');
+  var rdSel=document.getElementById('aes-round');
+  if(!brSel) return;
+  if(brSel.options.length===0){
+    BR.forEach(function(b,i){var o=document.createElement('option');o.value=i;o.textContent=b.name;brSel.appendChild(o);});
+  }
+  if(rdSel&&rdSel.options.length<=1){
+    for(var r=1;r<=15;r++){var o=document.createElement('option');o.value=r;o.textContent=r+'회차';rdSel.appendChild(o);}
+  }
+  var bi=parseInt(brSel.value);
+  var rd=rdSel?rdSel.value:'all';
+  var body=document.getElementById('admin-examstat-body');
+  if(!body) return;
+  if(!_examData||!_examRef){initExam();body.innerHTML='<div style="color:var(--t3)">모의고사 데이터 로딩 중...</div>';return;}
+  var branchRaw=_examData[bi]||{};
+  var attPeople=(att[bi]&&att[bi].attendees)||[];
+  var passPeople=(data[bi]&&data[bi].passList)||[];
+  var allPeople=[].concat(passPeople.map(function(n){return{name:n,isPass:true};}))
+                  .concat(attPeople.map(function(n){return{name:n,isPass:false};}));
+  function getAttDays(name){
+    var a=att[bi]||{};
+    if((a.eliminated||{})[name]) return 0;
+    return DATES.reduce(function(s,d){return s+((a.attendance[d.key]||[]).indexOf(name)>=0?1:0);},0);
+  }
+  var rounds=rd==='all'?Array.from({length:15},function(_,i){return i+1}):[parseInt(rd)];
+  var _rMap={pass:'합격',fail:'불합격',kipass:'기합격',partial:'부분합격'};
+  // 데이터 있는 최대 형
+  var maxTypeIdx=0;
+  Object.keys(branchRaw).forEach(function(pKey){
+    var pData=branchRaw[pKey]||{};
+    rounds.forEach(function(r){
+      var roundData=pData['round'+r]||{};
+      Object.keys(roundData).forEach(function(type){
+        var tidx=EXAM_TYPES.indexOf(type);
+        if(tidx>maxTypeIdx) maxTypeIdx=tidx;
+      });
+    });
+  });
+  var activeTypes=EXAM_TYPES.slice(0,maxTypeIdx+1);
+  if(!activeTypes.length) activeTypes=EXAM_TYPES.slice(0,1);
+  // 통계
+  var statTotal=allPeople.length,statPass=0,statPartial=0,statFail=0,statNone=0;
+  allPeople.forEach(function(p){
+    var pKey=p.name.replace(/[.#$]/g,'_').replace(/[\[\]]/g,'_');
+    var pData=branchRaw[pKey]||{};
+    var hasSonPass=p.isPass,hasJe3Pass=p.isPass,hasAny=p.isPass;
+    rounds.forEach(function(r){
+      activeTypes.forEach(function(t){
+        var td=(pData['round'+r]||{})[t]||{};
+        if(td.son){hasAny=true;if(td.son==='pass'||td.son==='kipass'||(typeof td.sonScore==='number'&&td.sonScore>=60))hasSonPass=true;}
+        if(td.je3){hasAny=true;if(td.je3==='pass'||td.je3==='kipass'||(typeof td.je3Score==='number'&&td.je3Score>=60))hasJe3Pass=true;}
+      });
+    });
+    if(!hasAny){statNone++;return;}
+    if(hasSonPass&&hasJe3Pass)statPass++;
+    else if(hasSonPass||hasJe3Pass)statPartial++;
+    else statFail++;
+  });
+  var html='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:.875rem">'
+    +'<div style="background:rgba(79,168,245,.08);border:1px solid rgba(79,168,245,.2);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--t2);margin-bottom:2px">전체</div><div style="font-size:18px;font-weight:900;color:#4fa8f5">'+statTotal+'</div></div>'
+    +'<div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--t2);margin-bottom:2px">합격</div><div style="font-size:18px;font-weight:900;color:#3ecf8e">'+statPass+'</div></div>'
+    +'<div style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--t2);margin-bottom:2px">부분합격</div><div style="font-size:18px;font-weight:900;color:#a78bfa">'+statPartial+'</div></div>'
+    +'<div style="background:rgba(245,96,90,.08);border:1px solid rgba(245,96,90,.2);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--t2);margin-bottom:2px">불합격</div><div style="font-size:18px;font-weight:900;color:#f5605a">'+statFail+'</div></div>'
+    +'</div>';
+  html+='<div style="font-size:10px;color:#6688aa;margin-bottom:6px">👆 이름 클릭 → 출결+점수 상세 보기</div>';
+  html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:400px">';
+  var thd='<thead><tr style="background:#0b1628">'
+    +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #1e3055;color:#FF8C55">이름</th>'
+    +'<th style="padding:6px 5px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">출결</th>'
+    +'<th style="padding:6px 5px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">결과</th>';
+  rounds.forEach(function(r){activeTypes.forEach(function(t){thd+='<th style="padding:4px 3px;text-align:center;border-bottom:1px solid #1e3055;color:#8899bb;font-size:9px;white-space:nowrap">'+r+'회<br>'+t+'</th>';});});
+  thd+='</tr></thead>';
+  html+=thd+'<tbody>';
+  allPeople.forEach(function(p){
+    var name=p.name;
+    var pKey=name.replace(/[.#$]/g,'_').replace(/[\[\]]/g,'_');
+    var pData=branchRaw[pKey]||{};
+    var attDays=getAttDays(name);
+    var hasSonPass=p.isPass,hasJe3Pass=p.isPass;
+    rounds.forEach(function(r){activeTypes.forEach(function(t){
+      var td=(pData['round'+r]||{})[t]||{};
+      if(td.son==='pass'||td.son==='kipass'||(typeof td.sonScore==='number'&&td.sonScore>=60))hasSonPass=true;
+      if(td.je3==='pass'||td.je3==='kipass'||(typeof td.je3Score==='number'&&td.je3Score>=60))hasJe3Pass=true;
+    });});
+    var finalTxt='',finalColor='#334466';
+    if(hasSonPass&&hasJe3Pass){finalTxt='합격';finalColor='#3ecf8e';}
+    else if(hasSonPass||hasJe3Pass){finalTxt='부분합격';finalColor='#a78bfa';}
+    var safeKey=pKey.replace(/'/g,"\'");
+    var safeName=name.replace(/'/g,"\'");
+    html+='<tr style="border-bottom:1px solid rgba(30,48,85,.5);cursor:pointer" onclick="showExamPersonDetail('+bi+',\''+safeKey+'\',\''+safeName+'\')">'+
+      '<td style="padding:5px 8px;font-weight:700;color:#e8edf5;white-space:nowrap">'+name+(p.isPass?' <span style="font-size:9px;color:#a78bfa">기합격</span>':'')+'</td>'+
+      '<td style="padding:5px 5px;text-align:center;color:#4fa8f5;font-weight:700">'+attDays+'일</td>'+
+      '<td style="padding:5px 5px;text-align:center;color:'+finalColor+';font-weight:700">'+finalTxt+'</td>';
+    rounds.forEach(function(r){activeTypes.forEach(function(t){
+      var td=(pData['round'+r]||{})[t]||{};
+      var sV=td.son?(_rMap[td.son]||td.son):'';
+      var jV=td.je3?(_rMap[td.je3]||td.je3):'';
+      var sScore=typeof td.sonScore==='number'?td.sonScore:null;
+      var jScore=typeof td.je3Score==='number'?td.je3Score:null;
+      var txt='';
+      if(sV||jV){
+        var sl=td.son==='kipass'?'기합':(sScore!==null?sScore+'점':sV.slice(0,2));
+        var jl=td.je3==='kipass'?'기합':(jScore!==null?jScore+'점':jV.slice(0,2));
+        txt=(sl&&jl)?sl+'/'+jl:(sl||jl);
+      }
+      var sP=td.son==='pass'||td.son==='kipass'||(sScore!==null&&sScore>=60);
+      var jP=td.je3==='pass'||td.je3==='kipass'||(jScore!==null&&jScore>=60);
+      var col=txt?(sP&&jP?'#3ecf8e':(sP||jP)?'#a78bfa':'#f5605a'):'#334466';
+      html+='<td style="padding:4px 3px;text-align:center;color:'+col+';font-size:9px;font-weight:700">'+(txt||'-')+'</td>';
+    });});
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  body.innerHTML=html;
+}
+
+function printAdminExamStat(){
+  var bi=parseInt((document.getElementById('aes-branch')||{}).value||0);
+  var rd=(document.getElementById('aes-round')||{}).value||'all';
+  var rounds=rd==='all'?Array.from({length:15},function(_,i){return i+1}):[parseInt(rd)];
+  var branchRaw=(_examData[bi]||{});
+  var attPeople=(att[bi]&&att[bi].attendees)||[];
+  var passPeople=(data[bi]&&data[bi].passList)||[];
+  var allPeople=[].concat(passPeople.map(function(n){return {name:n,isPass:true};}))
+                  .concat(attPeople.map(function(n){return {name:n,isPass:false};}));
+  var _rMap={pass:'합격',fail:'불합격',partial:'부분합격'};
+  function getAttDays(name){
+    var a=att[bi]||{};
+    if((a.eliminated||{})[name]) return 0;
+    return DATES.reduce(function(s,d){return s+((a.attendance[d.key]||[]).indexOf(name)>=0?1:0);},0);
+  }
+  var w=window.open('','_blank','width=1100,height=700');
+  if(!w){alert('팝업 차단됨');return;}
+  var css='body{font-family:"맑은 고딕",sans-serif;padding:16px;font-size:10px}'
+    +'h1{font-size:14px;color:#FF6B2B;margin-bottom:4px}'
+    +'.sub{font-size:10px;color:#666;margin-bottom:10px}'
+    +'table{width:100%;border-collapse:collapse}'
+    +'th{background:#f0f4f8;padding:4px 3px;border:1px solid #ddd;text-align:center;font-size:9px}'
+    +'td{padding:3px;border:1px solid #ddd;text-align:center;font-size:9px}'
+    +'.pass{color:#1a7a4a;font-weight:700}.fail{color:#c0392b}.part{color:#7c3aed}'
+    +'@media print{@page{size:landscape;margin:8mm}}';
+  var thd='<tr><th style="text-align:left">이름</th><th>출결</th>';
+  rounds.forEach(function(r){EXAM_TYPES.forEach(function(t){thd+='<th>'+r+'회<br>'+t+'</th>';});});
+  thd+='</tr>';
+  var tbd=allPeople.map(function(p){
+    var name=p.name;
+    var pKey=name.replace(/[.#$[\]]/g,'_');
+    var pData=branchRaw[pKey]||branchRaw['pass_'+pKey]||branchRaw['reg_'+pKey]||{};
+    var attDays=getAttDays(name);
+    var row='<tr><td style="text-align:left;font-weight:700">'+name+(p.isPass?' [기합격]':'')+'</td><td>'+attDays+'일</td>';
+    rounds.forEach(function(r){
+      EXAM_TYPES.forEach(function(t){
+        var td=(pData['round'+r]||{})[t]||{};
+        var son=td.son?_rMap[td.son].slice(0,2):'';
+        var je3=td.je3?_rMap[td.je3].slice(0,2):'';
+        var txt=son&&je3?(son===je3?son:son+'/'+je3):son||je3||'-';
+        var cls=(td.son==='pass'||td.son==='partial')&&(td.je3==='pass'||td.je3==='partial')?'pass':(td.son==='fail'||td.je3==='fail'?'fail':(txt!=='-'?'part':''));
+        row+='<td class="'+cls+'">'+txt+'</td>';
+      });
+    });
+    return row+'</tr>';
+  }).join('');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>모의고사현황</title><style>'+css+'</style></head><body>'
+    +'<h1>📝 모의고사 현황 - '+BR[bi].name+'</h1>'
+    +'<div class="sub">'+new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})+' 출력</div>'
+    +'<table><thead>'+thd+'</thead><tbody>'+tbd+'</tbody></table></body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},500);
+}
+
+// ════════════════════════════════════════
+// 모의고사 시스템
+// Firebase: honam_exam/{branchIdx}/{personKey}/{round}/{type} = {son, je3}
+// ════════════════════════════════════════
+var _examData = {}; // 로컬 캐시
+var _examRef = null;
+
+// 형 목록 1~40
+var EXAM_TYPES = [];
+for(var _et=1;_et<=20;_et++) EXAM_TYPES.push(_et+'형');
+
+function initExam(){
+  if(!db) return;
+  if(!_examRef){
+    _examRef = db.ref('honam_exam');
+    _examRef.on('value', function(snap){
+      _examData = snap.val()||{};
+      if(document.getElementById('tab-exam').classList.contains('on')){
+        _calcAutoRound();
+        renderExamScores();
+        renderExamPassCard();
+      }
+    });
+  }
+}
+
+function renderExam(){
+  initExam();
+  // 지점 목록 채우기
+  var brSel = document.getElementById('exam-branch-sel');
+  if(brSel && brSel.options.length === 0){
+    BR.forEach(function(b,i){
+      var opt = document.createElement('option');
+      opt.value = i; opt.textContent = b.name;
+      brSel.appendChild(opt);
+    });
+  }
+  // 형 목록 채우기
+  var tySel = document.getElementById('exam-type-sel');
+  if(tySel && tySel.options.length <= 1){
+    EXAM_TYPES.forEach(function(t){
+      var opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      tySel.appendChild(opt);
+    });
+  }
+  onExamBranchChange();
+  renderExamPassCard();
+}
+
+function onExamBranchChange(){
+  var brSel = document.getElementById('exam-branch-sel');
+  var perSel = document.getElementById('exam-person-sel');
+  if(!brSel||!perSel) return;
+  var bi = parseInt(brSel.value);
+  perSel.innerHTML = '';
+
+  // 기합격자 (passList) - 부분합격 가능 표시
+  var pList = (data[bi]&&data[bi].passList)||[];
+  if(pList.length > 0){
+    var grp1 = document.createElement('optgroup');
+    grp1.label = '★ 기합격자 (부분합격 포함)';
+    pList.forEach(function(name){
+      var opt = document.createElement('option');
+      opt.value = 'pass_'+name;
+      opt.textContent = name + ' [기합격]';
+      grp1.appendChild(opt);
+    });
+    perSel.appendChild(grp1);
+  }
+  // 정시접수 (regList / attendees)
+  var rList = (att[bi]&&att[bi].attendees)||[];
+  if(rList.length > 0){
+    var grp2 = document.createElement('optgroup');
+    grp2.label = '접수 교육생';
+    rList.forEach(function(name){
+      var opt = document.createElement('option');
+      opt.value = 'reg_'+name;
+      opt.textContent = name;
+      grp2.appendChild(opt);
+    });
+    perSel.appendChild(grp2);
+  }
+  if(perSel.options.length === 0){
+    var opt = document.createElement('option');
+    opt.value = ''; opt.textContent = '(명단 없음)';
+    perSel.appendChild(opt);
+  }
+  onExamPersonChange();
+  renderExamPassCard();
+  _calcAutoRound();
+}
+
+function onExamPersonChange(){
+  _calcAutoRound();
+  renderExamScores();
+  showExamBadges();
+}
+
+function _calcAutoRound(){
+  var brSel=document.getElementById('exam-branch-sel');
+  var perSel=document.getElementById('exam-person-sel');
+  var rdInp=document.getElementById('exam-round-sel');
+  var rdDisp=document.getElementById('exam-round-display');
+  if(!brSel||!perSel||!rdInp) return;
+  var bi=parseInt(brSel.value);
+  var personVal=perSel.value;
+  if(!personVal||isNaN(bi)){if(rdDisp)rdDisp.textContent='1회';if(rdInp)rdInp.value='1';return;}
+  var personKey=personVal.replace(/[.#$]/g,'_').replace(/[[\]]/g,'_');
+  var pData=(_examData[bi]||{})[personKey]||{};
+  // 데이터가 있는 회차 목록
+  var doneRounds=[];
+  for(var r=1;r<=15;r++){
+    var rd=pData['round'+r]||{};
+    if(Object.keys(rd).length>0) doneRounds.push(r);
+  }
+  // 다음 회차 = 마지막 입력 회차 + 1 (없으면 1회)
+  var nextRound=doneRounds.length>0?doneRounds[doneRounds.length-1]+1:1;
+  nextRound=Math.min(Math.max(nextRound,1),15);
+  if(rdInp) rdInp.value=String(nextRound);
+  if(rdDisp) rdDisp.textContent=nextRound+'회';
+}
+
+function setExamResult(which, result){ toggleExamBtn(which, result); }
+function onExamPartialChange(which){ /* 구버전 호환 */ }
+
+function saveExamScore(){
+  if(!_examRef){ alert('Firebase 연결 필요'); return; }
+  var bi=parseInt(document.getElementById('exam-branch-sel').value);
+  var personVal=document.getElementById('exam-person-sel').value;
+  var round=document.getElementById('exam-round-sel').value;
+  var type=document.getElementById('exam-type-sel').value;
+  var sonVal=document.getElementById('exam-score-son').value;
+  var je3Val=document.getElementById('exam-score-je3').value;
+
+  if(!personVal){ alert('수험자를 선택해주세요.'); return; }
+  if(type==='all'){ alert('형을 선택해주세요.'); return; }
+  var kpSon=!!(document.getElementById('chk-son-kipass')&&document.getElementById('chk-son-kipass').checked);
+  var kpJe3=!!(document.getElementById('chk-je3-kipass')&&document.getElementById('chk-je3-kipass').checked);
+  if(!kpSon&&!kpJe3&&sonVal===''&&je3Val===''){
+    alert('점수를 입력하거나 기합격을 체크해주세요.'); return;
+  }
+
+  var personKey=personVal.replace(/[.#$]/g,'_').replace(/[\[\]]/g,'_');
+  var path=bi+'/'+personKey+'/round'+round+'/'+type;
+  var payload={};
+  var sonScore=(!kpSon&&sonVal!=='')?parseInt(sonVal):null;
+  var je3Score=(!kpJe3&&je3Val!=='')?parseInt(je3Val):null;
+  if(kpSon){ payload.son='kipass'; payload.sonScore=null; }
+  else if(sonScore!==null){ payload.son=(sonScore>=60?'pass':'fail'); payload.sonScore=sonScore; }
+  if(kpJe3){ payload.je3='kipass'; payload.je3Score=null; }
+  else if(je3Score!==null){ payload.je3=(je3Score>=60?'pass':'fail'); payload.je3Score=je3Score; }
+
+  if(Object.keys(payload).length===0){ alert('입력된 데이터가 없습니다.'); return; }
+  _examRef.child(path).update(payload).then(function(){
+    _calcAutoRound();
+    document.getElementById('exam-score-son').value='';
+    document.getElementById('exam-score-je3').value='';
+    ['son','je3'].forEach(function(w){
+      var chk=document.getElementById('chk-'+w+'-kipass');
+      if(chk){chk.checked=false;}
+      var inp=document.getElementById('exam-score-'+w);
+      if(inp){inp.disabled=false;inp.style.opacity='1';}
+      var badge=document.getElementById(w+'-badge'); if(badge) badge.style.display='none';
+    });
+    var prev=document.getElementById('exam-result-preview'); if(prev) prev.style.display='none';
+    renderExamScores();
+    showExamBadges();
+    var sonLog=kpSon?'기합격':(sonScore!==null?(sonScore+'점 '+(sonScore>=60?'합격':'불합격')):'-');
+    var je3Log=kpJe3?'기합격':(je3Score!==null?(je3Score+'점 '+(je3Score>=60?'합격':'불합격')):'-');
+    writeLog(BR[bi].name,'모의고사',personVal.replace(/^(pass|reg)_/,'')+' '+round+'회 '+type+' 손보:'+sonLog+' 제3:'+je3Log);
+  }).catch(function(e){ alert('저장 실패: '+e.message); });
+}
+
+function renderExamScores(){
+  var body=document.getElementById('exam-scores-body');
+  if(!body) return;
+  var bi=parseInt(document.getElementById('exam-branch-sel').value);
+  var personVal=document.getElementById('exam-person-sel').value;
+  var round=document.getElementById('exam-round-sel').value;
+  var typeFilter=document.getElementById('exam-type-sel').value;
+  if(!personVal||isNaN(bi)){body.innerHTML='<div style="color:#8899bb">지점과 수험자를 선택해주세요.</div>';return;}
+
+  var personKey=personVal.replace(/[.#$]/g,'_').replace(/[[\]]/g,'_');
+  var name=personVal.replace(/^(pass|reg)_/,'');
+  var isKiPerson=!!(data[bi]&&data[bi].passList&&data[bi].passList.indexOf(name)>=0);
+  var branchData=(_examData[bi]||{});
+  var personData=branchData[personKey]||{};
+
+  // 표시할 회차: 입력된 데이터가 있는 회차만 탭으로 표시
+  var activeRounds=[];
+  for(var r=1;r<=15;r++){
+    var rd=personData['round'+r]||{};
+    if(Object.keys(rd).length>0) activeRounds.push(r);
+  }
+  // 현재 선택 회차 데이터
+  var roundData=personData['round'+round]||{};
+  var types=typeFilter==='all'?EXAM_TYPES:[typeFilter];
+  var hasData=false;
+
+  var html='<div style="font-size:12px;font-weight:700;color:#FF8C55;margin-bottom:8px">'
+    +name+(isKiPerson?' <span style="font-size:10px;color:#a78bfa;background:rgba(167,139,250,.15);padding:2px 7px;border-radius:6px">기합격</span>':'')+'</div>';
+
+  // 회차 탭 (데이터 있는 것만)
+  if(activeRounds.length>0){
+    html+='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">';
+    activeRounds.forEach(function(r){
+      var isActive=String(r)===String(round);
+      html+='<button data-rv="'+r+'" onclick="switchExamRound(this)" '
+        +'style="padding:4px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;'
+        +(isActive?'background:#FF6B2B;color:#fff;border:none':'background:var(--bg3);color:var(--t2);border:1px solid var(--bd)')+'">'+r+'회차</button>';
+    });
+    html+='</div>';
+  }
+
+  html+='<table style="width:100%;border-collapse:collapse;font-size:11px">'
+    +'<thead><tr style="background:#0b1628">'
+    +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #1e3055;color:#8899bb">형</th>'
+    +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">손보</th>'
+    +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">제3보험</th>'
+    +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#FF8C55">합격여부</th>'
+    +'</tr></thead><tbody>';
+
+  types.forEach(function(t){
+    var td=roundData[t]||{};
+    // kipass 포함 합격 판단
+    var sonPass=td.son==='pass'||td.son==='kipass'||td.son==='partial'
+      ||(typeof td.sonScore==='number'&&td.sonScore>=60)||(isKiPerson&&!td.son);
+    var je3Pass=td.je3==='pass'||td.je3==='kipass'||td.je3==='partial'
+      ||(typeof td.je3Score==='number'&&td.je3Score>=60)||(isKiPerson&&!td.je3);
+    // 텍스트 표시
+    var sonTxt='-', je3Txt='-', sonColor='#334466', je3Color='#334466';
+    if(td.son||typeof td.sonScore==='number'){
+      if(td.son==='kipass'){sonTxt='기합격★';sonColor='#a78bfa';}
+      else{sonTxt=(typeof td.sonScore==='number'?td.sonScore+'점 ':''+(sonPass?'합격':'불합격'));sonColor=sonPass?'#3ecf8e':'#f5605a';}
+    } else if(isKiPerson){
+      sonTxt='기합격★'; sonColor='#a78bfa';
+    }
+    if(td.je3||typeof td.je3Score==='number'){
+      if(td.je3==='kipass'){je3Txt='기합격★';je3Color='#a78bfa';}
+      else{je3Txt=(typeof td.je3Score==='number'?td.je3Score+'점 ':''+(je3Pass?'합격':'불합격'));je3Color=je3Pass?'#3ecf8e':'#f5605a';}
+    } else if(isKiPerson){
+      je3Txt='기합격★'; je3Color='#a78bfa';
+    }
+    var hasEntry=!!(td.son||td.je3||typeof td.sonScore==='number'||typeof td.je3Score==='number');
+    if(hasEntry) hasData=true;
+    var resultTxt='', resultBg='';
+    if(hasEntry||isKiPerson){
+      if(sonPass&&je3Pass){resultTxt='합격';resultBg='color:#3ecf8e;background:rgba(62,207,142,.1)';}
+      else if(sonPass||je3Pass){resultTxt='부분합격';resultBg='color:#a78bfa;background:rgba(167,139,250,.1)';}
+      else{resultTxt='불합격';resultBg='color:#f5605a;background:rgba(245,96,90,.1)';}
+    }
+    if(!hasEntry&&!isKiPerson) return; // 데이터 없으면 행 생략
+    html+='<tr style="border-bottom:1px solid rgba(30,48,85,.5)">'
+      +'<td style="padding:5px 8px;font-weight:700;color:#e8edf5">'+t+'</td>'
+      +'<td style="padding:5px 8px;text-align:center;color:'+sonColor+';font-weight:700">'+sonTxt+'</td>'
+      +'<td style="padding:5px 8px;text-align:center;color:'+je3Color+';font-weight:700">'+je3Txt+'</td>'
+      +'<td style="padding:5px 8px;text-align:center;font-weight:900;'+resultBg+'">'+resultTxt+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  if(!hasData&&!isKiPerson) html+='<div style="color:#8899bb;font-size:11px;margin-top:6px">입력된 점수가 없습니다.</div>';
+  body.innerHTML=html;
+}
+
+function printExamScores(){
+  var bi = parseInt(document.getElementById('exam-branch-sel').value);
+  var personVal = document.getElementById('exam-person-sel').value;
+  var name = personVal.replace(/^(pass|reg)_/,'');
+  var isPass = personVal.startsWith('pass_');
+  var personKey = personVal.replace(/[.#$\[\]]/g,'_');
+
+  var w = window.open('','_blank','width=900,height=700');
+  if(!w){ alert('팝업 차단됨'); return; }
+
+  var css = 'body{font-family:"맑은 고딕",sans-serif;padding:20px;font-size:12px}'
+    +'h1{font-size:15px;color:#FF6B2B;margin-bottom:4px}'
+    +'.sub{font-size:11px;color:#666;margin-bottom:12px}'
+    +'table{width:100%;border-collapse:collapse}'
+    +'th{background:#f0f4f8;padding:6px;border:1px solid #ddd;text-align:center}'
+    +'td{padding:5px 8px;border:1px solid #ddd;text-align:center}'
+    +'.pass{color:#1a7a4a;font-weight:700}.fail{color:#c0392b;font-weight:700}'
+    +'@media print{@page{margin:10mm}}';
+
+  var html = '<h1>📝 모의고사 점수 현황</h1>';
+  html += '<div class="sub">'+BR[bi].name+' · '+name+(isPass?' [기합격]':'')+'</div>';
+
+  for(var r=1;r<=10;r++){
+    var branchData = (_examData[bi]||{});
+    var personData = (branchData[personKey]||{});
+    var roundData = (personData['round'+r]||{});
+    var hasAny = Object.keys(roundData).length>0;
+    if(!hasAny) continue;
+
+    html += '<div style="font-size:12px;font-weight:700;color:#FF6B2B;margin:10px 0 4px">'+r+'회차</div>';
+    html += '<table><thead><tr><th>형</th><th>손보</th><th>제3보험</th><th>합격여부</th></tr></thead><tbody>';
+    EXAM_TYPES.forEach(function(t){
+      var td = roundData[t]||{};
+      var son = td.son!==undefined?td.son:null;
+      var je3 = td.je3!==undefined?td.je3:null;
+      if(son===null&&je3===null) return;
+      var both = (son!==null&&je3!==null)?son+je3:'';
+      html += '<tr><td style="text-align:left;font-weight:700">'+t+'</td>'
+        +'<td class="'+(son!==null&&son>=60?'pass':'fail')+'">'+( son!==null?son:'-')+'</td>'
+        +'<td class="'+(je3!==null&&je3>=60?'pass':'fail')+'">'+( je3!==null?je3:'-')+'</td>'
+        +'<td style="font-weight:700">'+both+'</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>모의고사 점수</title><style>'+css+'</style></head><body>'+html+'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},500);
+}
 const BR=[
   {name:'광주제일지점',mgr:'구상옥',goal:2},{name:'새광주지점',mgr:'이진명',goal:2},
   {name:'상무중앙지점',mgr:'김청훈',goal:3},{name:'상무제일지점',mgr:'양성호',goal:3},
@@ -782,11 +1694,12 @@ function sn(full){
 
 // 탭 전환
 function goTab(t){
-  ['main','att'].forEach(x=>{
+  ['main','att','exam'].forEach(x=>{
     document.getElementById('tab-'+x).classList.toggle('on',x===t);
     document.getElementById('tbtn-'+x).classList.toggle('on',x===t);
   });
-  if(t==='att')renderAtt();
+  if(t==='att') renderAtt();
+  if(t==='exam') renderExam();
 }
 
 // Firebase 초기화 (SDK 로드 확인 후 실행)
@@ -3398,10 +4311,11 @@ function closePwModal(){
   if(pwModal) pwModal.style.display='none';
 }
 function switchAdminTab(tab,el){
-  ['goal','branch','reset','dates','attend','log'].forEach(function(t){var p=document.getElementById('admin-'+t);if(p)p.style.display=t===tab?'block':'none';});
+  ['goal','branch','reset','dates','attend','log','examstat'].forEach(function(t){var p=document.getElementById('admin-'+t);if(p)p.style.display=t===tab?'block':'none';});
   if(tab==='branch')renderAdminBranch();
   if(tab==='attend')renderAdminAttend();
   if(tab==='dates')initCalendar();
+  if(tab==='examstat')renderAdminExamStat();
   if(tab==='log'){loadLog(0);}
   document.querySelectorAll('.admin-tab').forEach(function(b){b.style.background='var(--bg3)';b.style.color='var(--t2)';b.style.border='1px solid var(--bd)';});
   el.style.background='#7c3aed';el.style.color='#fff';el.style.border='none';
@@ -3901,6 +4815,7 @@ if('serviceWorker' in navigator){
         <button class="admin-tab" onclick="switchAdminTab('dates',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);line-height:1.3">📅<br>날짜<br>설정</button>
         <button class="admin-tab" onclick="switchAdminTab('attend',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);line-height:1.3">⏱️<br>출석<br>완료</button>
         <button class="admin-tab" onclick="switchAdminTab('log',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);line-height:1.3">📋<br>변경<br>이력</button>
+        <button class="admin-tab" onclick="switchAdminTab('examstat',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);line-height:1.3">📝<br>모의<br>고사</button>
       </div>
 
       <div id="admin-branch" style="display:none">
@@ -3980,6 +4895,17 @@ if('serviceWorker' in navigator){
         </div>
         <div id="admin-attend-list" style="font-size:12px;color:var(--t2)"></div>
       </div>
+      <div id="admin-examstat" style="display:none">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:.625rem;flex-wrap:wrap">
+          <select id="aes-branch" onchange="renderAdminExamStat()" style="flex:1;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit"></select>
+          <select id="aes-round" onchange="renderAdminExamStat()" style="padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit">
+            <option value="all">전체 회차</option>
+          </select>
+          <button onclick="printAdminExamStat()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.12);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 출력</button>
+        </div>
+        <div id="admin-examstat-body" style="font-size:12px;color:var(--t2)">로딩 중...</div>
+      </div>
+
       <div id="admin-log" style="display:none">
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:.5rem;flex-wrap:wrap">
           <span style="font-size:12px;font-weight:700;color:var(--t2);flex-shrink:0">지점 필터</span>
