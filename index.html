@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판</title>
+<title>호남 지역단 신인도입 현황판 v0422</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -469,7 +469,8 @@ input[type=file].xf{display:none}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <div>
         <div style="font-size:11px;color:#8899bb;margin-bottom:4px">지점 선택</div>
-        <select id="exam-branch-sel" onchange="onExamBranchChange()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit">
+        <select id="exam-branch-sel" onchange="onExamBranchChange()" style="width:100%;padding:8px;border:1.5px solid #FF8C55;border-radius:8px;background:#1a2f50;color:#ffffff;font-size:13px;font-family:inherit;font-weight:600">
+<option value="" disabled selected hidden>-- 지점 선택 --</option>
 <option value="0">광주제일지점</option>
 <option value="1">새광주지점</option>
 <option value="2">상무중앙지점</option>
@@ -499,11 +500,11 @@ input[type=file].xf{display:none}
     </div>
     <div style="margin-bottom:8px">
       <div style="font-size:11px;color:#8899bb;margin-bottom:4px">수험자 선택</div>
-      <select id="exam-person-sel" onchange="onExamPersonChange()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit"></select>
+      <select id="exam-person-sel" onchange="onExamPersonChange()" style="width:100%;padding:8px;border:1.5px solid #4fa8f5;border-radius:8px;background:#1a2f50;color:#ffffff;font-size:13px;font-family:inherit;font-weight:600"></select>
     </div>
     <div style="margin-bottom:8px">
       <div style="font-size:11px;color:#8899bb;margin-bottom:4px">형 선택</div>
-      <select id="exam-type-sel" onchange="renderExamScores()" style="width:100%;padding:7px 8px;border:1px solid #1e3055;border-radius:8px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit">
+      <select id="exam-type-sel" onchange="renderExamScores()" style="width:100%;padding:8px;border:1.5px solid #3ecf8e;border-radius:8px;background:#1a2f50;color:#ffffff;font-size:13px;font-family:inherit;font-weight:600">
         <option value="all">전체</option>
 <option value="1형">1형</option>
 <option value="2형">2형</option>
@@ -1240,10 +1241,12 @@ function renderExam(){
 }
 
 function onExamBranchChange(){
+  try{
   var brSel = document.getElementById('exam-branch-sel');
   var perSel = document.getElementById('exam-person-sel');
   if(!brSel||!perSel) return;
   var bi = parseInt(brSel.value);
+  if(isNaN(bi)) bi=0;
   perSel.innerHTML = '';
 
   // 기합격자 (passList) - 부분합격 가능 표시
@@ -1280,6 +1283,7 @@ function onExamBranchChange(){
   onExamPersonChange();
   renderExamPassCard();
   _calcAutoRound();
+  }catch(e){ console.error('onExamBranchChange error:',e); }
 }
 
 function onExamPersonChange(){
@@ -1802,12 +1806,19 @@ function sn(full){
 
 // 탭 전환
 function goTab(t){
-  ['main','att','exam'].forEach(x=>{
-    document.getElementById('tab-'+x).classList.toggle('on',x===t);
-    document.getElementById('tbtn-'+x).classList.toggle('on',x===t);
-  });
-  if(t==='att') renderAtt();
-  if(t==='exam') renderExam();
+  try{
+    ['main','att','exam'].forEach(function(x){
+      var tp=document.getElementById('tab-'+x);
+      var tb=document.getElementById('tbtn-'+x);
+      if(tp) tp.classList.toggle('on',x===t);
+      if(tb) tb.classList.toggle('on',x===t);
+    });
+    if(t==='att'){ renderAtt(); }
+    if(t==='exam'){ 
+      try{ renderExam(); }
+      catch(e){ console.error('renderExam error:',e); }
+    }
+  }catch(e){ console.error('goTab error:',e); }
 }
 
 // Firebase 초기화 (SDK 로드 확인 후 실행)
@@ -1960,9 +1971,10 @@ function startSync(){
       renderAtt();
       if(_openBefore.length>0)restoreOpen(_openBefore);
     }
-    // 모의고사 탭이 열려있으면 지점 목록 갱신
+    // 모의고사 탭이 열려있으면 수험자 목록 갱신 (att 로드 완료 후)
     if(document.getElementById('tab-exam')&&document.getElementById('tab-exam').classList.contains('on')){
-      renderExam();
+      try{ onExamBranchChange(); }catch(e){}
+      try{ _calcAutoRound(); }catch(e){}
     }
     // syncAttNames 결과는 로컬만 반영. 리스너 안에서는 Firebase 쓰기 없음.
   });
