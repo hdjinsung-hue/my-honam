@@ -658,6 +658,21 @@ input[type=file].xf{display:none}
 
 <script>
 
+function deleteExamScore(btn){
+  if(!_examRef) return;
+  var bi=btn.getAttribute('data-bi');
+  var personKey=btn.getAttribute('data-key');
+  var round=btn.getAttribute('data-round');
+  var type=btn.getAttribute('data-type');
+  if(!confirm(round+'회차 '+type+' 점수를 삭제하시겠습니까?')) return;
+  var path=bi+'/'+personKey+'/round'+round+'/'+type;
+  _examRef.child(path).remove().then(function(){
+    renderExamScores();
+    _calcAutoRound();
+    renderExamPassCard();
+  }).catch(function(e){ alert('삭제 실패: '+e.message); });
+}
+
 function switchExamRound(btn){
   var rv = btn.getAttribute('data-rv');
   var el = document.getElementById('exam-round-sel');
@@ -1339,6 +1354,7 @@ function renderExamScores(){
     +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">손보</th>'
     +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">제3보험</th>'
     +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#FF8C55">합격여부</th>'
+    +'<th style="padding:6px 5px;border-bottom:1px solid #1e3055;width:50px"></th>'
     +'</tr></thead><tbody>';
 
   types.forEach(function(t){
@@ -1371,11 +1387,14 @@ function renderExamScores(){
       else{resultTxt='불합격';resultBg='color:#f5605a;background:rgba(245,96,90,.1)';}
     }
     if(!hasEntry&&!isKiPerson) return; // 데이터 없으면 행 생략
+    var safeKey=personKey.replace(/'/g,"\'");
+    var safeType=t.replace(/'/g,"\'");
     html+='<tr style="border-bottom:1px solid rgba(30,48,85,.5)">'
       +'<td style="padding:5px 8px;font-weight:700;color:#e8edf5">'+t+'</td>'
       +'<td style="padding:5px 8px;text-align:center;color:'+sonColor+';font-weight:700">'+sonTxt+'</td>'
       +'<td style="padding:5px 8px;text-align:center;color:'+je3Color+';font-weight:700">'+je3Txt+'</td>'
       +'<td style="padding:5px 8px;text-align:center;font-weight:900;'+resultBg+'">'+resultTxt+'</td>'
+      +(hasEntry?'<td style="padding:3px 5px"><button data-bi="'+bi+'" data-key="'+safeKey+'" data-round="'+round+'" data-type="'+safeType+'" onclick="deleteExamScore(this)" style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:#f5605a;border:1px solid rgba(245,96,90,.3)">삭제</button></td>':'<td></td>')
       +'</tr>';
   });
   html+='</tbody></table>';
