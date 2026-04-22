@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v9</title>
+<title>호남 지역단 신인도입 현황판 v13</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v9</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v13</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -4675,58 +4675,62 @@ function printExamByBranch(){
   var eData=_examData||window._examData||{};
   var CENTERS={0:'동광주',1:'동광주',2:'동광주',3:'동광주',4:'동광주',
     5:'광주',6:'광주',7:'광주',8:'광주',9:'광주',
-    10:'전남',11:'전남',12:'전남',13:'전남',
-    14:'순천',15:'순천',16:'순천',17:'순천',18:'호남TC'};
+    10:'목포',11:'목포',12:'목포',13:'목포',
+    14:'순천',15:'순천',16:'순천',17:'순천',18:'순천'};
 
-  // 최대 회차 계산
+  // 최대 회차
   var maxRound=1;
   BR.forEach(function(b,bi){
     var bd=eData[bi]||eData[String(bi)]||{};
     Object.keys(bd).forEach(function(pk){
       var pd=bd[pk]||{};
-      for(var r=15;r>=1;r--){if(Object.keys(pd['round'+r]||{}).length>0){if(r>maxRound)maxRound=r;break;}}
+      for(var r=15;r>=1;r--){
+        if(Object.keys(pd['round'+r]||{}).length>0){if(r>maxRound)maxRound=r;break;}
+      }
     });
   });
-  maxRound=Math.max(maxRound,1);
 
-  var css='*{box-sizing:border-box}body{font-family:"맑은 고딕",sans-serif;font-size:8px;padding:4px;margin:0}'
-    +'h1{font-size:11px;margin:0 0 2px;font-weight:700}'
-    +'.note{font-size:7px;color:#c00;margin-bottom:4px}'
+  var RND_BG='#fff0f0'; var RND_HDR='#c0392b'; var RND_SUB='#fadbd8'; var RND_TYP='#fde8d8';
+
+  var css='*{box-sizing:border-box}body{font-family:"맑은 고딕",sans-serif;font-size:8px;padding:3px;margin:0}'
+    +'h1{font-size:10px;margin:0 0 1px;font-weight:700}'
+    +'.note{font-size:7px;color:#c00;margin-bottom:3px}'
     +'table{border-collapse:collapse;width:100%;font-size:8px}'
-    +'th,td{border:1px solid #999;padding:2px 3px;text-align:center;white-space:nowrap}'
-    +'th{background:#dce6f1;font-weight:700}'
-    +'.th2{background:#e2efda}'
-    +'.fail{background:#ffe0e0;color:#c00}'
+    +'th,td{border:1px solid #bbb;padding:2px 3px;text-align:center;white-space:nowrap}'
+    +'th{font-weight:700}'
+    +'.fail{background:#ffe0e0;color:#c00;font-weight:700}'
     +'.pass{color:#1a5c1a;font-weight:700}'
-    +'.center-merge{background:#fce4d6}'
-    +'.branch-merge{background:#fff2cc}'
-    +'@media print{@page{size:A4 landscape;margin:5mm}body{padding:2px}}';
+    +'.tst-hdr{background:#dce6f1}'
+    +'.rnd-hdr{background:'+RND_HDR+';color:#fff}'
+    +'.rnd-typ-hdr{background:'+RND_TYP+';color:#7b241c;font-size:7px}'
+    +'.rnd-sub{background:'+RND_SUB+';color:#7b241c;font-size:7px}'
+    +'.rnd-typ{background:'+RND_TYP+';color:#c0392b;font-size:7px;font-weight:700}'
+    +'.rnd-td{background:'+RND_BG+'}'
+    +'@media print{@page{size:A4 landscape;margin:4mm}body{padding:1px}}';
 
-  // 회차 헤더
+  // 회차 헤더: 형·손보·3보 (3열씩)
   var roundHeaders='';
   for(var rh=1;rh<=maxRound;rh++){
-    roundHeaders+='<th class="th2" colspan="2">'+rh+'회차</th>';
+    roundHeaders+='<th class="rnd-hdr" colspan="3">'+rh+'회차</th>';
   }
   var roundSubHeaders='';
   for(var rs=1;rs<=maxRound;rs++){
-    roundSubHeaders+='<th class="th2">손보</th><th class="th2">3보</th>';
+    roundSubHeaders+='<th class="rnd-typ-hdr">형</th><th class="rnd-sub">손보</th><th class="rnd-sub">3보</th>';
   }
 
   var html='<h1>2026. 4월 호남지역단 입문 테스트 점수현황</h1>'
     +'<div class="note">※ 단순히 모의테스트 유시 횟수는 회차로 표현된 것입니다. 모의고사 유형 번호에 따라 점수를 기재해 주세요.</div>'
     +'<table><thead>'
     +'<tr>'
-    +'<th rowspan="2">No</th>'
-    +'<th rowspan="2">비전센터</th>'
-    +'<th rowspan="2">지점명</th>'
-    +'<th rowspan="2">성명</th>'
-    +'<th rowspan="2">개별학습</th>'
-    +'<th rowspan="2">탈락</th>'
-    +'<th colspan="4">테스트(평균)</th>'
+    +'<th rowspan="2" class="tst-hdr">No</th>'
+    +'<th rowspan="2" class="tst-hdr">비전센터</th>'
+    +'<th rowspan="2" class="tst-hdr">지점명</th>'
+    +'<th rowspan="2" class="tst-hdr">성명</th>'
+    +'<th colspan="2" class="tst-hdr">테스트 평균</th>'
     +roundHeaders
     +'</tr>'
     +'<tr>'
-    +'<th>회수</th><th>손보</th><th>제3</th><th>평균점수</th>'
+    +'<th class="tst-hdr">손보</th><th class="tst-hdr">제3</th>'
     +roundSubHeaders
     +'</tr>'
     +'</thead><tbody>';
@@ -4736,72 +4740,75 @@ function printExamByBranch(){
     var bd=eData[bi]||eData[String(bi)]||{};
     var attList=(att[bi]&&att[bi].attendees)||[];
     var passList=(data[bi]&&data[bi].passList)||[];
-    var allPeople=[];
-    passList.forEach(function(n){allPeople.push({name:n,ki:true});});
-    attList.forEach(function(n){if(passList.indexOf(n)<0)allPeople.push({name:n,ki:false});});
-    if(!allPeople.length) return;
+    var eliminated=(att[bi]&&att[bi].eliminated)||{};
+    var center=CENTERS[bi]||'';
 
-    allPeople.forEach(function(p){
+    // 기합격·탈락 제외
+    var people=attList.filter(function(n){
+      return passList.indexOf(n)<0 && !eliminated[n];
+    });
+    if(!people.length) return;
+
+    people.forEach(function(name){
       no++;
-      var pk=p.name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+      var pk=name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
       var pData=bd[pk]||{};
       if(!Object.keys(pData).length){
-        Object.keys(bd).forEach(function(k){if(k.replace(/^(reg_|pass_)/,'')===pk)pData=bd[k]||{};});
+        Object.keys(bd).forEach(function(k){
+          if(k.replace(/^(reg_|pass_)/,'')===pk) pData=bd[k]||{};
+        });
       }
 
-      // 회차별 점수 수집
-      var sonScores=[],je3Scores=[],roundData=[];
+      // 테스트 전체 평균
+      var sonAll=[],je3All=[];
       for(var r=1;r<=maxRound;r++){
         var rd=pData['round'+r]||{};
-        // 회차 내 모든 형의 점수 합산 (평균)
-        var sonTotal=0,je3Total=0,sonCnt=0,je3Cnt=0;
         Object.keys(rd).forEach(function(t){
           var td=rd[t]||{};
-          if(td.son==='kipass'||td.son==='pass'||td.son==='fail'){
-            if(typeof td.sonScore==='number'){sonTotal+=td.sonScore;sonCnt++;}
-          }
-          if(td.je3==='kipass'||td.je3==='pass'||td.je3==='fail'){
-            if(typeof td.je3Score==='number'){je3Total+=td.je3Score;je3Cnt++;}
-          }
-          // kipass는 점수 없이 합격
-          if(td.son==='kipass'&&typeof td.sonScore!=='number'){sonTotal+=100;sonCnt++;}
-          if(td.je3==='kipass'&&typeof td.je3Score!=='number'){je3Total+=100;je3Cnt++;}
+          if(typeof td.sonScore==='number') sonAll.push(td.sonScore);
+          else if(td.son==='kipass') sonAll.push(100);
+          if(typeof td.je3Score==='number') je3All.push(td.je3Score);
+          else if(td.je3==='kipass') je3All.push(100);
         });
-        var sAvg=sonCnt>0?Math.round(sonTotal/sonCnt):null;
-        var jAvg=je3Cnt>0?Math.round(je3Total/je3Cnt):null;
-        roundData.push({s:sAvg,j:jAvg,hasData:Object.keys(rd).length>0});
-        if(sAvg!==null) sonScores.push(sAvg);
-        if(jAvg!==null) je3Scores.push(jAvg);
       }
-      var totalRounds=roundData.filter(function(r){return r.hasData;}).length;
-      var sonAvg=sonScores.length?Math.round(sonScores.reduce(function(a,b){return a+b;},0)/sonScores.length):0;
-      var je3Avg=je3Scores.length?Math.round(je3Scores.reduce(function(a,b){return a+b;},0)/je3Scores.length):0;
-      var totalAvg=totalRounds>0?Math.round((sonAvg+je3Avg)/2):0;
+      var sonAvg=sonAll.length?Math.round(sonAll.reduce(function(a,b){return a+b;},0)/sonAll.length):0;
+      var je3Avg=je3All.length?Math.round(je3All.reduce(function(a,b){return a+b;},0)/je3All.length):0;
+      var hasData=sonAll.length||je3All.length;
 
-      var isElim=(att[bi]&&att[bi].eliminated&&att[bi].eliminated[p.name])?'탈락':'';
       var row='<tr>'
         +'<td>'+no+'</td>'
-        +'<td class="center-merge">'+(CENTERS[bi]||'')+'</td>'
-        +'<td class="branch-merge">'+b.name+'</td>'
-        +'<td style="text-align:left;padding-left:4px;font-weight:700">'+p.name+(p.ki?' ★':'')+'</td>'
-        +'<td></td>'
-        +'<td>'+(isElim?'<span style="color:#c00;font-weight:700">탈락</span>':'')+'</td>'
-        +'<td>'+totalRounds+'</td>'
-        +'<td class="'+(sonAvg>0&&sonAvg<60?'fail':sonAvg>=60?'pass':'')+'">'+( totalRounds?sonAvg:'')+'</td>'
-        +'<td class="'+(je3Avg>0&&je3Avg<60?'fail':je3Avg>=60?'pass':'')+'">'+( totalRounds?je3Avg:'')+'</td>'
-        +'<td class="'+(totalAvg>0&&totalAvg<60?'fail':totalAvg>=60?'pass':'')+'">'+( totalRounds?totalAvg:'')+'</td>';
-      roundData.forEach(function(rd){
-        var sc=rd.s!==null?rd.s:'';
-        var jc=rd.j!==null?rd.j:'';
-        row+='<td class="'+(rd.s!==null&&rd.s<60?'fail':rd.s>=60?'pass':'')+'">'+sc+'</td>';
-        row+='<td class="'+(rd.j!==null&&rd.j<60?'fail':rd.j>=60?'pass':'')+'">'+jc+'</td>';
-      });
+        +'<td>'+center+'</td>'
+        +'<td>'+b.name+'</td>'
+        +'<td style="text-align:left;padding-left:3px;font-weight:700">'+name+'</td>'
+        +'<td class="'+(hasData&&sonAvg<60?'fail':hasData&&sonAvg>=60?'pass':'')+'">'+( hasData?sonAvg:'')+'</td>'
+        +'<td class="'+(hasData&&je3Avg<60?'fail':hasData&&je3Avg>=60?'pass':'')+'">'+( hasData?je3Avg:'')+'</td>';
+
+      for(var r=1;r<=maxRound;r++){
+        var rd=pData['round'+r]||{};
+        // 이 회차에서 사용한 형
+        var ts=Object.keys(rd).sort(function(a,b){return parseInt(a)-parseInt(b);});
+        var typLabel=ts.length?ts.join('·'):'';
+        // 점수 평균
+        var sT=0,jT=0,sC=0,jC=0;
+        ts.forEach(function(t){
+          var td=rd[t]||{};
+          if(typeof td.sonScore==='number'){sT+=td.sonScore;sC++;}
+          else if(td.son==='kipass'){sT+=100;sC++;}
+          if(typeof td.je3Score==='number'){jT+=td.je3Score;jC++;}
+          else if(td.je3==='kipass'){jT+=100;jC++;}
+        });
+        var sA=sC?Math.round(sT/sC):null;
+        var jA=jC?Math.round(jT/jC):null;
+        row+='<td class="rnd-typ">'+typLabel+'</td>';
+        row+='<td class="rnd-td '+(sA!==null&&sA<60?'fail':sA!==null&&sA>=60?'pass':'')+'">'+( sA!==null?sA:'')+'</td>';
+        row+='<td class="rnd-td '+(jA!==null&&jA<60?'fail':jA!==null&&jA>=60?'pass':'')+'">'+( jA!==null?jA:'')+'</td>';
+      }
       row+='</tr>';
       html+=row;
     });
   });
-  html+='</tbody></table>';
 
+  html+='</tbody></table>';
   w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>모의테스트점수현황</title><style>'+css+'</style></head><body>'+html+'</body></html>');
   w.document.close();
   setTimeout(function(){w.print();},700);
@@ -4941,9 +4948,9 @@ function renderExamStatTable(){
       });
     }
     if(!sonAll.length&&!je3All.length) return null;
-    var sAvg=sonAll.length?sonAll.reduce(function(a,b){return a+b;},0)/sonAll.length:0;
-    var jAvg=je3All.length?je3All.reduce(function(a,b){return a+b;},0)/je3All.length:0;
-    return Math.round((sAvg+jAvg)/2);
+    var s=sonAll.length?sonAll.reduce(function(a,b){return a+b;},0)/sonAll.length:0;
+    var j=je3All.length?je3All.reduce(function(a,b){return a+b;},0)/je3All.length:0;
+    return Math.round((s+j)/2);
   }
 
   function calcBranch(bi){
@@ -4973,99 +4980,77 @@ function renderExamStatTable(){
     return{total:total,drop:dropCnt,manage:manage,응시:avgs.length,under40:under40,b40:b40,b50:b50,b60:b60,rate:rate};
   }
 
-  // 전체 합계
-  var totalStat={total:0,drop:0,manage:0,응시:0,under40:0,b40:0,b50:0,b60:0};
-  var centerStats={};
-  var branchStats=[];
-  CENTER_ORDER.forEach(function(cn){centerStats[cn]={total:0,drop:0,manage:0,응시:0,under40:0,b40:0,b50:0,b60:0};});
+  var tot={total:0,drop:0,manage:0,응시:0,under40:0,b40:0,b50:0,b60:0};
+  var cStats={};CENTER_ORDER.forEach(function(cn){cStats[cn]={total:0,drop:0,manage:0,응시:0,under40:0,b40:0,b50:0,b60:0};});
+  var bStats=[];
   BR.forEach(function(b,bi){
-    var s=calcBranch(bi);
-    branchStats.push({bi:bi,name:b.name,center:CENTERS[bi]||'',stat:s});
-    var cn=CENTERS[bi];
-    if(cn&&centerStats[cn]){
-      ['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){centerStats[cn][k]+=s[k];});
-    }
-    ['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){totalStat[k]+=s[k];});
+    var s=calcBranch(bi);bStats.push({bi:bi,name:b.name,center:CENTERS[bi]||'',stat:s});
+    var cn=CENTERS[bi];if(cn&&cStats[cn])['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){cStats[cn][k]+=s[k];});
+    ['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){tot[k]+=s[k];});
   });
 
-  function rateStr(s){
-    if(!s.응시) return '<span style="color:#f5605a;font-weight:700">0.0%</span>';
-    var r=Math.round(s.b60/s.응시*1000)/10;
-    return '<span style="color:'+(r>=60?'#3ecf8e':'#f5605a')+';font-weight:700">'+r+'%</span>';
-  }
-  function row(cells,bg){
-    return '<tr>'+cells.map(function(v,i){
-      return '<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;'+(bg?'background:'+bg+';':'')+(i<=2?'text-align:left;':'')+'">'+v+'</td>';
-    }).join('')+'</tr>';
-  }
+  function rateCell(s){if(!s.응시)return '<span style="color:#f5605a">0.0%</span>';var r=Math.round(s.b60/s.응시*1000)/10;return '<span style="color:'+(r>=60?'#3ecf8e':'#f5605a')+';font-weight:700">'+r+'%</span>';}
+  function numCell(v,red){return '<span style="color:'+(v&&red?'#f5605a':v>=1?'#e8edf5':'#8899bb')+'">'+v+'</span>';}
 
-  var h='<table style="width:100%;border-collapse:collapse;font-size:10px;min-width:520px">'
+  var h='<table style="width:100%;border-collapse:collapse;font-size:10px">'
     +'<thead><tr style="background:#1a2f50">'
-    +'<th colspan="3" style="padding:4px;border:1px solid #1e3055;color:#FF8C55;font-size:10px">구분</th>'
-    +'<th style="padding:4px;border:1px solid #1e3055;color:#e8edf5">총접수</th>'
-    +'<th style="padding:4px;border:1px solid #1e3055;color:#f5605a">탈락</th>'
-    +'<th style="padding:4px;border:1px solid #1e3055;color:#4fa8f5">관리</th>'
-    +'<th style="padding:4px;border:1px solid #1e3055;color:#4fa8f5">응시</th>'
-    +'<th style="padding:4px;border:1px solid #1e3055;color:#f5605a">40↓</th>'
-    +'<th style="padding:4px;border:1px solid #1e3055;color:#FF8C55">40점</th>'
-    +'<th style="padding:4px;border:1px solid #1e3055;color:#a78bfa">50점</th>'
-    +'<th style="padding:4px;border:1px solid #1e3055;color:#3ecf8e">60점↑</th>'
-    +'<th style="padding:4px;border:1px solid #1e3055;color:#3ecf8e">합격률</th>'
+    +'<th style="padding:4px 8px;border:1px solid #1e3055;color:#FF8C55;text-align:left">지점명</th>'
+    +'<th style="padding:4px 5px;border:1px solid #1e3055;color:#e8edf5">총접수</th>'
+    +'<th style="padding:4px 5px;border:1px solid #1e3055;color:#f5605a">탈락</th>'
+    +'<th style="padding:4px 5px;border:1px solid #1e3055;color:#4fa8f5">관리</th>'
+    +'<th style="padding:4px 5px;border:1px solid #1e3055;color:#4fa8f5">응시</th>'
+    +'<th style="padding:4px 5px;border:1px solid #1e3055;color:#f5605a">40↓</th>'
+    +'<th style="padding:4px 5px;border:1px solid #1e3055;color:#FF8C55">40점</th>'
+    +'<th style="padding:4px 5px;border:1px solid #1e3055;color:#a78bfa">50점</th>'
+    +'<th style="padding:4px 5px;border:1px solid #1e3055;color:#3ecf8e">60↑</th>'
+    +'<th style="padding:4px 5px;border:1px solid #1e3055;color:#3ecf8e">합격률</th>'
     +'</tr></thead><tbody>';
+
+  function statCols(s){
+    return '<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+s.total+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+numCell(s.drop,true)+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+s.manage+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#4fa8f5">'+s.응시+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+numCell(s.under40,true)+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+s.b40+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#a78bfa">'+s.b50+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#3ecf8e;font-weight:700">'+s.b60+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+rateCell(s)+'</td>';
+  }
 
   // 호남지역단 합계
   h+='<tr style="background:#0b1628;font-weight:900">'
-    +'<td colspan="3" style="padding:3px 6px;border:1px solid #1e3055;color:#FF8C55">호남지역단</td>'
-    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+totalStat.total+'</td>'
-    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#f5605a">'+totalStat.drop+'</td>'
-    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+totalStat.manage+'</td>'
-    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+totalStat.응시+'</td>'
-    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#f5605a">'+totalStat.under40+'</td>'
-    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+totalStat.b40+'</td>'
-    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+totalStat.b50+'</td>'
-    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#3ecf8e;font-weight:700">'+totalStat.b60+'</td>'
-    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+rateStr(totalStat)+'</td>'
-    +'</tr>';
+    +'<td style="padding:3px 8px;border:1px solid #1e3055;color:#FF8C55">호남지역단</td>'
+    +statCols(tot)+'</tr>';
 
-  // 비전센터별
   CENTER_ORDER.forEach(function(cn){
-    var cs=centerStats[cn];
-    var cBranches=branchStats.filter(function(b){return b.center===cn;});
-    // 센터 합계 행
-    h+='<tr style="background:rgba(255,107,43,.08)">'
-      +'<td colspan="3" style="padding:3px 6px;border:1px solid #1e3055;color:#FF8C55;font-weight:700">'+CENTER_NAMES[cn]||cn+'</td>'
-      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;font-weight:700">'+cs.total+'</td>'
-      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#f5605a;font-weight:700">'+cs.drop+'</td>'
-      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;font-weight:700">'+cs.manage+'</td>'
-      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;font-weight:700">'+cs.응시+'</td>'
-      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#f5605a;font-weight:700">'+cs.under40+'</td>'
-      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;font-weight:700">'+cs.b40+'</td>'
-      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;font-weight:700">'+cs.b50+'</td>'
-      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#3ecf8e;font-weight:700">'+cs.b60+'</td>'
-      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+rateStr(cs)+'</td>'
-      +'</tr>';
-    // 지점별
-    cBranches.forEach(function(b){
+    var cs=cStats[cn];
+    // 비전센터 행
+    h+='<tr style="background:rgba(255,107,43,.1)">'
+      +'<td style="padding:3px 8px;border:1px solid #1e3055;color:#FF8C55;font-weight:700">'+CENTER_NAMES[cn]+'</td>'
+      +statCols(cs)+'</tr>';
+    // 지점 행 - 지점명만, 클릭시 점수입력 이동
+    bStats.filter(function(b){return b.center===cn;}).forEach(function(b){
       var s=b.stat;
-      h+='<tr>'
-        +'<td style="padding:2px 4px;border:1px solid #1e3055;color:#8899bb;font-size:9px">'+b.name.replace('지점','').replace('TC','TC')+'</td>'
-        +'<td style="padding:2px 4px;border:1px solid #1e3055;color:#8899bb;font-size:9px">'+cn+'</td>'
-        +'<td style="padding:2px 4px;border:1px solid #1e3055;color:#e8edf5;font-size:9px">'+b.name+'</td>'
-        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center">'+s.total+'</td>'
-        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center;color:'+(s.drop?'#f5605a':'#8899bb')+'">'+s.drop+'</td>'
-        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center">'+s.manage+'</td>'
-        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center;color:#4fa8f5">'+s.응시+'</td>'
-        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center;color:'+(s.under40?'#f5605a':'#8899bb')+'">'+s.under40+'</td>'
-        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center">'+s.b40+'</td>'
-        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center;color:#a78bfa">'+s.b50+'</td>'
-        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center;color:#3ecf8e;font-weight:700">'+s.b60+'</td>'
-        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center">'+rateStr(s)+'</td>'
-        +'</tr>';
+      h+='<tr style="cursor:pointer" onclick="goExamBranch('+b.bi+')" title="클릭하면 점수 입력으로 이동">'
+        +'<td style="padding:2px 8px 2px 20px;border:1px solid #1e3055;color:#4fa8f5;text-decoration:underline">'+b.name+'</td>'
+        +statCols(s)+'</tr>';
     });
   });
   h+='</tbody></table>';
   el.innerHTML=h;
 }
+
+// 지점명 클릭 → 점수 입력 이동
+function goExamBranch(bi){
+  var brSel=document.getElementById('exam-branch-sel');
+  if(brSel){ brSel.value=String(bi); }
+  // 점수 입력 섹션으로 스크롤
+  var inputArea=document.querySelector('.wrap');
+  document.querySelector('[onclick="saveExamScore()"]').scrollIntoView({behavior:'smooth',block:'center'});
+  try{onExamBranchChange();}catch(e){}
+}
+
 
 // ── 현황표 출력 ──
 function printExamStat(){
@@ -5119,55 +5104,63 @@ function printExamStat(){
   var tot={total:0,drop:0,manage:0,응시:0,under40:0,b40:0,b50:0,b60:0};
   var cStats={};
   CENTER_ORDER.forEach(function(cn){cStats[cn]={total:0,drop:0,manage:0,응시:0,under40:0,b40:0,b50:0,b60:0};});
-  var bStats=BR.map(function(b,bi){var s=calcB(bi);
-    var cn=CENTERS[bi];if(cn&&cStats[cn])['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){cStats[cn][k]+=s[k];});
+  var bStats=BR.map(function(b,bi){
+    var s=calcB(bi);
+    var cn=CENTERS[bi];
+    if(cn&&cStats[cn])['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){cStats[cn][k]+=s[k];});
     ['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){tot[k]+=s[k];});
     return{bi:bi,name:b.name,center:cn,s:s};
   });
 
-  function rate(s){var r=s.응시?Math.round(s.b60/s.응시*1000)/10:0;return r+'%';}
-  function tr(cells,bold,bg){
-    return '<tr'+(bg?' style="background:'+bg+'"':'')+'>'
-      +cells.map(function(v,i){return '<td style="border:1px solid #999;padding:3px 4px;text-align:'+(i<3?'left':'center')+';font-size:9px;'+(bold?'font-weight:700;':'')+'">'+v+'</td>';}).join('')+'</tr>';
-  }
+  function rate(s){return s.응시?Math.round(s.b60/s.응시*1000)/10+'%':'0.0%';}
+  function rClass(r){return parseFloat(r)>=60?'pass':'fail';}
 
-  var w=window.open('','_blank','width=1100,height=750');
-  if(!w){alert('팝업 차단됨');return;}
   var today=new Date();
-  var dateStr=today.getFullYear()+'. '+(today.getMonth()+1)+'월 '+(today.getDate())+'일';
+  var w=window.open('','_blank','width=900,height=700');
+  if(!w){alert('팝업 차단됨');return;}
   var css='*{box-sizing:border-box}body{font-family:"맑은 고딕",sans-serif;font-size:9px;padding:6px}'
-    +'h1{font-size:13px;font-weight:700;margin:0 0 2px}'
-    +'.sub{font-size:9px;color:#666;display:flex;justify-content:space-between;margin-bottom:6px}'
+    +'h1{font-size:12px;font-weight:700;margin:0 0 2px}'
+    +'.sub{font-size:9px;color:#666;display:flex;justify-content:space-between;margin-bottom:5px}'
     +'table{border-collapse:collapse;width:100%}'
-    +'th{background:#dce6f1;border:1px solid #999;padding:3px 4px;text-align:center;font-size:9px}'
-    +'.fail{color:#c00}.pass{color:#1a7a4a;font-weight:700}'
+    +'th,td{border:1px solid #999;padding:3px 4px;text-align:center}'
+    +'th{background:#dce6f1;font-weight:700;font-size:9px}'
+    +'.th2{background:#e2efda}'
+    +'.fail{color:#c00;font-weight:700}.pass{color:#1a5c1a;font-weight:700}'
     +'@media print{@page{size:A4 landscape;margin:6mm}}';
 
+  function statCols(s,bold){
+    var r=rate(s);
+    var style=bold?'font-weight:700':'';
+    return '<td style="'+style+'">'+s.total+'</td>'
+      +'<td style="color:'+(s.drop?'#c00':'#333')+';'+style+'">'+s.drop+'</td>'
+      +'<td style="'+style+'">'+s.manage+'</td>'
+      +'<td style="'+style+'">'+s.응시+'</td>'
+      +'<td class="'+(s.under40?'fail':'')+'" style="'+style+'">'+s.under40+'</td>'
+      +'<td style="'+style+'">'+s.b40+'</td>'
+      +'<td style="'+style+'">'+s.b50+'</td>'
+      +'<td class="'+(s.b60?'pass':'')+'" style="'+style+'">'+s.b60+'</td>'
+      +'<td class="'+rClass(r)+'" style="'+style+'">'+r+'</td>';
+  }
+
   var html='<h1>■ '+today.getFullYear()+'.'+( today.getMonth()+1)+'월 호남지역단 입문 테스트 현황</h1>'
-    +'<div class="sub"><span>* '+dateStr+' 기준</span><span>(단위 : 명)</span></div>'
+    +'<div class="sub"><span>* '+today.getFullYear()+'년 '+(today.getMonth()+1)+'월 '+ today.getDate()+'일 기준</span><span>(단위 : 명)</span></div>'
     +'<table><thead>'
-    +'<tr><th colspan="3">구분</th>'
+    +'<tr>'
+    +'<th rowspan="2">지점명</th>'
     +'<th rowspan="2">총접수</th><th rowspan="2">탈락<br>(기합격포함)</th><th rowspan="2">관리인원</th>'
-    +'<th colspan="6">테스트점수(손보+3보 평균)</th></tr>'
-    +'<tr><th>지점명</th><th>비전센터</th><th>지점명</th>'
-    +'<th>테스트<br>응시인원</th><th>40점↓</th><th>40점</th><th>50점</th><th>60점<br>이상</th><th>합격률*</th></tr>'
+    +'<th colspan="6" class="th2">테스트점수(손보+3보 평균)</th></tr>'
+    +'<tr><th class="th2">테스트<br>응시인원</th><th class="th2">40점↓</th>'
+    +'<th class="th2">40점</th><th class="th2">50점</th>'
+    +'<th class="th2">60점<br>이상</th><th class="th2">합격률*</th></tr>'
     +'</thead><tbody>';
 
   // 호남지역단
-  html+=tr(['호남지역단','','',tot.total,tot.drop,tot.manage,tot.응시,tot.under40,tot.b40,tot.b50,
-    '<span class="pass">'+tot.b60+'</span>','<span class="'+(tot.응시&&Math.round(tot.b60/tot.응시*1000)/10>=60?'pass':'fail')+'">'+rate(tot)+'</span>'],true,'#f2f9ff');
-
+  html+='<tr style="background:#f2f9ff;font-weight:700"><td>호남지역단</td>'+statCols(tot,true)+'</tr>';
   CENTER_ORDER.forEach(function(cn){
     var cs=cStats[cn];
-    var cRate=cs.응시?Math.round(cs.b60/cs.응시*1000)/10:0;
-    html+=tr(['',CENTER_NAMES[cn]||cn,'',cs.total,cs.drop,cs.manage,cs.응시,cs.under40,cs.b40,cs.b50,
-      '<span class="pass">'+cs.b60+'</span>','<span class="'+(cRate>=60?'pass':'fail')+'">'+cRate+'%</span>'],true,'#e2efda');
+    html+='<tr style="background:#e8f5e9;font-weight:700"><td>'+CENTER_NAMES[cn]+'</td>'+statCols(cs,true)+'</tr>';
     bStats.filter(function(b){return b.center===cn;}).forEach(function(b){
-      var s=b.s;var r=s.응시?Math.round(s.b60/s.응시*1000)/10:0;
-      html+=tr([b.name.replace('지점','').replace('TC','TC'),cn,b.name,
-        s.total,s.drop,s.manage,s.응시,s.under40?'<span class="fail">'+s.under40+'</span>':0,
-        s.b40,s.b50,'<span class="'+(s.b60?'pass':'')+'">'+s.b60+'</span>',
-        '<span class="'+(r>=60?'pass':'fail')+'">'+r+'%</span>'],false,'');
+      html+='<tr><td style="padding-left:12px">'+b.name+'</td>'+statCols(b.s,false)+'</tr>';
     });
   });
   html+='</tbody></table>';
@@ -5177,349 +5170,6 @@ function printExamStat(){
 }
 
 
-</script>
-
-<!-- 신인도입 지역단 일괄입력 모달 -->
-<div class="overlay" id="bulk-recruit-modal" style="display:none">
-  <div class="modal" style="max-width:500px;padding:0;overflow:hidden">
-    <div style="background:linear-gradient(135deg,var(--orange),#FF8C55);padding:1rem 1.25rem;display:flex;justify-content:space-between;align-items:center">
-      <div><div style="font-size:15px;font-weight:900;color:#fff">📋 지역단 명단 일괄 입력</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.8)">지점명+이름 자동 분류 반영</div></div>
-      <button onclick="document.getElementById('bulk-recruit-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit">✕</button>
-    </div>
-    <div style="padding:1.25rem">
-      <div style="display:flex;gap:6px;margin-bottom:.75rem">
-        <button id="brm-tab-paste" onclick="switchBrmTab('paste')" style="flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--orange);color:#fff;border:none">📋 붙여넣기</button>
-        <button id="brm-tab-photo" onclick="switchBrmTab('photo')" style="flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--text2);border:1px solid var(--border)">📷 사진 OCR</button>
-      </div>
-      <div id="brm-paste-tab">
-        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;background:var(--bg3);border-radius:8px;padding:7px 10px;line-height:1.6">
-          <b style="color:var(--orange)">자유 형식</b> · 쉼표/공백 구분 모두 인식<br>
-          <span style="color:var(--text3)">예: 광주제일 기합격 홍길동 김철수 / 새광주 정시 박민수</span>
-        </div>
-        <div style="display:flex;gap:6px;margin-bottom:6px">
-          <button onclick="setBrmType('pass')" id="brm-type-pass" style="flex:1;padding:7px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.2);color:#3ecf8e;border:1px solid rgba(62,207,142,.4)">✅ 기합격</button>
-          <button onclick="setBrmType('reg')" id="brm-type-reg" style="flex:1;padding:7px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--text2);border:1px solid var(--border)">📝 정시접수</button>
-          <button onclick="setBrmType('auto')" id="brm-type-auto" style="flex:1;padding:7px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--text2);border:1px solid var(--border)">🤖 자동판별</button>
-        </div>
-        <textarea id="brm-paste-inp" style="width:100%;height:120px;font-size:12px;padding:9px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;resize:none;line-height:1.7" placeholder="붙여넣기..."></textarea>
-        <button onclick="parseBrmPaste()" style="width:100%;margin-top:6px;padding:9px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--blue);color:#fff;border:none">🔍 미리보기</button>
-      </div>
-      <div id="brm-photo-tab" style="display:none">
-        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;background:var(--bg3);border-radius:8px;padding:7px 10px"><b style="color:#a78bfa">AI가 사진에서 지점·이름·구분 자동인식</b></div>
-        <div style="display:flex;gap:6px;margin-bottom:6px">
-          <button onclick="setBrmType('pass')" id="brm-type-pass2" style="flex:1;padding:7px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.2);color:#3ecf8e;border:1px solid rgba(62,207,142,.4)">✅ 기합격</button>
-          <button onclick="setBrmType('reg')" id="brm-type-reg2" style="flex:1;padding:7px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--text2);border:1px solid var(--border)">📝 정시접수</button>
-          <button onclick="setBrmType('auto')" id="brm-type-auto2" style="flex:1;padding:7px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--text2);border:1px solid var(--border)">🤖 자동판별</button>
-        </div>
-        <label for="brm-photo-file" style="display:flex;flex-direction:column;align-items:center;gap:8px;border:2px dashed var(--border);border-radius:12px;padding:1.5rem;cursor:pointer;background:var(--bg3)">
-          <span style="font-size:32px" id="brm-photo-icon">📷</span>
-          <span style="font-size:12px;color:var(--text2)" id="brm-photo-label">명단 사진 선택</span>
-        </label>
-        <input type="file" id="brm-photo-file" accept="image/*" style="display:none" onchange="parseBrmPhoto(event)">
-        <div id="brm-photo-status" style="display:none;margin-top:6px;padding:8px;border-radius:8px;font-size:12px;text-align:center"></div>
-      </div>
-      <div id="brm-preview" style="display:none;margin-top:.75rem;background:var(--bg3);border-radius:10px;padding:10px;max-height:180px;overflow-y:auto;font-size:12px"></div>
-      <button id="brm-confirm" onclick="confirmBrmPaste()" style="display:none;width:100%;margin-top:8px;padding:11px;background:#3ecf8e;color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">✅ 전체 반영</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- 출결완료 팝업 -->
-<!-- 출결 완료 팝업 (2가지 모드) -->
-<div id="att-toast" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);align-items:center;justify-content:center;pointer-events:none">
-  <!-- 정상 완료 -->
-  <div id="att-toast-ok" style="background:linear-gradient(135deg,#0d2820,#1a4a30);border:3px solid #3ecf8e;border-radius:24px;padding:40px 48px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.8),0 0 40px rgba(62,207,142,.3)">
-    <div style="font-size:64px;margin-bottom:12px">✅</div>
-    <div id="att-toast-name" style="font-size:28px;font-weight:900;color:#3ecf8e;margin-bottom:8px;letter-spacing:-0.5px"></div>
-    <div style="font-size:22px;font-weight:700;color:#ffffff">출석 완료!</div>
-  </div>
-  <!-- 개선 필요 -->
-  <!-- 수고 팝업 (달성률 100% 이상) -->
-  <div id="att-toast-congrats" style="display:none;background:linear-gradient(135deg,#1a0e30,#2d1a50);border:3px solid #a78bfa;border-radius:24px;padding:36px 44px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.8),0 0 40px rgba(167,139,250,.4)">
-    <div style="font-size:52px;margin-bottom:12px">🎊</div>
-    <div id="att-toast-congrats-name" style="font-size:24px;font-weight:900;color:#fff;margin-bottom:10px;white-space:pre-line;letter-spacing:-.5px"></div>
-    <div id="att-toast-congrats-rate" style="font-size:16px;font-weight:700;color:#a78bfa;background:rgba(167,139,250,.2);border-radius:20px;padding:5px 20px;display:inline-block"></div>
-  </div>
-
-  <div id="att-toast-warn" style="display:none;background:linear-gradient(135deg,#2a0a00,#3a1500);border:3px solid #FF6B2B;border-radius:24px;padding:40px 48px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.8),0 0 40px rgba(255,107,43,.4)">
-    <div style="font-size:64px;margin-bottom:12px">⚠️</div>
-    <div id="att-toast-warn-name" style="font-size:26px;font-weight:900;color:#FF8C55;margin-bottom:10px;letter-spacing:-0.5px"></div>
-    <div style="font-size:32px;font-weight:900;color:#FF6B2B;margin-bottom:8px;letter-spacing:-0.5px">개선 바랍니다!</div>
-    <div id="att-toast-warn-msg" style="font-size:15px;color:#ffbb88;font-weight:600"></div>
-  </div>
-</div>
-
-
-
-<!-- 날짜별 출석 현황 모달 -->
-<div id="daily-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
-  <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:18px;width:100%;max-width:780px;margin:auto;overflow:hidden">
-    <div style="background:linear-gradient(135deg,#0d5c3a,#1a7a50);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:15px;font-weight:900;color:#fff">📊 날짜별 출석 현황</div>
-        <div id="daily-modal-sub" style="font-size:11px;color:rgba(255,255,255,.8)"></div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button onclick="printDailyModal()" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)">🖨️ 출력</button>
-        <button onclick="document.getElementById('daily-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit">✕</button>
-      </div>
-    </div>
-    <div id="daily-modal-body" style="padding:1.25rem;max-height:78vh;overflow-y:auto"></div>
-  </div>
-</div>
-
-<!-- 출석 일괄입력 모달 -->
-<div id="bulk-att-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9100;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
-  <div style="background:#111f38;border:1.5px solid #4fa8f5;border-radius:18px;width:100%;max-width:500px;margin:auto;overflow:hidden">
-    <div style="background:linear-gradient(135deg,#185fa5,#4fa8f5);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:15px;font-weight:900;color:#fff" id="bulk-att-title">📋 출석 일괄입력</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.8)">이름을 붙여넣으면 오늘 출석으로 체크됩니다</div>
-      </div>
-      <button onclick="document.getElementById('bulk-att-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit">✕</button>
-    </div>
-    <div style="padding:1.25rem">
-      <div style="font-size:12px;color:#8899bb;margin-bottom:.5rem;line-height:1.6">
-        📌 이름을 한 줄에 하나씩 입력하거나 붙여넣기 하세요<br>
-        <span style="color:#4fa8f5">· 명단에 없는 이름은 자동으로 접수자로 추가됩니다</span>
-      </div>
-      <textarea id="bulk-att-inp" rows="8" style="width:100%;padding:10px;border:1px solid #1e3055;border-radius:10px;background:#0b1628;color:#e8edf5;font-size:13px;font-family:inherit;resize:none;line-height:1.8" placeholder="홍길동&#10;김철수&#10;이영희&#10;..."></textarea>
-      <div id="bulk-att-preview" style="margin-top:.625rem;font-size:12px;color:#8899bb"></div>
-      <div style="display:flex;gap:8px;margin-top:.75rem">
-        <button onclick="document.getElementById('bulk-att-modal').style.display='none'" style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">취소</button>
-        <button onclick="confirmBulkAtt()" style="flex:2;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#185fa5;color:#fff;border:none">✅ 오늘 출석으로 등록</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- 날짜별 출석 전체 업로드 모달 -->
-<div id="global-att-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9200;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
-  <div style="background:#111f38;border:1.5px solid #3ecf8e;border-radius:18px;width:100%;max-width:600px;margin:auto;overflow:hidden">
-    <div style="background:linear-gradient(135deg,#0d5c3a,#3ecf8e);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:15px;font-weight:900;color:#fff">✅ 날짜별 출석 일괄 업로드</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.85)">전체 지점 · 전체 날짜 한번에 입력</div>
-      </div>
-      <button onclick="document.getElementById('global-att-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit">✕</button>
-    </div>
-    <div style="padding:1.25rem">
-      <div style="background:#0b1628;border-radius:10px;padding:10px 12px;margin-bottom:.75rem;font-size:11px;color:#8899bb;line-height:1.9">
-        <b style="color:#3ecf8e">입력 형식:</b><br>
-        <span style="color:#FF8C55">날짜: 4/16</span> 또는 <span style="color:#FF8C55">0416</span><br>
-        <span style="color:#e8edf5">지점명: 이름1 이름2 이름3</span><br>
-        <span style="color:#6688aa">예시)</span><br>
-        <span style="color:#4fa8f5">4/16<br>광주제일: 홍길동 김철수<br>새광주: 이혜림<br>4/15<br>광주제일: 홍길동</span>
-      </div>
-      <textarea id="global-att-inp" rows="10" style="width:100%;padding:10px;border:1px solid #1e3055;border-radius:10px;background:#0b1628;color:#e8edf5;font-size:12px;font-family:inherit;resize:none;line-height:1.7" placeholder="4/16&#10;광주제일지점: 홍길동 김철수&#10;새광주지점: 이혜림&#10;상무중앙지점: 박민수&#10;&#10;4/15&#10;광주제일지점: 홍길동"></textarea>
-      <div id="global-att-preview" style="display:none;margin-top:.625rem;background:#0b1628;border-radius:8px;padding:10px;max-height:150px;overflow-y:auto;font-size:11px"></div>
-      <div style="display:flex;gap:8px;margin-top:.75rem">
-        <button onclick="parseGlobalAtt()" style="flex:1;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🔍 미리보기</button>
-        <button onclick="confirmGlobalAtt()" id="global-att-ok" style="display:none;flex:2;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#0d5c3a;color:#3ecf8e;border:1px solid rgba(62,207,142,.4)">✅ 전체 반영</button>
-      </div>
-      <button onclick="parseGlobalAtt()||setTimeout(function(){var o=document.getElementById('global-att-ok');if(o&&o.style.display!=='none')confirmGlobalAtt();},100)" style="width:100%;margin-top:6px;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#185fa5,#0d5c3a);color:#fff;border:none">⚡ 미리보기 없이 바로 반영</button>
-    </div>
-  </div>
-</div>
-<!-- 명단 불일치 확인 모달 -->
-<div id="mismatch-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9000;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
-  <div style="background:#111f38;border:1.5px solid #a78bfa;border-radius:18px;width:100%;max-width:600px;margin:auto;overflow:hidden">
-    <div style="background:linear-gradient(135deg,#7c3aed,#a78bfa);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:15px;font-weight:900;color:#fff">🔄 명단 불일치 확인</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.8)" id="mismatch-sub">신인도입 ↔ 입문출결 명단 비교</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="fixAllMismatch()" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:#fff;color:#7c3aed;border:none">✅ 전체 자동 수정</button>
-        <button onclick="document.getElementById('mismatch-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit">✕</button>
-      </div>
-    </div>
-    <div id="mismatch-body" style="padding:1.25rem;max-height:75vh;overflow-y:auto;font-size:13px"></div>
-  </div>
-</div>
-<!-- 접수인원 명단 모달 -->
-<div id="att-list-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9000;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;backdrop-filter:blur(3px)">
-  <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:18px;width:100%;max-width:700px;margin:auto;overflow:hidden">
-    <div style="background:linear-gradient(135deg,#FF6B2B,#FF8C55);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:16px;font-weight:900;color:#fff" id="alm-title">📋 전체 접수인원 명단</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.8)" id="alm-sub"></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="printAttList()" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:#fff;color:#FF6B2B;border:none">🖨️ 출력</button>
-        <button onclick="document.getElementById('att-list-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button>
-      </div>
-    </div>
-    <div id="alm-body" style="padding:1.25rem;max-height:80vh;overflow-y:auto"></div>
-  </div>
-</div>
-<!-- 붙여넣기 일괄등록 모달 (출결) -->
-<div class="overlay" id="paste-ov" style="display:none">
-  <div class="modal" style="max-width:440px">
-    <div class="mhdr"><h3>📋 교육생 명단 일괄 등록</h3><button class="mcls" onclick="document.getElementById('paste-ov').style.display='none'">✕</button></div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:.625rem;background:var(--bg3);border-radius:8px;padding:8px 10px;line-height:1.7">
-      <b style="color:var(--orange)">자유 형식</b><br>
-      <span style="color:var(--text3)">광주제일지점 홍길동 김철수 / 새광주: 박민수, 정수진</span>
-    </div>
-    <textarea id="paste-inp" style="width:100%;height:150px;font-size:13px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;resize:none;line-height:1.7" placeholder="여기에 명단 붙여넣기..."></textarea>
-    <div id="paste-preview" style="display:none;margin-top:.625rem;background:var(--bg3);border-radius:10px;padding:10px;max-height:180px;overflow-y:auto;font-size:12px"></div>
-    <div class="mbtns"><button class="bcnl" onclick="document.getElementById('paste-ov').style.display='none'">취소</button><button class="bconf" onclick="parsePaste()">🔍 미리보기</button></div>
-    <button id="paste-ok" style="display:none;width:100%;margin-top:8px;padding:11px;background:#3ecf8e;color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit" onclick="confirmPaste()">✅ 등록 완료</button>
-  </div>
-</div>
-
-<!-- 관리자 비밀번호 모달 -->
-<div id="pw-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-  <div style="background:#111f38;border:2px solid #a78bfa;border-radius:20px;padding:2rem;width:280px;text-align:center">
-    <div style="font-size:32px;margin-bottom:.5rem">🔐</div>
-    <div style="font-size:16px;font-weight:700;color:#e8edf5;margin-bottom:.25rem">관리자 인증</div>
-    <div style="font-size:12px;color:#8899bb;margin-bottom:1.25rem">비밀번호를 입력하세요</div>
-    <input type="password" id="pw-inp" maxlength="10"
-      style="width:100%;padding:12px;border:1.5px solid #a78bfa;border-radius:10px;background:#0b1628;color:#e8edf5;font-size:18px;text-align:center;letter-spacing:4px;font-family:inherit;outline:none;margin-bottom:.75rem"
-      placeholder="••••"
-      onkeydown="if(event.key==='Enter')checkPw()">
-    <div id="pw-err" style="font-size:11px;color:#f5605a;min-height:16px;margin-bottom:.625rem"></div>
-    <div style="display:flex;gap:8px">
-      <button onclick="closePwModal()" style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.07);color:#8899bb;border:1px solid #1e3055">취소</button>
-      <button onclick="checkPw()" style="flex:2;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#7c3aed;color:#fff;border:none">확인</button>
-    </div>
-  </div>
-</div>
-
-<!-- 관리자 모달 -->
-<div class="overlay" id="admin-modal" style="display:none">
-  <div class="modal" style="max-width:540px;padding:0;overflow:hidden">
-    <div style="background:linear-gradient(135deg,#7c3aed,#a78bfa);padding:1rem 1.25rem;display:flex;justify-content:space-between;align-items:center">
-      <div><div style="font-size:15px;font-weight:900;color:#fff">⚙️ 관리자 화면</div><div style="font-size:11px;color:rgba(255,255,255,.8)">데이터 관리 및 변경 이력</div></div>
-      <button onclick="document.getElementById('admin-modal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:8px;width:32px;height:32px;font-family:inherit">✕</button>
-    </div>
-    <div style="padding:1.25rem;max-height:80vh;overflow-y:auto">
-      <div style="display:flex;gap:5px;margin-bottom:1rem;flex-wrap:wrap">
-        <button class="admin-tab on" onclick="switchAdminTab('goal',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:#7c3aed;color:#fff;border:none;line-height:1.3">🎯<br>합격<br>목표</button>
-        <button class="admin-tab" onclick="switchAdminTab('branch',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);line-height:1.3">🏢<br>지점<br>관리</button>
-        <button class="admin-tab" onclick="switchAdminTab('reset',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);line-height:1.3">🗑️<br>초기<br>화</button>
-        <button class="admin-tab" onclick="switchAdminTab('dates',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);line-height:1.3">📅<br>날짜<br>설정</button>
-        <button class="admin-tab" onclick="switchAdminTab('attend',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);line-height:1.3">⏱️<br>출석<br>완료</button>
-        <button class="admin-tab" onclick="switchAdminTab('log',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);line-height:1.3">📋<br>변경<br>이력</button>
-        <button class="admin-tab" onclick="switchAdminTab('examstat',this)" style="flex:1;padding:6px 2px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);line-height:1.3">📝<br>모의<br>고사</button>
-      </div>
-
-      <div id="admin-branch" style="display:none">
-        <!-- 지역단 이름 변경 -->
-        <div style="background:var(--bg3);border-radius:10px;padding:.875rem;margin-bottom:.875rem">
-          <div style="font-size:12px;font-weight:700;color:var(--t);margin-bottom:.625rem">🏛️ 지역단 이름 변경</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input id="region-name-inp" type="text" placeholder="예: 호남지역단" style="flex:1;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:13px;font-family:inherit">
-            <button onclick="saveRegionName()" style="padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:#7c3aed;color:#fff;border:none">저장</button>
-          </div>
-          <div id="region-name-cur" style="font-size:11px;color:var(--t2);margin-top:5px"></div>
-        </div>
-
-        <!-- 지점 추가 -->
-        <div style="background:var(--bg3);border-radius:10px;padding:.875rem;margin-bottom:.875rem">
-          <div style="font-size:12px;font-weight:700;color:var(--t);margin-bottom:.625rem">➕ 지점 추가</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center">
-            <input id="new-branch-name" type="text" placeholder="지점명 (예: 광주TC지점)" style="padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:12px;font-family:inherit">
-            <input id="new-branch-mgr" type="text" placeholder="지점장 이름" style="padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:12px;font-family:inherit">
-            <button onclick="addBranch()" style="padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.2);color:#3ecf8e;border:1px solid rgba(62,207,142,.35);white-space:nowrap">+ 추가</button>
-          </div>
-        </div>
-
-        <!-- 붙여넣기 일괄 수정/추가 -->
-        <div style="background:var(--bg3);border-radius:10px;padding:.875rem;margin-bottom:.875rem">
-          <div style="font-size:12px;font-weight:700;color:var(--t);margin-bottom:5px">📋 붙여넣기로 지점 일괄 수정</div>
-          <div style="font-size:10px;color:var(--t2);margin-bottom:7px;line-height:1.5">한 줄에 <b>지점명 지점장명</b> 형식으로 입력<br>예) 광주제일지점 홍길동 / 새광주지점,이진명</div>
-          <textarea id="branch-paste-inp" rows="5" style="width:100%;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:12px;font-family:inherit;resize:none;line-height:1.6" placeholder="광주제일지점 구상욱&#10;새광주지점 이진명&#10;상무중앙지점,김청훈"></textarea>
-          <div style="display:flex;gap:8px;margin-top:6px">
-            <button onclick="parseBranchPaste()" style="flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:var(--bl);border:1px solid rgba(79,168,245,.3)">🔍 미리보기</button>
-            <button onclick="confirmBranchPaste()" id="branch-paste-ok" style="display:none;flex:2;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.2);color:#3ecf8e;border:1px solid rgba(62,207,142,.35)">✅ 적용</button>
-          </div>
-          <div id="branch-paste-preview" style="display:none;margin-top:6px;background:var(--bg);border-radius:8px;padding:8px;font-size:11px;max-height:120px;overflow-y:auto"></div>
-        </div>
-
-        <!-- 지점별 편집 목록 -->
-        <div style="font-size:12px;font-weight:700;color:var(--t);margin-bottom:.5rem">✏️ 지점명 · 지점장 변경 / 삭제</div>
-        <div id="admin-branch-list" style="display:flex;flex-direction:column;gap:6px"></div>
-      </div>
-      <div id="admin-goal"><div style="font-size:12px;color:var(--t2);margin-bottom:.75rem">각 지점의 합격 목표 인원을 수정합니다.</div><div id="admin-goal-list"></div><button onclick="saveGoals()" style="width:100%;margin-top:.875rem;padding:10px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;background:#7c3aed;color:#fff;border:none">✅ 목표 저장</button></div>
-      <div id="admin-reset" style="display:none">
-        <div style="font-size:12px;color:var(--rd);margin-bottom:.875rem;background:rgba(245,96,90,.1);border:1px solid rgba(245,96,90,.3);border-radius:8px;padding:8px 12px">⚠️ 초기화는 되돌릴 수 없습니다.</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <button onclick="adminReset('att_all')" style="padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3);text-align:left">🗑️ 전체 출결 명단 초기화</button>
-          <button onclick="adminReset('recruit_all')" style="padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3);text-align:left">🗑️ 전체 신인도입 명단 초기화</button>
-          <div style="background:var(--bg3);border-radius:10px;padding:.875rem"><div style="font-size:12px;color:var(--t2);margin-bottom:.625rem;font-weight:700">지점별 개별 초기화</div><div id="admin-reset-list"></div></div>
-        </div>
-      </div>
-      
-      <div id="admin-dates" style="display:none">
-        <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;background:var(--bg3);border-radius:8px;padding:8px 10px;line-height:1.7">
-          <b style="color:var(--or)">날짜 선택 방법</b><br>
-          <span style="color:var(--t3)">달력에서 날짜를 탭하여 선택/해제합니다.<br>선택된 날짜가 출결 기록 날짜로 적용됩니다.</span>
-        </div>
-        <!-- 월 이동 -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-          <button onclick="calPrevMonth()" style="padding:7px 14px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">◀</button>
-          <span id="cal-month-title" style="font-size:15px;font-weight:700;color:var(--t)"></span>
-          <button onclick="calNextMonth()" style="padding:7px 14px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">▶</button>
-        </div>
-        <!-- 달력 -->
-        <div id="cal-grid" style="margin-bottom:.875rem"></div>
-        <!-- 선택된 날짜 목록 -->
-        <div style="font-size:12px;font-weight:700;color:var(--t);margin-bottom:.5rem">✅ 선택된 날짜 (<span id="cal-sel-cnt">0</span>개)</div>
-        <div id="cal-sel-list" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:.875rem;min-height:30px"></div>
-        <div style="display:flex;gap:8px">
-          <button onclick="calClearAll()" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">전체 해제</button>
-          <button onclick="saveDates()" style="flex:2;padding:9px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#7c3aed;color:#fff;border:none">✅ 날짜 저장 · 적용</button>
-        </div>
-      </div>
-      <div id="admin-attend" style="display:none">
-        <div style="display:flex;gap:6px;align-items:center;margin-bottom:.625rem;flex-wrap:wrap">
-          <span style="font-size:12px;font-weight:700;color:var(--t2)">날짜</span>
-          <select id="attend-date-sel" onchange="renderAdminAttend()" style="flex:1;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit"></select>
-          <button onclick="renderAdminAttend()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">🔄</button>
-          <button onclick="printAdminAttend()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.12);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 출력</button>
-        </div>
-        <div id="admin-attend-list" style="font-size:12px;color:var(--t2)"></div>
-      </div>
-      <div id="admin-examstat" style="display:none">
-        <div style="display:flex;gap:6px;align-items:center;margin-bottom:.625rem;flex-wrap:wrap">
-          <select id="aes-branch" onchange="renderAdminExamStat()" style="flex:1;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit"></select>
-          <select id="aes-round" onchange="renderAdminExamStat()" style="padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit">
-            <option value="all">전체 회차</option>
-          </select>
-          <button onclick="printAdminExamStat()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.12);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 출력</button>
-        </div>
-        <div id="admin-examstat-body" style="font-size:12px;color:var(--t2)">로딩 중...</div>
-      </div>
-
-      <div id="admin-log" style="display:none">
-        <div style="display:flex;gap:6px;align-items:center;margin-bottom:.5rem;flex-wrap:wrap">
-          <span style="font-size:12px;font-weight:700;color:var(--t2);flex-shrink:0">지점 필터</span>
-          <select id="log-filter-branch" onchange="loadLog()" style="flex:1;min-width:80px;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit">
-            <option value="">전체 지점</option>
-          </select>
-          <select id="log-filter-type" onchange="loadLog()" style="padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t2);font-size:11px;font-family:inherit">
-            <option value="">전체 항목</option>
-            <option value="신인도입">신인도입</option>
-            <option value="출결">출결</option>
-            <option value="미출석사유">미출석사유</option>
-            <option value="탈락">탈락처리</option>
-          </select>
-          <button onclick="loadLog()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">🔄</button>
-          <button onclick="clearAllLogs()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">🗑️ 전체삭제</button>
-        </div>
-        <div id="log-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:.75rem"></div>
-        <div id="admin-log-list" style="font-size:12px;color:var(--t2)">로딩 중...</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
-<script>
 // ── 모의고사 전역 변수 명시적 초기화 ──
 if(typeof window._examData==='undefined') window._examData={};
 if(typeof window._examRef==='undefined') window._examRef=null;
