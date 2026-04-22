@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v0422</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -493,9 +493,12 @@ input[type=file].xf{display:none}
 </select>
       </div>
       <div>
-        <div style="font-size:11px;color:#8899bb;margin-bottom:4px">회차 (자동)</div>
-        <div id="exam-round-display" style="width:100%;padding:7px 8px;border:1px solid rgba(255,107,43,.4);border-radius:8px;background:#0b1628;color:#FF8C55;font-size:14px;font-family:inherit;font-weight:900;text-align:center">-회</div>
-        <input type="hidden" id="exam-round-sel" value="1">
+        <div style="font-size:11px;color:#8899bb;margin-bottom:4px">회차 선택</div>
+        <select id="exam-round-sel" onchange="try{renderExamScores();}catch(e){}" style="width:100%;padding:8px;border:1.5px solid #FF8C55;border-radius:8px;background:#1a2f50;color:#FF8C55;font-size:14px;font-family:inherit;font-weight:900;text-align:center">
+          <option value="1">1회차</option><option value="2">2회차</option><option value="3">3회차</option><option value="4">4회차</option><option value="5">5회차</option>
+          <option value="6">6회차</option><option value="7">7회차</option><option value="8">8회차</option><option value="9">9회차</option><option value="10">10회차</option>
+          <option value="11">11회차</option><option value="12">12회차</option><option value="13">13회차</option><option value="14">14회차</option><option value="15">15회차</option>
+        </select>
       </div>
     </div>
     <div style="margin-bottom:8px">
@@ -693,7 +696,6 @@ function deleteExamScore(btn){
         examBase.child(String(bi)).child(personKey).child('round'+round).remove();
       }
     });
-    try{_calcAutoRound();}catch(e){}
     try{renderExamPassCard();}catch(e){}
   }).catch(function(e){
     btn.disabled=false; btn.textContent='삭제';
@@ -1010,7 +1012,7 @@ function renderAdminExamStat(){
     try{
       _examRef = db.ref('honam_exam');
       _examRef.on('value', function(snap){
-        _examData = snap.val()||{};
+        var _nd2=snap.val();if(_nd2)_examData=_nd2;else if(!_examData)_examData={};
         var tab=document.getElementById('admin-examstat');
         if(tab && tab.style.display!=='none') renderAdminExamStat();
       });
@@ -1227,7 +1229,10 @@ function initExam(){
     try{
       _examRef = db.ref('honam_exam');
       _examRef.on('value', function(snap){
-      _examData = snap.val()||{};
+      // Firebase 값으로 _examData 업데이트 (null이면 유지)
+      var _newData = snap.val();
+      if(_newData) _examData = _newData;
+      else if(!_examData) _examData = {};
       if(document.getElementById('tab-exam').classList.contains('on')){
         _calcAutoRound();
         renderExamScores();
@@ -1310,12 +1315,10 @@ function onExamBranchChange(){
   }
   onExamPersonChange();
   renderExamPassCard();
-  try{_calcAutoRound();}catch(e){}
   try{renderExamScores();}catch(e){console.error('renderExamScores error:',e);}
 }
 
 function onExamPersonChange(){
-  _calcAutoRound();
   renderExamScores();
   showExamBadges();
 }
@@ -1352,92 +1355,70 @@ function renderExamScores(){
   if(!body) return;
   var bi=parseInt(document.getElementById('exam-branch-sel').value);
   var personVal=document.getElementById('exam-person-sel').value;
-  var round=document.getElementById('exam-round-sel').value;
-  var typeFilter=document.getElementById('exam-type-sel').value;
-  if(!personVal||isNaN(bi)){body.innerHTML='<div style="color:#FF8C55;font-size:11px">⚠️ bi='+bi+' person='+personVal+'</div>';return;}
+  if(!personVal||isNaN(bi)){body.innerHTML='<div style="color:#8899bb">수험자를 선택하면 점수현황이 표시됩니다.</div>';return;}
 
   var personKey=personVal.replace(/[.#$]/g,'_').replace(/[[\]]/g,'_');
   var name=personVal.replace(/^(pass|reg)_/,'');
-  var isKiPerson=!!(data[bi]&&data[bi].passList&&data[bi].passList.indexOf(name)>=0);
   var personData=(_examData[bi]||{})[personKey]||{};
+  var _rMap={pass:'합격 ✅',fail:'불합격 ❌',kipass:'기합격★'};
+  var isKiPerson=data[bi]&&data[bi].passList&&data[bi].passList.indexOf(name)>=0;
 
-  // 데이터 있는 회차 목록
-  var activeRounds=[];
-  for(var r=1;r<=15;r++){
-    if(Object.keys(personData['round'+r]||{}).length>0) activeRounds.push(r);
+  // 데이터 있는 모든 회차 수집
+  var allRounds=[];
+  for(var _r=1;_r<=15;_r++){
+    if(Object.keys(personData['round'+_r]||{}).length>0) allRounds.push(_r);
   }
-  var roundData=personData['round'+round]||{};
-  var types=typeFilter==='all'?EXAM_TYPES:[typeFilter];
 
-  // 헤더
-  var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
-    +'<div style="font-size:12px;font-weight:700;color:#FF8C55">'+name+(isKiPerson?' <span style="font-size:10px;color:#a78bfa;background:rgba(167,139,250,.15);padding:2px 7px;border-radius:6px">기합격</span>':'')+'</div>'
-    +'<button data-bi2="'+bi+'" data-key2="'+personKey+'" onclick="clearExamPerson(this)" style="padding:4px 10px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:#f5605a;border:1px solid rgba(245,96,90,.3)">🗑️ 전체 초기화</button>'
+  var html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    +'<div style="font-size:12px;font-weight:700;color:#FF8C55">'+name+(isKiPerson?' <span style="font-size:10px;color:#a78bfa">[기합격]</span>':'')+' 누적 점수현황</div>'
+    +'<button data-bi2="'+bi+'" data-key2="'+personKey+'" onclick="clearExamPerson(this)" style="padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:#f5605a;border:1px solid rgba(245,96,90,.3)">전체 초기화</button>'
     +'</div>';
 
-  // 회차 탭
-  if(activeRounds.length>0){
-    html+='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">';
-    activeRounds.forEach(function(r){
-      var isA=String(r)===String(round);
-      html+='<button data-rv="'+r+'" onclick="switchExamRound(this)" style="padding:4px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;'
-        +(isA?'background:#FF6B2B;color:#fff;border:none':'background:var(--bg3);color:var(--t2);border:1px solid var(--bd)')+'">'+r+'회차</button>';
-    });
-    html+='</div>';
+  if(allRounds.length===0){
+    html+='<div style="color:#8899bb;font-size:11px">입력된 점수가 없습니다.</div>';
+    body.innerHTML=html;
+    return;
   }
 
-  // 점수 표
-  html+='<table style="width:100%;border-collapse:collapse;font-size:11px">'
-    +'<thead><tr style="background:#0b1628">'
-    +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #1e3055;color:#8899bb">형</th>'
-    +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">손보</th>'
-    +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">제3보험</th>'
-    +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#FF8C55">합격여부</th>'
-    +'<th style="padding:6px 5px;border-bottom:1px solid #1e3055;width:45px"></th>'
-    +'</tr></thead><tbody>';
-
-  var hasData=false;
-  types.forEach(function(t){
-    var td=roundData[t]||{};
-    var hasEntry=!!(td.son||td.je3||typeof td.sonScore==='number'||typeof td.je3Score==='number');
-    if(!hasEntry) return; // 데이터 없는 형은 스킵
-
-    hasData=true;
-    var sonPass=td.son==='pass'||td.son==='kipass'||td.son==='partial'||(typeof td.sonScore==='number'&&td.sonScore>=60);
-    var je3Pass=td.je3==='pass'||td.je3==='kipass'||td.je3==='partial'||(typeof td.je3Score==='number'&&td.je3Score>=60);
-    var sonTxt='-', je3Txt='-', sonColor='#334466', je3Color='#334466';
-    if(td.son==='kipass'){sonTxt='기합격★';sonColor='#a78bfa';}
-    else if(td.son||typeof td.sonScore==='number'){
-      sonTxt=(typeof td.sonScore==='number'?td.sonScore+'점 ':'')+(sonPass?'합격✅':'불합격❌');
-      sonColor=sonPass?'#3ecf8e':'#f5605a';
-    }
-    if(td.je3==='kipass'){je3Txt='기합격★';je3Color='#a78bfa';}
-    else if(td.je3||typeof td.je3Score==='number'){
-      je3Txt=(typeof td.je3Score==='number'?td.je3Score+'점 ':'')+(je3Pass?'합격✅':'불합격❌');
-      je3Color=je3Pass?'#3ecf8e':'#f5605a';
-    }
-    var resultTxt='',resultBg='';
-    if(sonPass&&je3Pass){resultTxt='합격';resultBg='color:#3ecf8e;background:rgba(62,207,142,.1)';}
-    else if(sonPass||je3Pass){resultTxt='부분합격';resultBg='color:#a78bfa;background:rgba(167,139,250,.1)';}
-    else{resultTxt='불합격';resultBg='color:#f5605a;background:rgba(245,96,90,.1)';}
-
-    html+='<tr style="border-bottom:1px solid rgba(30,48,85,.5)">'
-      +'<td style="padding:5px 8px;font-weight:700;color:#e8edf5">'+t+'</td>'
-      +'<td style="padding:5px 8px;text-align:center;color:'+sonColor+';font-weight:700">'+sonTxt+'</td>'
-      +'<td style="padding:5px 8px;text-align:center;color:'+je3Color+';font-weight:700">'+je3Txt+'</td>'
-      +'<td style="padding:5px 8px;text-align:center;font-weight:900;'+resultBg+'">'+resultTxt+'</td>'
-      +'<td style="padding:3px 5px;text-align:center">'
-        +'<button data-bi="'+bi+'" data-key="'+personKey+'" data-round="'+round+'" data-type="'+t+'" onclick="deleteExamScore(this)" '
-        +'style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:#f5605a;border:1px solid rgba(245,96,90,.3)">삭제</button>'
-      +'</td>'
-      +'</tr>';
+  allRounds.forEach(function(rn){
+    var rd=personData['round'+rn]||{};
+    var types=Object.keys(rd).sort(function(a,b){
+      var na=parseInt((a||'').replace(/\D/g,''));var nb=parseInt((b||'').replace(/\D/g,''));
+      return (isNaN(na)?999:na)-(isNaN(nb)?999:nb);
+    });
+    if(!types.length) return;
+    html+='<div style="font-size:11px;font-weight:700;color:#8899bb;margin:8px 0 4px">'+rn+'회차</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px">'
+      +'<thead><tr style="background:#0b1628">'
+      +'<th style="padding:5px 8px;text-align:left;border-bottom:1px solid #1e3055;color:#8899bb">형</th>'
+      +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">손보</th>'
+      +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">제3보험</th>'
+      +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#FF8C55">합격</th>'
+      +'<th style="padding:5px 5px;border-bottom:1px solid #1e3055;width:40px"></th>'
+      +'</tr></thead><tbody>';
+    types.forEach(function(t){
+      var td=rd[t]||{};
+      var sP=td.son==='pass'||td.son==='kipass'||(typeof td.sonScore==='number'&&td.sonScore>=60);
+      var jP=td.je3==='pass'||td.je3==='kipass'||(typeof td.je3Score==='number'&&td.je3Score>=60);
+      var sV=td.son==='kipass'?'기합격★':(typeof td.sonScore==='number'?td.sonScore+'점':(td.son?_rMap[td.son]||td.son:'-'));
+      var jV=td.je3==='kipass'?'기합격★':(typeof td.je3Score==='number'?td.je3Score+'점':(td.je3?_rMap[td.je3]||td.je3:'-'));
+      var ok=sP&&jP;var part=sP||jP;
+      var res=ok?'합격':part?'부분':' - ';
+      var rc=ok?'#3ecf8e':part?'#a78bfa':'#8899bb';
+      html+='<tr style="border-bottom:1px solid rgba(30,48,85,.4)">'
+        +'<td style="padding:4px 8px;font-weight:700;color:#e8edf5">'+t+'</td>'
+        +'<td style="padding:4px 6px;text-align:center;color:'+(sP?'#3ecf8e':'#f5605a')+';font-weight:700">'+sV+'</td>'
+        +'<td style="padding:4px 6px;text-align:center;color:'+(jP?'#3ecf8e':'#f5605a')+';font-weight:700">'+jV+'</td>'
+        +'<td style="padding:4px 6px;text-align:center;font-weight:900;color:'+rc+'">'+res+'</td>'
+        +'<td style="padding:3px 4px;text-align:center">'
+        +'<button data-bi="'+bi+'" data-key="'+personKey+'" data-round="'+rn+'" data-type="'+t+'" onclick="deleteExamScore(this)" '
+        +'style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:#f5605a;border:1px solid rgba(245,96,90,.3)">삭제</button>'
+        +'</td></tr>';
+    });
+    html+='</tbody></table>';
   });
-  html+='</tbody></table>';
-  if(!hasData) html+='<div style="color:#8899bb;font-size:11px;margin-top:6px">'+round+'회차 입력된 점수가 없습니다.</div>';
   body.innerHTML=html;
 }
-
-
 function printExamScores(){
   var bi = parseInt(document.getElementById('exam-branch-sel').value);
   var personVal = document.getElementById('exam-person-sel').value;
@@ -5047,88 +5028,28 @@ function saveExamScore(){
       var ch=document.getElementById('chk-'+w+'-kipass');if(ch)ch.checked=false;
       var bd=document.getElementById(w+'-badge');if(bd)bd.style.display='none';
     });
-    // _examData 로컬 즉시 업데이트 (Firebase 리스너 대기 없이)
-    try{
-      if(!_examData) _examData={};
-      if(!_examData[bi]) _examData[bi]={};
-      if(!_examData[bi][pk]) _examData[bi][pk]={};
-      var rk='round'+String(round);
-      if(!_examData[bi][pk][rk]) _examData[bi][pk][rk]={};
-      var existing=_examData[bi][pk][rk][type]||{};
-      Object.keys(pay).forEach(function(k){ existing[k]=pay[k]; });
-      _examData[bi][pk][rk][type]=existing;
-    }catch(ex){}
+    // (로컬 업데이트는 아래 통합 블록에서 처리)
     // initExam 재시도 (리스너 설정 보장)
-    try{ if(!_examRef&&db){ _examRef=db.ref('honam_exam'); _examRef.on('value',function(s){_examData=s.val()||{};}); } }catch(ex){}
-    // 회차 자동 증가 (저장 완료 후 다음 회차)
+    try{ if(!_examRef&&db){ _examRef=db.ref('honam_exam'); _examRef.on('value',function(s){var _nd=s.val();if(_nd)_examData=_nd;}); } }catch(ex){}
+    // 회차 자동 증가 제거 - 사용자가 직접 선택
+    // _examData 강제 업데이트 (숫자 키 & 문자열 키 모두)
     try{
-      var _rd=document.getElementById('exam-round-sel');
-      var _disp=document.getElementById('exam-round-display');
-      if(_rd){var _nr=Math.min(parseInt(_rd.value||'1')+1,15);_rd.value=String(_nr);if(_disp)_disp.textContent=_nr+'회';}
-    }catch(e){}
-    // 점수현황 직접 업데이트 (renderExamScores 보조)
-    var _body=document.getElementById('exam-scores-body');
-    if(_body){
-      var _sDisp=kpSon?'기합격★':(pay.son==='pass'?'합격 ✅':pay.son==='fail'?'불합격 ❌':'-');
-      var _jDisp=kpJe3?'기합격★':(pay.je3==='pass'?'합격 ✅':pay.je3==='fail'?'불합격 ❌':'-');
-      var _sC=kpSon||pay.son==='pass'?'#3ecf8e':'#f5605a';
-      var _jC=kpJe3||pay.je3==='pass'?'#3ecf8e':'#f5605a';
-      var _ok=(kpSon||pay.son==='pass')&&(kpJe3||pay.je3==='pass');
-      var _part=(kpSon||pay.son==='pass')||(kpJe3||pay.je3==='pass');
-      var _res=_ok?'합격':_part?'부분합격':'불합격';
-      var _rc=_ok?'#3ecf8e':_part?'#a78bfa':'#f5605a';
-      var _pkey=personVal.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
-      var _pname=personVal.replace(/^(pass_|reg_)/,'');
-      var _pData=(_examData[bi]||{})[_pkey]||{};
-      var _rMap={pass:'합격 ✅',fail:'불합격 ❌',kipass:'기합격★'};
-      // 데이터 있는 모든 회차 수집
-      var _allRounds=[];
-      for(var _r=1;_r<=15;_r++){
-        if(Object.keys(_pData['round'+_r]||{}).length>0) _allRounds.push(_r);
-      }
-      var _html='<div style="font-size:12px;font-weight:700;color:#FF8C55;margin-bottom:8px">'+_pname+'  누적 점수현황</div>';
-      if(_allRounds.length===0){
-        _html+='<div style="color:#8899bb;font-size:11px">입력된 점수가 없습니다.</div>';
-      } else {
-        _allRounds.forEach(function(_rn){
-          var _rd=_pData['round'+_rn]||{};
-          var _types=Object.keys(_rd);
-          if(!_types.length) return;
-          var _isCur=String(_rn)===String(round);
-          _html+='<div style="font-size:11px;font-weight:700;color:'+(_isCur?'#3ecf8e':'#8899bb')+';margin:6px 0 3px">'
-            +_rn+'회차'+(_isCur?' ← 방금 저장':'')+' </div>'
-            +'<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px">'
-            +'<thead><tr style="background:#0b1628">'
-            +'<th style="padding:5px 8px;text-align:left;border-bottom:1px solid #1e3055;color:#8899bb">형</th>'
-            +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">손보</th>'
-            +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">제3보험</th>'
-            +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#FF8C55">합격</th>'
-            +'<th style="padding:5px 5px;border-bottom:1px solid #1e3055;width:40px"></th>'
-            +'</tr></thead><tbody>';
-          _types.forEach(function(_t){
-            var _td=_rd[_t]||{};
-            var _sp=_td.son==='pass'||_td.son==='kipass'||(typeof _td.sonScore==='number'&&_td.sonScore>=60);
-            var _jp=_td.je3==='pass'||_td.je3==='kipass'||(typeof _td.je3Score==='number'&&_td.je3Score>=60);
-            var _sv=_td.son==='kipass'?'기합격★':(typeof _td.sonScore==='number'?_td.sonScore+'점':(_td.son?_rMap[_td.son]||_td.son:'-'));
-            var _jv=_td.je3==='kipass'?'기합격★':(typeof _td.je3Score==='number'?_td.je3Score+'점':(_td.je3?_rMap[_td.je3]||_td.je3:'-'));
-            var _ok=_sp&&_jp; var _part=_sp||_jp;
-            var _res=_ok?'합격':_part?'부분':' - ';
-            var _rc=_ok?'#3ecf8e':_part?'#a78bfa':'#8899bb';
-            _html+='<tr style="border-bottom:1px solid rgba(30,48,85,.4)">'
-              +'<td style="padding:4px 8px;font-weight:700;color:#e8edf5">'+_t+'</td>'
-              +'<td style="padding:4px 6px;text-align:center;color:'+(_sp?'#3ecf8e':'#f5605a')+';font-weight:700">'+_sv+'</td>'
-              +'<td style="padding:4px 6px;text-align:center;color:'+(_jp?'#3ecf8e':'#f5605a')+';font-weight:700">'+_jv+'</td>'
-              +'<td style="padding:4px 6px;text-align:center;font-weight:900;color:'+_rc+'">'+_res+'</td>'
-              +'<td style="padding:3px 4px;text-align:center">'
-              +'<button data-bi="'+bi+'" data-key="'+_pkey+'" data-round="'+_rn+'" data-type="'+_t+'" onclick="deleteExamScore(this)" '
-              +'style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:#f5605a;border:1px solid rgba(245,96,90,.3)">삭제</button>'
-              +'</td></tr>';
-          });
-          _html+='</tbody></table>';
-        });
-      }
-      _body.innerHTML=_html;
-    }
+      var _biN = Number(bi);
+      if(!_examData) _examData = {};
+      // bi를 숫자와 문자열 두 가지로 모두 저장 (Firebase 배열 변환 회피)
+      [_biN, String(_biN)].forEach(function(_k){
+        if(!_examData[_k]) _examData[_k] = {};
+        if(!_examData[_k][pk]) _examData[_k][pk] = {};
+        var _rk = 'round'+String(round);
+        if(!_examData[_k][pk][_rk]) _examData[_k][pk][_rk] = {};
+        var _ex = _examData[_k][pk][_rk][type] || {};
+        Object.keys(pay).forEach(function(kk){ _ex[kk] = pay[kk]; });
+        _examData[_k][pk][_rk][type] = _ex;
+      });
+    }catch(ex){ console.error('_examData update error:', ex); }
+    // 누적 점수현황 표시 (Firebase 리스너 대기 + 즉시 표시)
+    try{ renderExamScores(); }catch(e){ console.error('render error:',e); }
+    setTimeout(function(){ try{ renderExamScores(); }catch(e){} }, 300);
     try{renderExamScores();}catch(e){}
     try{renderExamPassCard();}catch(e){}
     var pn=personVal.replace(/^(pass_|reg_)/,'');
