@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v0422</title>
+<title>호남 지역단 신인도입 현황판 v3</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v0422</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v3</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -1315,12 +1315,27 @@ function onExamBranchChange(){
   }
   onExamPersonChange();
   renderExamPassCard();
-  try{renderExamScores();}catch(e){console.error('renderExamScores error:',e);}
+  // 수험자 선택 후 인라인 렌더
+  var _perEl2=document.getElementById('exam-person-sel');
+  if(_perEl2&&_perEl2.value){
+    try{onExamPersonChange();}catch(e){}
+  }
 }
 
 function onExamPersonChange(){
-  renderExamScores();
-  showExamBadges();
+  // 수험자 선택 시 인라인 렌더
+  var brEl=document.getElementById('exam-branch-sel');
+  var perEl=document.getElementById('exam-person-sel');
+  if(brEl&&perEl&&perEl.value){
+    var _bi=parseInt(brEl.value);
+    var _pv=perEl.value;
+    var _pk=_pv.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+    if(!isNaN(_bi)){
+      _calcAutoRoundFor(_bi,_pk,null);
+      renderExamScoresInline(_bi,_pk,_pv);
+    }
+  }
+  try{showExamBadges();}catch(e){}
 }
 
 function _calcAutoRound(){
@@ -4980,7 +4995,16 @@ if('serviceWorker' in navigator){
 </body>
 </html>
 <script>
-// saveExamScore - 모의고사 점수 저장
+// ── 모의고사 전역 변수 명시적 초기화 ──
+if(typeof window._examData==='undefined') window._examData={};
+if(typeof window._examRef==='undefined') window._examRef=null;
+// EXAM_TYPES 전역 보장
+if(typeof window.EXAM_TYPES==='undefined'){
+  window.EXAM_TYPES=[];
+  for(var _et=1;_et<=20;_et++) window.EXAM_TYPES.push(_et+'형');
+}
+
+// ── 모의고사 점수 저장 ──
 function saveExamScore(){
   var _btn=document.querySelector('button[onclick="saveExamScore()"]');
   var _prev=document.getElementById('exam-result-preview');
@@ -4988,10 +5012,14 @@ function saveExamScore(){
   function _reset(){if(_btn){_btn.innerHTML='💾 저장';_btn.disabled=false;}}
   if(_btn){_btn.textContent='⏳ 저장 중...';_btn.disabled=true;}
 
-  var bi=parseInt((document.getElementById('exam-branch-sel')||{value:'-1'}).value||'-1');
-  var personVal=(document.getElementById('exam-person-sel')||{value:''}).value||'';
-  var round=(document.getElementById('exam-round-sel')||{value:'1'}).value||'1';
-  var type=(document.getElementById('exam-type-sel')||{value:''}).value||'';
+  var brEl=document.getElementById('exam-branch-sel');
+  var bi=brEl&&brEl.value!==''&&brEl.value!==null?parseInt(brEl.value):-1;
+  var personEl=document.getElementById('exam-person-sel');
+  var personVal=personEl?personEl.value||'':'';
+  var roundEl=document.getElementById('exam-round-sel');
+  var round=roundEl?roundEl.value||'1':'1';
+  var typeEl=document.getElementById('exam-type-sel');
+  var type=typeEl?typeEl.value||'':'';
   var sonEl=document.getElementById('exam-score-son');
   var je3El=document.getElementById('exam-score-je3');
   var sonVal=sonEl?sonEl.value||'':'';
@@ -5003,63 +5031,133 @@ function saveExamScore(){
   if(!personVal){_reset();_show('수험자 선택 필요','245,96,90,.9');return;}
   if(!type||type==='all'){_reset();_show('형 선택 필요','245,96,90,.9');return;}
   if(!kpSon&&!kpJe3&&!sonVal&&!je3Val){_reset();_show('점수 입력 또는 기합격 체크','245,96,90,.9');return;}
-  if(!db){_reset();_show('Firebase 연결 안됨','245,96,90,.9');return;}
+  if(!window.db){_reset();_show('Firebase 연결 안됨','245,96,90,.9');return;}
 
   var pk=personVal.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
   var pay={};
-  if(kpSon){pay.son='kipass';}else if(sonVal){var ss=parseInt(sonVal);if(!isNaN(ss)){pay.son=ss>=60?'pass':'fail';pay.sonScore=ss;}}
-  if(kpJe3){pay.je3='kipass';}else if(je3Val){var jj=parseInt(je3Val);if(!isNaN(jj)){pay.je3=jj>=60?'pass':'fail';pay.je3Score=jj;}}
+  if(kpSon){pay.son='kipass';}
+  else if(sonVal){var ss=parseInt(sonVal);if(!isNaN(ss)){pay.son=ss>=60?'pass':'fail';pay.sonScore=ss;}}
+  if(kpJe3){pay.je3='kipass';}
+  else if(je3Val){var jj=parseInt(je3Val);if(!isNaN(jj)){pay.je3=jj>=60?'pass':'fail';pay.je3Score=jj;}}
   if(!Object.keys(pay).length){_reset();_show('입력 없음','245,96,90,.9');return;}
 
   var done=false;
   var tmr=setTimeout(function(){
-    if(!done){done=true;_reset();_show('Firebase 규칙 오류 - 콘솔 Rules에 honam_exam 추가 필요','255,107,43,.97');}
-  },4000);
+    if(!done){done=true;_reset();_show('저장 시간 초과 - Firebase Rules 확인 필요','255,107,43,.97');}
+  },5000);
 
-  db.ref('honam_exam').child(String(bi)).child(pk).child('round'+String(round)).child(type)
+  window.db.ref('honam_exam/'+bi+'/'+pk+'/round'+round+'/'+type)
   .update(pay)
   .then(function(){
     if(done)return; done=true; clearTimeout(tmr); _reset();
-    _show('저장완료: '+type+' ('+personVal.replace(/^(pass_|reg_)/,'')+'  '+round+'회)','62,207,142,.9');
-    setTimeout(function(){if(_prev)_prev.style.display='none';},2500);
+    _show('✅ 저장완료: '+type+' '+round+'회 ('+personVal.replace(/^(pass_|reg_)/,'')+')', '62,207,142,.9');
+    setTimeout(function(){if(_prev)_prev.style.display='none';},3000);
+
+    // 입력 초기화
     if(sonEl){sonEl.value='';sonEl.disabled=false;sonEl.style.opacity='1';}
     if(je3El){je3El.value='';je3El.disabled=false;je3El.style.opacity='1';}
     ['son','je3'].forEach(function(w){
       var ch=document.getElementById('chk-'+w+'-kipass');if(ch)ch.checked=false;
       var bd=document.getElementById(w+'-badge');if(bd)bd.style.display='none';
     });
-    // (로컬 업데이트는 아래 통합 블록에서 처리)
-    // initExam 재시도 (리스너 설정 보장)
-    try{ if(!_examRef&&db){ _examRef=db.ref('honam_exam'); _examRef.on('value',function(s){var _nd=s.val();if(_nd)_examData=_nd;}); } }catch(ex){}
-    // 회차 자동 증가 제거 - 사용자가 직접 선택
-    // _examData 강제 업데이트 (숫자 키 & 문자열 키 모두)
-    try{
-      var _biN = Number(bi);
-      if(!_examData) _examData = {};
-      // bi를 숫자와 문자열 두 가지로 모두 저장 (Firebase 배열 변환 회피)
-      [_biN, String(_biN)].forEach(function(_k){
-        if(!_examData[_k]) _examData[_k] = {};
-        if(!_examData[_k][pk]) _examData[_k][pk] = {};
-        var _rk = 'round'+String(round);
-        if(!_examData[_k][pk][_rk]) _examData[_k][pk][_rk] = {};
-        var _ex = _examData[_k][pk][_rk][type] || {};
-        Object.keys(pay).forEach(function(kk){ _ex[kk] = pay[kk]; });
-        _examData[_k][pk][_rk][type] = _ex;
-      });
-    }catch(ex){ console.error('_examData update error:', ex); }
-    // 누적 점수현황 표시 (Firebase 리스너 대기 + 즉시 표시)
-    try{ renderExamScores(); }catch(e){ console.error('render error:',e); }
-    setTimeout(function(){ try{ renderExamScores(); }catch(e){} }, 300);
-    try{renderExamScores();}catch(e){}
-    try{renderExamPassCard();}catch(e){}
+
+    // _examData 즉시 업데이트
+    if(!window._examData) window._examData={};
+    if(!window._examData[bi]) window._examData[bi]={};
+    if(!window._examData[bi][pk]) window._examData[bi][pk]={};
+    var rk='round'+round;
+    if(!window._examData[bi][pk][rk]) window._examData[bi][pk][rk]={};
+    var ex=window._examData[bi][pk][rk][type]||{};
+    Object.keys(pay).forEach(function(k){ex[k]=pay[k];});
+    window._examData[bi][pk][rk][type]=ex;
+
+    // 회차 자동계산: 해당 수험자 기준
+    _calcAutoRoundFor(bi, pk, roundEl);
+
+    // 점수현황 렌더
+    renderExamScoresInline(bi, pk, personVal);
+
+    // 로그
     var pn=personVal.replace(/^(pass_|reg_)/,'');
-    var sl=kpSon?'기합격':(pay.sonScore!==undefined?String(pay.sonScore)+'점':'-');
-    var jl=kpJe3?'기합격':(pay.je3Score!==undefined?String(pay.je3Score)+'점':'-');
-    if(window.BR&&BR[bi])writeLog(BR[bi].name,'모의고사',pn+' '+round+'회 '+type+' 손보:'+sl+' 제3:'+jl);
+    var sl=kpSon?'기합격':(pay.sonScore!==undefined?pay.sonScore+'점':'-');
+    var jl=kpJe3?'기합격':(pay.je3Score!==undefined?pay.je3Score+'점':'-');
+    if(window.BR&&BR[bi])try{writeLog(BR[bi].name,'모의고사',pn+' '+round+'회 '+type+' 손보:'+sl+' 제3:'+jl);}catch(e){}
+    try{renderExamPassCard();}catch(e){}
   })
   .catch(function(e){
     if(done)return; done=true; clearTimeout(tmr); _reset();
-    _show('저장 실패('+e.code+'): Firebase Rules honam_exam 추가 필요','245,96,90,.9');
+    _show('저장실패('+e.code+'): Firebase Rules에 honam_exam 추가 필요','245,96,90,.9');
   });
+}
+
+// 해당 수험자 기준 다음 회차 자동 계산
+function _calcAutoRoundFor(bi, pk, roundEl){
+  try{
+    if(!roundEl) roundEl=document.getElementById('exam-round-sel');
+    if(!roundEl) return;
+    var pData=(window._examData[bi]||{})[pk]||{};
+    var maxR=0;
+    for(var r=1;r<=15;r++){
+      if(Object.keys(pData['round'+r]||{}).length>0) maxR=r;
+    }
+    var next=Math.min(maxR+1,15);
+    roundEl.value=String(next);
+  }catch(e){}
+}
+
+// 점수현황 인라인 렌더 (외부 함수 의존 없음)
+function renderExamScoresInline(bi, pk, personVal){
+  var body=document.getElementById('exam-scores-body');
+  if(!body) return;
+  var pname=personVal.replace(/^(pass_|reg_)/,'');
+  var pData=(window._examData[bi]||{})[pk]||{};
+  var rMap={pass:'합격✅',fail:'불합격❌',kipass:'기합격★'};
+
+  // 데이터 있는 모든 회차
+  var allR=[];
+  for(var r=1;r<=15;r++){
+    if(Object.keys(pData['round'+r]||{}).length>0) allR.push(r);
+  }
+
+  var h='<div style="font-size:12px;font-weight:700;color:#FF8C55;margin-bottom:8px">'+pname+' 누적 점수현황</div>';
+  if(!allR.length){
+    h+='<div style="color:#8899bb;font-size:11px;padding:8px 0">저장된 점수가 없습니다.</div>';
+  } else {
+    allR.forEach(function(rn){
+      var rd=pData['round'+rn]||{};
+      var ts=Object.keys(rd).sort(function(a,b){return parseInt(a)-parseInt(b);});
+      if(!ts.length) return;
+      h+='<div style="font-size:11px;font-weight:700;color:#4fa8f5;margin:8px 0 3px">'+rn+'회차</div>'
+        +'<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:6px">'
+        +'<thead><tr style="background:#0b1628">'
+        +'<th style="padding:5px 8px;text-align:left;border-bottom:1px solid #1e3055;color:#8899bb">형</th>'
+        +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">손보</th>'
+        +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">제3보험</th>'
+        +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#FF8C55">합격</th>'
+        +'<th style="padding:5px 4px;border-bottom:1px solid #1e3055;width:38px"></th>'
+        +'</tr></thead><tbody>';
+      ts.forEach(function(t){
+        var td=rd[t]||{};
+        var sp=td.son==='pass'||td.son==='kipass'||(typeof td.sonScore==='number'&&td.sonScore>=60);
+        var jp=td.je3==='pass'||td.je3==='kipass'||(typeof td.je3Score==='number'&&td.je3Score>=60);
+        var sv=td.son==='kipass'?'기합격★':(typeof td.sonScore==='number'?td.sonScore+'점':'-');
+        var jv=td.je3==='kipass'?'기합격★':(typeof td.je3Score==='number'?td.je3Score+'점':'-');
+        var ok=sp&&jp; var pt=sp||jp;
+        var res=ok?'합격':pt?'부분':'-';
+        var rc=ok?'#3ecf8e':pt?'#a78bfa':'#8899bb';
+        h+='<tr style="border-bottom:1px solid rgba(30,48,85,.3)">'
+          +'<td style="padding:4px 8px;font-weight:700;color:#e8edf5">'+t+'</td>'
+          +'<td style="padding:4px 6px;text-align:center;color:'+(sp?'#3ecf8e':'#f5605a')+';font-weight:700">'+sv+'</td>'
+          +'<td style="padding:4px 6px;text-align:center;color:'+(jp?'#3ecf8e':'#f5605a')+';font-weight:700">'+jv+'</td>'
+          +'<td style="padding:4px 6px;text-align:center;font-weight:900;color:'+rc+'">'+res+'</td>'
+          +'<td style="padding:3px 4px;text-align:center">'
+          +'<button data-bi="'+bi+'" data-key="'+pk+'" data-round="'+rn+'" data-type="'+t+'" onclick="deleteExamScore(this)" '
+          +'style="padding:2px 6px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;background:rgba(245,96,90,.15);color:#f5605a;border:1px solid rgba(245,96,90,.35)">삭제</button>'
+          +'</td></tr>';
+      });
+      h+='</tbody></table>';
+    });
+  }
+  body.innerHTML=h;
 }
 </script>
