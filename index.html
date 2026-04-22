@@ -1320,17 +1320,23 @@ function setExamResult(which, result){ toggleExamBtn(which, result); }
 function onExamPartialChange(which){ /* 구버전 호환 */ }
 
 function saveExamScore(){
-  if(!_examRef){ alert('Firebase 연결 필요'); return; }
-  var bi=parseInt(document.getElementById('exam-branch-sel').value);
-  var personVal=document.getElementById('exam-person-sel').value;
-  var round=document.getElementById('exam-round-sel').value;
-  var type=document.getElementById('exam-type-sel').value;
+  // _examRef 없으면 즉시 초기화 시도
+  if(!_examRef){
+    if(db){ try{ _examRef=db.ref('honam_exam'); }catch(e){} }
+    if(!_examRef){ alert('Firebase 연결 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  }
+  var brSelEl=document.getElementById('exam-branch-sel');
+  var bi=brSelEl?parseInt(brSelEl.value):-1;
+  var personVal=(document.getElementById('exam-person-sel')||{}).value||'';
+  var round=(document.getElementById('exam-round-sel')||{}).value||'';
+  var type=(document.getElementById('exam-type-sel')||{}).value||'';
   var sonVal=(document.getElementById('exam-score-son')||{}).value||'';
   var je3Val=(document.getElementById('exam-score-je3')||{}).value||'';
 
-  if(!personVal){ alert('수험자를 선택해주세요.'); return; }
-  if(!round){ alert('회차를 확인해주세요.'); return; }
-  if(type==='all'){ alert('형을 선택해주세요.'); return; }
+  if(isNaN(bi)||bi<0){ alert('지점을 선택해주세요.'); return; }
+  if(!personVal||personVal==='(명단 없음)'){ alert('수험자를 선택해주세요.'); return; }
+  if(!round||round==='0'){ alert('회차를 확인해주세요.'); return; }
+  if(!type||type==='all'||type==='전체'){ alert('형을 선택해주세요.'); return; }
 
   var kpSon=!!(document.getElementById('chk-son-kipass')&&document.getElementById('chk-son-kipass').checked);
   var kpJe3=!!(document.getElementById('chk-je3-kipass')&&document.getElementById('chk-je3-kipass').checked);
@@ -1339,7 +1345,7 @@ function saveExamScore(){
   }
 
   // personKey: Firebase 키에 사용 불가 문자 제거
-  var personKey=personVal.replace(/[.#$\[\]]/g,'_');
+  var personKey=personVal.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
   var path=bi+'/'+personKey+'/round'+round+'/'+type;
 
   // payload: null 절대 포함 안 함 (null은 Firebase에서 키 삭제)
