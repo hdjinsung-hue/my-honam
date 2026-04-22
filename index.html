@@ -5,13 +5,13 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="1776847584">
+<meta name="version" content="1776896344">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v23</title>
+<title>호남 지역단 신인도입 현황판 v24</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v23</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v24</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -2143,11 +2143,13 @@ function renderAtt(){
     '<div class="ak" onclick="showAttModal()" style="cursor:pointer;border-color:rgba(79,168,245,.4);background:rgba(79,168,245,.05)">'
     +'<div class="al" style="color:var(--bl)">접수인원 📋</div>'
     +'<div class="av" style="color:var(--bl)">'+totAtt+'명</div>'
-    +'<div class="as" style="color:var(--bl)">탭하면 명단 보기</div></div>'
+    +'<div class="as" style="color:var(--bl)">탭하면 명단 보기</div>'
+    +'<button onclick="event.stopPropagation();printAttList()" style="margin-top:6px;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.2);color:#4fa8f5;border:1px solid rgba(79,168,245,.4);touch-action:manipulation">🖨️ 출력</button></div>'
     +'<div class="ak" onclick="showDailyModal()" style="cursor:pointer">'
     +'<div class="al">당일 출석인원 📊</div>'
     +'<div class="av" style="color:var(--gr)">'+todayAtt+'명</div>'
-    +'<div class="as" style="color:var(--gr)">'+todayLbl+' · 탭하면 날짜별 보기</div></div>'
+    +'<div class="as" style="color:var(--gr)">'+todayLbl+' · 탭하면 날짜별 보기</div>'
+    +'<button onclick="event.stopPropagation();printDailyModal()" style="margin-top:6px;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.2);color:#3ecf8e;border:1px solid rgba(62,207,142,.4);touch-action:manipulation">🖨️ 출력</button></div>'
     +'<div class="ak">'
     +'<div class="al">탈락 인원</div>'
     +'<div class="av" style="color:var(--rd)">'+totElim+'명</div>'
@@ -3217,21 +3219,21 @@ function printDailyModal(){
   });
   var totAtt2=att.reduce(function(s,a){return s+a.attendees.length;},0);
   var now=new Date();
-  var css='body{font-family:"맑은 고딕","Apple SD Gothic Neo",sans-serif;padding:20px;color:#111;font-size:13px}'
-    +'h1{font-size:16px;color:#0d5c3a;margin-bottom:4px}'
-    +'.sub{font-size:11px;color:#666;margin-bottom:14px}'
-    +'table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px}'
-    +'th{background:#e8f5ee;padding:6px 5px;border:1px solid #ccc;text-align:center;font-weight:700}'
-    +'th.l{text-align:left}td{padding:5px;border:1px solid #ddd;text-align:center}'
-    +'td.l{text-align:left;font-weight:700}.tot{background:#fff3eb;font-weight:700}'
-    +'.sum{background:#e8f5ee}.zero{color:#ccc}'
-    +'.sec{font-size:14px;font-weight:700;color:#0d5c3a;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #0d5c3a}'
-    +'.leg{font-size:11px;color:#888;margin-bottom:8px}'
-    +'.bcard{margin-bottom:10px;border:1px solid #ddd;border-radius:6px;overflow:hidden;page-break-inside:avoid}'
-    +'.bhdr{background:#f8f8f8;padding:7px 12px;display:flex;justify-content:space-between;border-bottom:1px solid #ddd;font-weight:700;font-size:12px}'
-    +'.names{padding:8px 12px;display:flex;flex-wrap:wrap;gap:5px}'
-    +'.tag{font-size:11px;padding:3px 9px;border-radius:12px;font-weight:600}'
-    +'.ok{background:#e8f9f0;color:#1a7a4a}.no{background:#f5f5f5;color:#555}.elim{background:#fde8e8;color:#c0392b}'
+  var css='body{font-family:"맑은 고딕","Apple SD Gothic Neo",sans-serif;padding:20px;color:#111;font-size:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'h1{font-size:24px;color:#0d5c3a;margin-bottom:4px}'
+    +'.sub{font-size:13px;color:#555;margin-bottom:16px}'
+    +'table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:18px}'
+    +'th{background:#c8eedd;padding:8px 7px;border:1px solid #7fcfab;text-align:center;font-weight:700;color:#0d5c3a}'
+    +'th.l{text-align:left}td{padding:7px;border:1px solid #ddd;text-align:center}'
+    +'td.l{text-align:left;font-weight:700}.tot{background:#fff3eb;font-weight:700;font-size:15px}'
+    +'.sum{background:#d4f5e2;font-weight:700}.zero{color:#bbb}'
+    +'.sec{font-size:18px;font-weight:700;color:#0d5c3a;margin:20px 0 10px;padding-bottom:6px;border-bottom:3px solid #0d5c3a}'
+    +'.leg{font-size:13px;color:#666;margin-bottom:10px}'
+    +'.bcard{margin-bottom:12px;border:1.5px solid #ddd;border-radius:8px;overflow:hidden;page-break-inside:avoid}'
+    +'.bhdr{background:#d4f5e2;padding:9px 14px;display:flex;justify-content:space-between;border-bottom:1.5px solid #7fcfab;font-weight:700;font-size:15px;color:#0d5c3a}'
+    +'.names{padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px}'
+    +'.tag{font-size:14px;padding:5px 12px;border-radius:14px;font-weight:600}'
+    +'.ok{background:#d4f5e2;color:#1a7a4a}.no{background:#f0f0f0;color:#444}.elim{background:#fde8e8;color:#c0392b}'
     +'@media print{@page{margin:10mm}body{padding:0}}';
   var dateHdrs=DATES.map(function(d){return '<th>'+d.lbl+'</th>';}).join('');
   var rows=BR.map(function(b,i){
@@ -4073,21 +4075,21 @@ function printAttList(){
 
   var w=window.open('','_blank','width=900,height=700');
   if(!w){alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');return;}
-  var css='body{font-family:"맑은 고딕","Apple SD Gothic Neo",sans-serif;padding:20px;color:#111;font-size:13px}'
-    +'h1{font-size:18px;color:#FF6B2B;margin-bottom:3px}.sub{font-size:11px;color:#666;margin-bottom:16px}'
-    +'table{width:100%;border-collapse:collapse;margin-bottom:18px;font-size:12px}'
-    +'th{background:#f0f4f8;padding:7px 8px;border:1px solid #ddd;text-align:center;font-weight:700}'
-    +'th.l{text-align:left}td{padding:6px 8px;border:1px solid #ddd;text-align:center}td.l{text-align:left;font-weight:700}'
-    +'tr.tot{background:#fff3eb;font-weight:700}'
-    +'.sec{font-size:14px;font-weight:700;color:#FF6B2B;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #FF6B2B}'
-    +'.leg{font-size:11px;color:#888;margin-bottom:8px}'
+  var css='body{font-family:"맑은 고딕","Apple SD Gothic Neo",sans-serif;padding:20px;color:#111;font-size:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'h1{font-size:24px;color:#FF6B2B;margin-bottom:4px}.sub{font-size:13px;color:#555;margin-bottom:18px}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px}'
+    +'th{background:#ffe0cc;padding:9px 10px;border:1px solid #f4a36a;text-align:center;font-weight:700;color:#a83a00}'
+    +'th.l{text-align:left}td{padding:8px 10px;border:1px solid #ddd;text-align:center}td.l{text-align:left;font-weight:700}'
+    +'tr.tot{background:#fff3eb;font-weight:700;font-size:15px}'
+    +'.sec{font-size:18px;font-weight:700;color:#FF6B2B;margin:20px 0 10px;padding-bottom:6px;border-bottom:3px solid #FF6B2B}'
+    +'.leg{font-size:13px;color:#666;margin-bottom:10px}'
     +'.reason{color:#e67e22;font-weight:700}'
-    +'.bcard{margin-bottom:10px;border:1px solid #ddd;border-radius:6px;overflow:hidden;page-break-inside:avoid}'
-    +'.bhdr{background:#f8f8f8;padding:7px 12px;display:flex;justify-content:space-between;border-bottom:1px solid #ddd;font-weight:700;font-size:12px}'
-    +'.names{padding:8px 12px;display:flex;flex-wrap:wrap;gap:5px}'
-    +'.tag{font-size:11px;padding:3px 9px;border-radius:12px;font-weight:600}'
-    +'.ok{background:#e8f9f0;color:#1a7a4a}.no{background:#f5f5f5;color:#555}.elim{background:#fde8e8;color:#c0392b}'
-    +'@media print{@page{margin:15mm}body{padding:0}}';
+    +'.bcard{margin-bottom:12px;border:1.5px solid #ddd;border-radius:8px;overflow:hidden;page-break-inside:avoid}'
+    +'.bhdr{background:#fff3eb;padding:9px 14px;display:flex;justify-content:space-between;border-bottom:1.5px solid #f4a36a;font-weight:700;font-size:15px;color:#a83a00}'
+    +'.names{padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px}'
+    +'.tag{font-size:14px;padding:5px 12px;border-radius:14px;font-weight:600}'
+    +'.ok{background:#d4f5e2;color:#1a7a4a}.no{background:#f0f0f0;color:#444}.elim{background:#fde8e8;color:#c0392b}'
+    +'@media print{@page{margin:12mm}body{padding:0}-webkit-print-color-adjust:exact;print-color-adjust:exact}';
 
   var body='<h1>📋 전체 접수인원 명단</h1>'
     +'<div class="sub">'+sub+' · 출력일: '+new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})+'</div>'
