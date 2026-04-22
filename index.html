@@ -1005,7 +1005,18 @@ function renderAdminExamStat(){
   var rd=rdSel?rdSel.value:'all';
   var body=document.getElementById('admin-examstat-body');
   if(!body) return;
-  if(!_examData||!_examRef){initExam();body.innerHTML='<div style="color:var(--t3)">모의고사 데이터 로딩 중...</div>';return;}
+  // _examRef 없으면 즉시 초기화
+  if(!_examRef && db){
+    try{
+      _examRef = db.ref('honam_exam');
+      _examRef.on('value', function(snap){
+        _examData = snap.val()||{};
+        var tab=document.getElementById('admin-examstat');
+        if(tab && tab.style.display!=='none') renderAdminExamStat();
+      });
+    }catch(e){}
+  }
+  if(!_examData){ body.innerHTML='<div style="color:var(--t3)">모의고사 데이터 로딩 중...</div>'; return; }
 
   // 전체 지점 선택 시 반복 렌더링
   if(biVal==='all'){
