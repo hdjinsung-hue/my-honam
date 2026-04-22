@@ -5,13 +5,13 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="1776896344">
+<meta name="version" content="1776901684">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v24</title>
+<title>호남 지역단 신인도입 현황판 v25</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v24</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v25</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -462,7 +462,10 @@ input[type=file].xf{display:none}
   <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:.875rem;margin-bottom:.875rem">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.625rem">
       <div style="font-size:13px;font-weight:900;color:#FF8C55">📊 테스트 현황표</div>
+      <div style="display:flex;gap:6px;align-items:center">
       <button onclick="printExamStat()" style="padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 출력</button>
+      <button onclick="xlsExamStat()" style="padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.3)">📥 엑셀</button>
+      </div>
     </div>
     <div id="exam-stat-table" style="font-size:11px;overflow-x:auto">
       <div style="color:#8899bb;font-size:11px">데이터 로딩 중...</div>
@@ -579,9 +582,11 @@ input[type=file].xf{display:none}
     <div id="exam-scores-body" style="font-size:12px;color:#8899bb">수험자를 선택하면 점수현황이 표시됩니다.</div>
   </div>
   <!-- 출력 버튼 -->
-  <div style="margin-top:.75rem;display:flex;gap:8px">
+  <div style="margin-top:.75rem;display:flex;gap:8px;flex-wrap:wrap">
     <button onclick="printExamByBranch()" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 지점별 전체 출력</button>
+    <button onclick="xlsExamByBranch()" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.08);color:#4fa8f5;border:1px dashed rgba(79,168,245,.4)">📥 지점별 엑셀</button>
     <button onclick="printExamByVisionCenter()" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.3)">🖨️ 비전센터별 출력</button>
+    <button onclick="xlsExamByVisionCenter()" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.08);color:#3ecf8e;border:1px dashed rgba(62,207,142,.4)">📥 비전센터별 엑셀</button>
   </div>
 </div>
 </div>
@@ -2144,12 +2149,18 @@ function renderAtt(){
     +'<div class="al" style="color:var(--bl)">접수인원 📋</div>'
     +'<div class="av" style="color:var(--bl)">'+totAtt+'명</div>'
     +'<div class="as" style="color:var(--bl)">탭하면 명단 보기</div>'
-    +'<button onclick="event.stopPropagation();printAttList()" style="margin-top:6px;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.2);color:#4fa8f5;border:1px solid rgba(79,168,245,.4);touch-action:manipulation">🖨️ 출력</button></div>'
+    +'<div style="display:flex;gap:5px;justify-content:center;margin-top:6px" onclick="event.stopPropagation()">'
+    +'<button onclick="printAttList()" style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.2);color:#4fa8f5;border:1px solid rgba(79,168,245,.4);touch-action:manipulation">🖨️ 출력</button>'
+    +'<button onclick="xlsAttList()" style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.15);color:#3ecf8e;border:1px dashed rgba(62,207,142,.5);touch-action:manipulation">📥 엑셀</button>'
+    +'</div></div>'
     +'<div class="ak" onclick="showDailyModal()" style="cursor:pointer">'
     +'<div class="al">당일 출석인원 📊</div>'
     +'<div class="av" style="color:var(--gr)">'+todayAtt+'명</div>'
     +'<div class="as" style="color:var(--gr)">'+todayLbl+' · 탭하면 날짜별 보기</div>'
-    +'<button onclick="event.stopPropagation();printDailyModal()" style="margin-top:6px;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.2);color:#3ecf8e;border:1px solid rgba(62,207,142,.4);touch-action:manipulation">🖨️ 출력</button></div>'
+    +'<div style="display:flex;gap:5px;justify-content:center;margin-top:6px" onclick="event.stopPropagation()">'
+    +'<button onclick="printDailyModal()" style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.2);color:#3ecf8e;border:1px solid rgba(62,207,142,.4);touch-action:manipulation">🖨️ 출력</button>'
+    +'<button onclick="xlsDailyModal()" style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.08);color:#3ecf8e;border:1px dashed rgba(62,207,142,.5);touch-action:manipulation">📥 엑셀</button>'
+    +'</div></div>'
     +'<div class="ak">'
     +'<div class="al">탈락 인원</div>'
     +'<div class="av" style="color:var(--rd)">'+totElim+'명</div>'
@@ -5424,6 +5435,300 @@ function applyGlobalAtt(){
   if(changed) alert(changed+'건 출석 처리되었습니다.');
   renderAtt();
 }
+
+// ══════════════════════════════════════════
+// 📥 엑셀 다운로드 공통 유틸
+// ══════════════════════════════════════════
+function _xlsDownload(wb, filename){
+  XLSX.writeFile(wb, filename);
+}
+function _xlsDate(){
+  var d=new Date();
+  return d.getFullYear()+''+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+}
+
+// ── 접수인원 명단 엑셀 ──
+function xlsAttList(){
+  var _n=new Date();
+  var _dk=String(_n.getMonth()+1).padStart(2,'0')+String(_n.getDate()).padStart(2,'0');
+  var _dm=DATES.find(function(d){return d.key===_dk;});
+  var todayKey=_dm?_dm.key:DATES[DATES.length-1].key;
+  var todayLbl=_dm?_dm.lbl:DATES[DATES.length-1].lbl;
+  var wb=XLSX.utils.book_new();
+
+  // 시트1: 지점별 요약
+  var sum=[['지점','지점장','접수','당일출석','탈락','출석률']];
+  var s1=0,s2=0,s3=0;
+  BR.forEach(function(b,i){
+    var a=att[i],ttl=a.attendees.length; if(ttl===0) return;
+    var elim=a.eliminated||{};
+    var elimCnt=Object.values(elim).filter(function(v){return v;}).length;
+    var todayCnt=(a.attendance[todayKey]||[]).filter(function(n){return !elim[n];}).length;
+    var active=ttl-elimCnt;
+    var rate=active>0?Math.round(todayCnt/active*100):0;
+    s1+=ttl; s2+=todayCnt; s3+=elimCnt;
+    sum.push([b.name,b.mgr,ttl,todayCnt,elimCnt,rate+'%']);
+  });
+  var totActive=s1-s3, totRate=totActive>0?Math.round(s2/totActive*100):0;
+  sum.push(['합계','',s1,s2,s3,totRate+'%']);
+  var ws1=XLSX.utils.aoa_to_sheet(sum);
+  XLSX.utils.book_append_sheet(wb,ws1,'지점별 요약');
+
+  // 시트2: 전체 명단 (지점, 이름, 상태)
+  var list=[['지점','이름','상태','미출석사유']];
+  BR.forEach(function(b,i){
+    var a=att[i]; if(a.attendees.length===0) return;
+    var elim=a.eliminated||{};
+    a.attendees.forEach(function(name){
+      var isE=!!elim[name];
+      var isT=!isE&&(a.attendance[todayKey]||[]).indexOf(name)>=0;
+      var status=isE?'탈락':isT?'출석':'미출석';
+      var reason=(a.absenceReason&&a.absenceReason[name])||'';
+      list.push([b.name,name,status,reason]);
+    });
+  });
+  var ws2=XLSX.utils.aoa_to_sheet(list);
+  XLSX.utils.book_append_sheet(wb,ws2,'전체 명단');
+
+  _xlsDownload(wb,'접수인원명단_'+_xlsDate()+'.xlsx');
+}
+
+// ── 당일 출석현황 엑셀 ──
+function xlsDailyModal(){
+  var _n=new Date();
+  var _dk=String(_n.getMonth()+1).padStart(2,'0')+String(_n.getDate()).padStart(2,'0');
+  var _dm=DATES.find(function(d){return d.key===_dk;});
+  var todayKey=_dm?_dm.key:DATES[DATES.length-1].key;
+  var wb=XLSX.utils.book_new();
+
+  // 시트1: 날짜별 출석 현황표
+  var hdr=['지점','접수'].concat(DATES.map(function(d){return d.lbl;})).concat(['합계']);
+  var rows=[hdr];
+  var totals=DATES.map(function(){return 0;});
+  var totAtt2=0;
+  BR.forEach(function(b,i){
+    var a=att[i],elim=a.eliminated||{};
+    var ttl=a.attendees.length;
+    var dayCnts=DATES.map(function(d){return (a.attendance[d.key]||[]).filter(function(n){return !elim[n];}).length;});
+    dayCnts.forEach(function(v,j){totals[j]+=v;});
+    totAtt2+=ttl;
+    rows.push([b.name,ttl].concat(dayCnts).concat([dayCnts.reduce(function(s,x){return s+x;},0)]));
+  });
+  rows.push(['전체 합계',totAtt2].concat(totals).concat([totals.reduce(function(s,x){return s+x;},0)]));
+  var ws1=XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb,ws1,'날짜별 출석');
+
+  // 시트2: 당일 세부 명단
+  var list=[['지점','이름','상태','미출석사유']];
+  BR.forEach(function(b,i){
+    var a=att[i]; if(a.attendees.length===0) return;
+    var elim=a.eliminated||{};
+    a.attendees.forEach(function(name){
+      var isE=!!elim[name];
+      var isT=!isE&&(a.attendance[todayKey]||[]).indexOf(name)>=0;
+      var status=isE?'탈락':isT?'출석':'미출석';
+      var reason=(a.absenceReason&&a.absenceReason[name])||'';
+      list.push([b.name,name,status,reason]);
+    });
+  });
+  var ws2=XLSX.utils.aoa_to_sheet(list);
+  XLSX.utils.book_append_sheet(wb,ws2,'당일 세부 명단');
+
+  _xlsDownload(wb,'출석현황_'+_xlsDate()+'.xlsx');
+}
+
+// ── 모의고사 테스트 현황 엑셀 ──
+function xlsExamStat(){
+  var eData=_examData||window._examData||{};
+  var CENTERS={0:'동광주',1:'동광주',2:'동광주',3:'동광주',4:'동광주',
+    5:'광주',6:'광주',7:'광주',8:'광주',9:'광주',
+    10:'목포',11:'목포',12:'목포',13:'목포',
+    14:'순천',15:'순천',16:'순천',17:'순천',18:'순천'};
+  function getAvg(pData){
+    var sonAll=[],je3All=[];
+    for(var r=1;r<=15;r++){var rd=pData['round'+r]||{};Object.keys(rd).forEach(function(t){var td=rd[t]||{};if(typeof td.sonScore==='number')sonAll.push(td.sonScore);else if(td.son==='kipass')sonAll.push(100);if(typeof td.je3Score==='number')je3All.push(td.je3Score);else if(td.je3==='kipass')je3All.push(100);});}
+    if(!sonAll.length&&!je3All.length) return null;
+    var s=sonAll.length?sonAll.reduce(function(a,b){return a+b;},0)/sonAll.length:0;
+    var j=je3All.length?je3All.reduce(function(a,b){return a+b;},0)/je3All.length:0;
+    return Math.round((s+j)/2);
+  }
+  var rows=[['비전센터','지점','접수','탈락','관리','응시','40미만','40~50','50~60','60이상']];
+  BR.forEach(function(b,bi){
+    var bd=eData[bi]||eData[String(bi)]||{};
+    var aList=(att[bi]&&att[bi].attendees)||[];
+    var pList=(data[bi]&&data[bi].passList)||[];
+    var elim=(att[bi]&&att[bi].eliminated)||{};
+    var total=pList.length+aList.filter(function(n){return pList.indexOf(n)<0;}).length;
+    var drop=Object.keys(elim).filter(function(k){return elim[k];}).length;
+    var avgs=[];
+    [].concat(pList).concat(aList.filter(function(n){return pList.indexOf(n)<0;})).forEach(function(name){
+      var pk=name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+      var pd=bd[pk]||{};if(!Object.keys(pd).length){Object.keys(bd).forEach(function(k){if(k.replace(/^(reg_|pass_)/,'')===pk)pd=bd[k]||{};});}
+      var avg=getAvg(pd);if(avg!==null)avgs.push(avg);
+    });
+    rows.push([CENTERS[bi]||'',b.name,total,drop,total-drop,avgs.length,
+      avgs.filter(function(v){return v<40;}).length,
+      avgs.filter(function(v){return v>=40&&v<50;}).length,
+      avgs.filter(function(v){return v>=50&&v<60;}).length,
+      avgs.filter(function(v){return v>=60;}).length]);
+  });
+  var wb=XLSX.utils.book_new();
+  var ws=XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb,ws,'테스트 현황');
+  _xlsDownload(wb,'모의고사테스트현황_'+_xlsDate()+'.xlsx');
+}
+
+// ── 지점별 전체 모의고사 엑셀 ──
+function xlsExamByBranch(){
+  var eData=_examData||window._examData||{};
+  var maxRound=0;
+  BR.forEach(function(_,bi){var bd=eData[bi]||eData[String(bi)]||{};Object.keys(bd).forEach(function(pk){for(var r=15;r>=1;r--){if(Object.keys((bd[pk]||{})['round'+r]||{}).length>0){if(r>maxRound)maxRound=r;break;}}});});
+  if(!maxRound) maxRound=5;
+  var hdr=['지점','이름'];
+  for(var rn=1;rn<=maxRound;rn++){hdr.push(rn+'회차_손보');hdr.push(rn+'회차_제3');}
+  var rows=[hdr];
+  BR.forEach(function(b,bi){
+    var bd=eData[bi]||eData[String(bi)]||{};
+    var attList=(att[bi]&&att[bi].attendees)||[];
+    var passList=(data[bi]&&data[bi].passList)||[];
+    var allPeople=[].concat(passList).concat(attList.filter(function(n){return passList.indexOf(n)<0;}));
+    allPeople.forEach(function(name){
+      var pk=name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+      var pData=bd[pk]||bd['pass_'+pk]||bd['reg_'+pk]||{};
+      if(!Object.keys(pData).length){Object.keys(bd).forEach(function(k){if(k.replace(/^(pass_|reg_)/,'')===pk)pData=bd[k]||{};});}
+      var row=[b.name,name];
+      for(var rn2=1;rn2<=maxRound;rn2++){
+        var rd=pData['round'+rn2]||{};
+        var types=Object.keys(rd).sort(function(a,b){return parseInt(a)-parseInt(b);});
+        if(!types.length){row.push('');row.push('');continue;}
+        var t=types[types.length-1]; var td=rd[t]||{};
+        var sv=td.son==='kipass'?'기합격':(typeof td.sonScore==='number'?td.sonScore:td.son==='pass'?'합격':td.son==='fail'?'불합격':'');
+        var jv=td.je3==='kipass'?'기합격':(typeof td.je3Score==='number'?td.je3Score:td.je3==='pass'?'합격':td.je3==='fail'?'불합격':'');
+        row.push(sv);row.push(jv);
+      }
+      rows.push(row);
+    });
+  });
+  var wb=XLSX.utils.book_new();
+  var ws=XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb,ws,'지점별 모의고사');
+  _xlsDownload(wb,'지점별모의고사_'+_xlsDate()+'.xlsx');
+}
+
+// ── 비전센터별 모의고사 엑셀 ──
+function xlsExamByVisionCenter(){
+  var eData=_examData||window._examData||{};
+  var CENTERS={0:'동광주',1:'동광주',2:'동광주',3:'동광주',4:'동광주',
+    5:'광주',6:'광주',7:'광주',8:'광주',9:'광주',
+    10:'목포',11:'목포',12:'목포',13:'목포',
+    14:'순천',15:'순천',16:'순천',17:'순천',18:'순천'};
+  var CENTER_ORDER=['동광주','광주','목포','순천'];
+  var maxRound=0;
+  BR.forEach(function(_,bi){var bd=eData[bi]||eData[String(bi)]||{};Object.keys(bd).forEach(function(pk){for(var r=15;r>=1;r--){if(Object.keys((bd[pk]||{})['round'+r]||{}).length>0){if(r>maxRound)maxRound=r;break;}}});});
+  if(!maxRound) maxRound=5;
+  var wb=XLSX.utils.book_new();
+  CENTER_ORDER.forEach(function(ckey){
+    var branchIdxs=BR.map(function(_,i){return i;}).filter(function(i){return CENTERS[i]===ckey;});
+    var hdr=['지점','이름'];
+    for(var rn=1;rn<=maxRound;rn++){hdr.push(rn+'회차_손보');hdr.push(rn+'회차_제3');}
+    var rows=[hdr];
+    branchIdxs.forEach(function(bi){
+      var bd=eData[bi]||eData[String(bi)]||{};
+      var attList=(att[bi]&&att[bi].attendees)||[];
+      var passList=(data[bi]&&data[bi].passList)||[];
+      var allPeople=[].concat(passList).concat(attList.filter(function(n){return passList.indexOf(n)<0;}));
+      allPeople.forEach(function(name){
+        var pk=name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+        var pData=bd[pk]||bd['pass_'+pk]||bd['reg_'+pk]||{};
+        if(!Object.keys(pData).length){Object.keys(bd).forEach(function(k){if(k.replace(/^(pass_|reg_)/,'')===pk)pData=bd[k]||{};});}
+        var row=[BR[bi]?BR[bi].name:'',name];
+        for(var rn2=1;rn2<=maxRound;rn2++){
+          var rd=pData['round'+rn2]||{};
+          var types=Object.keys(rd).sort(function(a,b){return parseInt(a)-parseInt(b);});
+          if(!types.length){row.push('');row.push('');continue;}
+          var t=types[types.length-1]; var td=rd[t]||{};
+          var sv=td.son==='kipass'?'기합격':(typeof td.sonScore==='number'?td.sonScore:td.son==='pass'?'합격':td.son==='fail'?'불합격':'');
+          var jv=td.je3==='kipass'?'기합격':(typeof td.je3Score==='number'?td.je3Score:td.je3==='pass'?'합격':td.je3==='fail'?'불합격':'');
+          row.push(sv);row.push(jv);
+        }
+        rows.push(row);
+      });
+    });
+    if(rows.length>1){
+      var ws=XLSX.utils.aoa_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb,ws,ckey+'비전센터');
+    }
+  });
+  _xlsDownload(wb,'비전센터별모의고사_'+_xlsDate()+'.xlsx');
+}
+
+// ── 관리자 출결현황 엑셀 ──
+function xlsAdminAttend(){
+  var dSel=document.getElementById('attend-date-sel');
+  var _dk=(dSel&&dSel.value)?dSel.value:'';
+  if(!_dk&&DATES.length>0)_dk=DATES[0].key;
+  var _dm=DATES.find(function(d){return d.key===_dk;})||{lbl:_dk};
+  var rows=[['순위','지점','지점장','완료시각','접수','출석','상태']];
+  var items=BR.map(function(b,i){
+    var a=att[i];
+    var ts=a.completedAt&&a.completedAt[_dk]?a.completedAt[_dk]:null;
+    var ttl=a.attendees.length;
+    var elim=a.eliminated||{};
+    var todayCnt=(a.attendance[_dk]||[]).filter(function(n){return !elim[n];}).length;
+    return{i:i,b:b,ts:ts,ttl:ttl,todayCnt:todayCnt};
+  });
+  var done=items.filter(function(x){return x.ts;}).sort(function(a,b){return a.ts-b.ts;});
+  var undone=items.filter(function(x){return !x.ts;});
+  done.forEach(function(x,rank){
+    var t=new Date(x.ts);
+    var timeStr=String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0');
+    rows.push([rank+1,x.b.name,x.b.mgr,timeStr,x.ttl,x.todayCnt,'완료']);
+  });
+  undone.forEach(function(x){
+    rows.push(['',x.b.name,x.b.mgr,'',x.ttl,x.todayCnt,'미완료']);
+  });
+  var wb=XLSX.utils.book_new();
+  var ws=XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb,ws,_dm.lbl+'_출결현황');
+  _xlsDownload(wb,'출결현황_'+_dm.lbl+'_'+_xlsDate()+'.xlsx');
+}
+
+// ── 관리자 모의고사 현황 엑셀 ──
+function xlsAdminExamStat(){
+  var biVal=(document.getElementById('aes-branch')||{}).value||'0';
+  var rd=(document.getElementById('aes-round')||{}).value||'all';
+  var eData=_examData||window._examData||{};
+  var rows=[['지점','이름','회차','형','손보결과','손보점수','제3결과','제3점수','합격여부']];
+  function processBI(bi){
+    var bd=eData[bi]||eData[String(bi)]||{};
+    var attList=(att[bi]&&att[bi].attendees)||[];
+    var passList=(data[bi]&&data[bi].passList)||[];
+    var allPeople=[].concat(passList).concat(attList.filter(function(n){return passList.indexOf(n)<0;}));
+    allPeople.forEach(function(name){
+      var pk=name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+      var pData=bd[pk]||bd['pass_'+pk]||bd['reg_'+pk]||{};
+      if(!Object.keys(pData).length){Object.keys(bd).forEach(function(k){if(k.replace(/^(pass_|reg_)/,'')===pk)pData=bd[k]||{};});}
+      var rounds=rd==='all'?Array.from({length:15},function(_,i){return i+1;}):[parseInt(rd)];
+      rounds.forEach(function(rn){
+        var rdData=pData['round'+rn]||{};
+        Object.keys(rdData).sort(function(a,b){return parseInt(a)-parseInt(b);}).forEach(function(t){
+          var td=rdData[t]||{};
+          var sp=td.son==='pass'||td.son==='kipass'||(typeof td.sonScore==='number'&&td.sonScore>=60);
+          var jp=td.je3==='pass'||td.je3==='kipass'||(typeof td.je3Score==='number'&&td.je3Score>=60);
+          var sv=td.son==='kipass'?'기합격':(typeof td.sonScore==='number'?td.sonScore:td.son||'');
+          var jv=td.je3==='kipass'?'기합격':(typeof td.je3Score==='number'?td.je3Score:td.je3||'');
+          rows.push([BR[bi]?BR[bi].name:'',name,rn+'회차',t+'형',sp?'합격':'불합격',sv,jp?'합격':'불합격',jv,sp&&jp?'합격':sp||jp?'부분합격':'불합격']);
+        });
+      });
+    });
+  }
+  if(biVal==='all'){BR.forEach(function(_,bi){processBI(bi);});}
+  else{processBI(parseInt(biVal));}
+  var wb=XLSX.utils.book_new();
+  var ws=XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb,ws,'모의고사현황');
+  _xlsDownload(wb,'모의고사현황_'+_xlsDate()+'.xlsx');
+}
 </script>
 <!-- ── 입문출결 모달들 ── -->
 <div class="overlay" id="att-list-modal" style="display:none">
@@ -5566,6 +5871,7 @@ function applyGlobalAtt(){
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <select id="attend-date-sel" onchange="renderAdminAttend()" style="flex:1;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit"></select>
         <button onclick="printAdminAttend()" style="padding:7px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">🖨️ 인쇄</button>
+        <button onclick="xlsAdminAttend()" style="padding:7px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.1);color:#3ecf8e;border:1px dashed rgba(62,207,142,.4)">📥 엑셀</button>
       </div>
       <div id="admin-attend-list"></div>
     </div>
@@ -5595,6 +5901,7 @@ function applyGlobalAtt(){
           <option value="all">전체 회차</option>
         </select>
         <button onclick="printAdminExamStat()" style="padding:6px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">🖨️</button>
+        <button onclick="xlsAdminExamStat()" style="padding:6px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.1);color:#3ecf8e;border:1px dashed rgba(62,207,142,.4)">📥</button>
       </div>
       <div id="admin-examstat-body" style="font-size:12px;max-height:400px;overflow-y:auto"></div>
     </div>
