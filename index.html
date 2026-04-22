@@ -500,7 +500,7 @@ input[type=file].xf{display:none}
     </div>
     <div style="margin-bottom:8px">
       <div style="font-size:11px;color:#8899bb;margin-bottom:4px">수험자 선택</div>
-      <select id="exam-person-sel" onchange="onExamPersonChange()" style="width:100%;padding:8px;border:1.5px solid #4fa8f5;border-radius:8px;background:#1a2f50;color:#ffffff;font-size:13px;font-family:inherit;font-weight:600"></select>
+      <select id="exam-person-sel" onchange="onExamPersonChange();try{renderExamScores();}catch(e){}" style="width:100%;padding:8px;border:1.5px solid #4fa8f5;border-radius:8px;background:#1a2f50;color:#ffffff;font-size:13px;font-family:inherit;font-weight:600"></select>
     </div>
     <div style="margin-bottom:8px">
       <div style="font-size:11px;color:#8899bb;margin-bottom:4px">형 선택</div>
@@ -565,7 +565,7 @@ input[type=file].xf{display:none}
   <!-- 점수 현황 -->
   <div id="exam-scores-area" style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:1rem">
     <div style="font-size:13px;font-weight:700;color:#e8edf5;margin-bottom:.625rem">📊 점수 현황</div>
-    <div id="exam-scores-body" style="font-size:12px;color:#8899bb">지점과 수험자를 선택해주세요.</div>
+    <div id="exam-scores-body" style="font-size:12px;color:#8899bb">수험자를 선택하면 점수현황이 표시됩니다.</div>
   </div>
 </div>
 </div>
@@ -656,33 +656,49 @@ function clearExamPerson(btn){
 }
 
 function deleteExamScore(btn){
-  if(!_examRef) return;
+  if(!db){ alert('Firebase 연결 안됨'); return; }
   var bi=btn.getAttribute('data-bi');
   var personKey=btn.getAttribute('data-key');
   var round=btn.getAttribute('data-round');
   var type=btn.getAttribute('data-type');
   if(!confirm(round+'회차 '+type+' 점수를 삭제하시겠습니까?')) return;
-  // 형 삭제
-  var typePath=bi+'/'+personKey+'/round'+round+'/'+type;
-  _examRef.child(typePath).remove().then(function(){
-    // 해당 회차에 남은 형이 있는지 확인
-    var roundRef=_examRef.child(bi+'/'+personKey+'/round'+round);
-    roundRef.once('value',function(snap){
+
+  // 삭제 버튼 비활성화
+  btn.disabled=true; btn.textContent='삭제중..';
+
+  var examBase = db.ref('honam_exam');
+  var typeRef = examBase.child(String(bi)).child(personKey).child('round'+round).child(type);
+
+  typeRef.remove().then(function(){
+    // _examData 로컬 즉시 업데이트
+    try{
+      if(_examData&&_examData[bi]&&_examData[bi][personKey]&&_examData[bi][personKey]['round'+round]){
+        delete _examData[bi][personKey]['round'+round][type];
+        // 회차가 비었으면 회차도 삭제
+        if(Object.keys(_examData[bi][personKey]['round'+round]).length===0){
+          delete _examData[bi][personKey]['round'+round];
+        }
+      }
+    }catch(ex){}
+
+    // 점수현황 직접 업데이트
+    var body=document.getElementById('exam-scores-body');
+    if(body) body.innerHTML='<div style="color:#3ecf8e;font-size:12px">✅ 삭제 완료</div>'
+      +'<div style="color:#8899bb;font-size:11px;margin-top:4px">'+round+'회차 '+type+' 삭제됨</div>';
+
+    // Firebase에서 해당 회차 남은 데이터 확인 후 빈 회차 삭제
+    examBase.child(String(bi)).child(personKey).child('round'+round).once('value',function(snap){
       var remaining=snap.val();
       if(!remaining||Object.keys(remaining).length===0){
-        // 회차 전체 삭제
-        roundRef.remove().then(function(){
-          renderExamScores();
-          _calcAutoRound();
-          renderExamPassCard();
-        });
-      } else {
-        renderExamScores();
-        _calcAutoRound();
-        renderExamPassCard();
+        examBase.child(String(bi)).child(personKey).child('round'+round).remove();
       }
     });
-  }).catch(function(e){ alert('삭제 실패: '+e.message); });
+    try{_calcAutoRound();}catch(e){}
+    try{renderExamPassCard();}catch(e){}
+  }).catch(function(e){
+    btn.disabled=false; btn.textContent='삭제';
+    alert('삭제 실패: '+e.message);
+  });
 }
 
 function switchExamRound(btn){
@@ -1243,7 +1259,6 @@ function renderExam(){
 }
 
 function onExamBranchChange(){
-  try{
   var brSel = document.getElementById('exam-branch-sel');
   var perSel = document.getElementById('exam-person-sel');
   if(!brSel||!perSel) return;
@@ -1284,8 +1299,8 @@ function onExamBranchChange(){
   }
   onExamPersonChange();
   renderExamPassCard();
-  _calcAutoRound();
-  }catch(e){ console.error('onExamBranchChange error:',e); }
+  try{_calcAutoRound();}catch(e){}
+  try{renderExamScores();}catch(e){console.error('renderExamScores error:',e);}
 }
 
 function onExamPersonChange(){
@@ -1328,7 +1343,7 @@ function renderExamScores(){
   var personVal=document.getElementById('exam-person-sel').value;
   var round=document.getElementById('exam-round-sel').value;
   var typeFilter=document.getElementById('exam-type-sel').value;
-  if(!personVal||isNaN(bi)){body.innerHTML='<div style="color:#8899bb">지점과 수험자를 선택해주세요.</div>';return;}
+  if(!personVal||isNaN(bi)){body.innerHTML='<div style="color:#FF8C55;font-size:11px">⚠️ bi='+bi+' person='+personVal+'</div>';return;}
 
   var personKey=personVal.replace(/[.#$]/g,'_').replace(/[[\]]/g,'_');
   var name=personVal.replace(/^(pass|reg)_/,'');
@@ -5034,7 +5049,45 @@ function saveExamScore(){
     }catch(ex){}
     // initExam 재시도 (리스너 설정 보장)
     try{ if(!_examRef&&db){ _examRef=db.ref('honam_exam'); _examRef.on('value',function(s){_examData=s.val()||{};}); } }catch(ex){}
-    _calcAutoRound(); renderExamScores(); renderExamPassCard();
+    // 회차 자동 증가 (저장 완료 후 다음 회차)
+    try{
+      var _rd=document.getElementById('exam-round-sel');
+      var _disp=document.getElementById('exam-round-display');
+      if(_rd){var _nr=Math.min(parseInt(_rd.value||'1')+1,15);_rd.value=String(_nr);if(_disp)_disp.textContent=_nr+'회';}
+    }catch(e){}
+    // 점수현황 직접 업데이트 (renderExamScores 보조)
+    var _body=document.getElementById('exam-scores-body');
+    if(_body){
+      var _sDisp=kpSon?'기합격★':(pay.son==='pass'?'합격 ✅':pay.son==='fail'?'불합격 ❌':'-');
+      var _jDisp=kpJe3?'기합격★':(pay.je3==='pass'?'합격 ✅':pay.je3==='fail'?'불합격 ❌':'-');
+      var _sC=kpSon||pay.son==='pass'?'#3ecf8e':'#f5605a';
+      var _jC=kpJe3||pay.je3==='pass'?'#3ecf8e':'#f5605a';
+      var _ok=(kpSon||pay.son==='pass')&&(kpJe3||pay.je3==='pass');
+      var _part=(kpSon||pay.son==='pass')||(kpJe3||pay.je3==='pass');
+      var _res=_ok?'합격':_part?'부분합격':'불합격';
+      var _rc=_ok?'#3ecf8e':_part?'#a78bfa':'#f5605a';
+      var _pkey=personVal.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+      _body.innerHTML='<div style="font-size:12px;font-weight:700;color:#FF8C55;margin-bottom:6px">'+personVal.replace(/^(pass_|reg_)/,'')+'  · '+round+'회차</div>'
+        +'<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:#0b1628">'
+        +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #1e3055;color:#8899bb">형</th>'
+        +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">손보</th>'
+        +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">제3보험</th>'
+        +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#FF8C55">합격여부</th>'
+        +'<th style="padding:6px 5px;border-bottom:1px solid #1e3055;width:45px"></th>'
+        +'</tr></thead><tbody>'
+        +'<tr style="border-bottom:1px solid rgba(30,48,85,.5)">'
+        +'<td style="padding:5px 8px;font-weight:700;color:#e8edf5">'+type+'</td>'
+        +'<td style="padding:5px 8px;text-align:center;color:'+_sC+';font-weight:700">'+_sDisp+'</td>'
+        +'<td style="padding:5px 8px;text-align:center;color:'+_jC+';font-weight:700">'+_jDisp+'</td>'
+        +'<td style="padding:5px 8px;text-align:center;font-weight:900;color:'+_rc+'">'+_res+'</td>'
+        +'<td style="padding:3px 5px;text-align:center">'
+          +'<button data-bi="'+bi+'" data-key="'+_pkey+'" data-round="'+round+'" data-type="'+type+'" onclick="deleteExamScore(this)" '
+          +'style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:#f5605a;border:1px solid rgba(245,96,90,.3)">삭제</button>'
+        +'</td></tr>'
+        +'</tbody></table>';
+    }
+    try{renderExamScores();}catch(e){}
+    try{renderExamPassCard();}catch(e){}
     var pn=personVal.replace(/^(pass_|reg_)/,'');
     var sl=kpSon?'기합격':(pay.sonScore!==undefined?String(pay.sonScore)+'점':'-');
     var jl=kpJe3?'기합격':(pay.je3Score!==undefined?String(pay.je3Score)+'점':'-');
