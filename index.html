@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v6</title>
+<title>호남 지역단 신인도입 현황판 v9</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v6</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v9</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -458,6 +458,17 @@ input[type=file].xf{display:none}
 <div class="tab-pane" id="tab-exam">
 <div class="wrap" style="padding-bottom:2rem">
   <!-- 상단 필터 -->
+  <!-- 테스트 현황표 -->
+  <div style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:.875rem;margin-bottom:.875rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.625rem">
+      <div style="font-size:13px;font-weight:900;color:#FF8C55">📊 테스트 현황표</div>
+      <button onclick="printExamStat()" style="padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 출력</button>
+    </div>
+    <div id="exam-stat-table" style="font-size:11px;overflow-x:auto">
+      <div style="color:#8899bb;font-size:11px">데이터 로딩 중...</div>
+    </div>
+  </div>
+
   <!-- 합격 현황 카드 -->
   <div id="exam-pass-card" style="background:#111f38;border:1.5px solid rgba(167,139,250,.4);border-radius:14px;padding:1rem;margin-bottom:.875rem;display:none">
     <div style="font-size:13px;font-weight:900;color:#a78bfa;margin-bottom:.625rem">⭐ 합격 현황</div>
@@ -1239,6 +1250,7 @@ function initExam(){
         _calcAutoRound();
         renderExamScores();
         renderExamPassCard();
+        try{renderExamStatTable();}catch(e){}
       }
     });
     }catch(e){ console.error("initExam error:", e); _examRef=null; }
@@ -1274,6 +1286,7 @@ function renderExam(){
   }
   onExamBranchChange();
   renderExamPassCard();
+  try{renderExamStatTable();}catch(e){}
 }
 
 function onExamBranchChange(){
@@ -4657,63 +4670,204 @@ if('serviceWorker' in navigator){
 }
 // ── 지점별 전체 출력 ──
 function printExamByBranch(){
-  var w=window.open('','_blank','width=1100,height=750');
+  var w=window.open('','_blank','width=1400,height=800');
   if(!w){alert('팝업 차단됨');return;}
-  var css='body{font-family:"맑은 고딕",sans-serif;padding:12px;font-size:10px;color:#111}'
-    +'h2{font-size:13px;color:#d04000;margin:14px 0 4px;border-bottom:1.5px solid #eee;padding-bottom:3px}'
-    +'table{width:100%;border-collapse:collapse;margin-bottom:6px}'
-    +'th{background:#f0f4f8;padding:4px 5px;border:1px solid #ddd;text-align:center;font-size:9px}'
-    +'td{padding:3px 5px;border:1px solid #ddd;text-align:center;font-size:9px}'
-    +'.pass{color:#1a7a4a;font-weight:700}.fail{color:#c0392b}.part{color:#7c3aed}'
-    +'@media print{@page{size:A4 landscape;margin:8mm}}';
-  var rMap={pass:'합격',fail:'불합격',kipass:'기합격'};
-  var body='<h1 style="font-size:14px;margin:0 0 8px">호남지역단 모의고사 점수현황</h1>'
-    +'<div style="font-size:10px;color:#666;margin-bottom:10px">'+new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})+'</div>';
-  var eData=window._examData||_examData||{};
-  var hasAny=false;
-  (window.BR||[]).forEach(function(b,bi){
-    var brData=eData[bi]||eData[String(bi)]||{};
-    var people=[];
-    var attList=((window.att&&window.att[bi])||{}).attendees||[];
-    var passList=((window.data&&window.data[bi])||{}).passList||[];
-    [].concat(passList.map(function(n){return{name:n,ki:true};}))
-      .concat(attList.map(function(n){return{name:n,ki:false};}))
-      .forEach(function(p){
-        var pk=p.name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
-        var pData=brData[pk]||{};
-        var rounds=[];
-        for(var r=1;r<=15;r++){if(Object.keys(pData['round'+r]||{}).length>0)rounds.push(r);}
-        if(rounds.length>0) people.push({name:p.name,ki:p.ki,pk:pk,pData:pData,rounds:rounds});
-      });
-    if(!people.length) return;
-    hasAny=true;
-    body+='<h2>'+b.name+' · '+b.mgr+' 지점장 ('+people.length+'명)</h2>';
-    people.forEach(function(p){
-      body+='<div style="font-size:10px;font-weight:700;margin:5px 0 2px">'+p.name+(p.ki?' [기합격]':'')+'</div>';
-      body+='<table><thead><tr><th>회차</th><th>형</th><th>손보</th><th>제3보험</th><th>합격</th></tr></thead><tbody>';
-      p.rounds.forEach(function(rn){
-        var rd=p.pData['round'+rn]||{};
-        Object.keys(rd).sort(function(a,b){return parseInt(a)-parseInt(b);}).forEach(function(t){
-          var td=rd[t]||{};
-          var sp=td.son==='pass'||td.son==='kipass'||(typeof td.sonScore==='number'&&td.sonScore>=60);
-          var jp=td.je3==='pass'||td.je3==='kipass'||(typeof td.je3Score==='number'&&td.je3Score>=60);
-          var sv=td.son==='kipass'?'기합격':(typeof td.sonScore==='number'?td.sonScore+'점':'-');
-          var jv=td.je3==='kipass'?'기합격':(typeof td.je3Score==='number'?td.je3Score+'점':'-');
-          var ok=sp&&jp;var pt=sp||jp;
-          body+='<tr><td>'+rn+'회</td><td>'+t+'</td>'
-            +'<td class="'+(sp?'pass':'fail')+'">'+sv+'</td>'
-            +'<td class="'+(jp?'pass':'fail')+'">'+jv+'</td>'
-            +'<td class="'+(ok?'pass':pt?'part':'fail')+'" style="font-weight:700">'+(ok?'합격':pt?'부분합격':'불합격')+'</td></tr>';
-        });
-      });
-      body+='</tbody></table>';
+  var eData=_examData||window._examData||{};
+  var CENTERS={0:'동광주',1:'동광주',2:'동광주',3:'동광주',4:'동광주',
+    5:'광주',6:'광주',7:'광주',8:'광주',9:'광주',
+    10:'전남',11:'전남',12:'전남',13:'전남',
+    14:'순천',15:'순천',16:'순천',17:'순천',18:'호남TC'};
+
+  // 최대 회차 계산
+  var maxRound=1;
+  BR.forEach(function(b,bi){
+    var bd=eData[bi]||eData[String(bi)]||{};
+    Object.keys(bd).forEach(function(pk){
+      var pd=bd[pk]||{};
+      for(var r=15;r>=1;r--){if(Object.keys(pd['round'+r]||{}).length>0){if(r>maxRound)maxRound=r;break;}}
     });
   });
-  if(!hasAny) body+='<p>입력된 점수 없음</p>';
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>모의고사점수현황</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  maxRound=Math.max(maxRound,1);
+
+  var css='*{box-sizing:border-box}body{font-family:"맑은 고딕",sans-serif;font-size:8px;padding:4px;margin:0}'
+    +'h1{font-size:11px;margin:0 0 2px;font-weight:700}'
+    +'.note{font-size:7px;color:#c00;margin-bottom:4px}'
+    +'table{border-collapse:collapse;width:100%;font-size:8px}'
+    +'th,td{border:1px solid #999;padding:2px 3px;text-align:center;white-space:nowrap}'
+    +'th{background:#dce6f1;font-weight:700}'
+    +'.th2{background:#e2efda}'
+    +'.fail{background:#ffe0e0;color:#c00}'
+    +'.pass{color:#1a5c1a;font-weight:700}'
+    +'.center-merge{background:#fce4d6}'
+    +'.branch-merge{background:#fff2cc}'
+    +'@media print{@page{size:A4 landscape;margin:5mm}body{padding:2px}}';
+
+  // 회차 헤더
+  var roundHeaders='';
+  for(var rh=1;rh<=maxRound;rh++){
+    roundHeaders+='<th class="th2" colspan="2">'+rh+'회차</th>';
+  }
+  var roundSubHeaders='';
+  for(var rs=1;rs<=maxRound;rs++){
+    roundSubHeaders+='<th class="th2">손보</th><th class="th2">3보</th>';
+  }
+
+  var html='<h1>2026. 4월 호남지역단 입문 테스트 점수현황</h1>'
+    +'<div class="note">※ 단순히 모의테스트 유시 횟수는 회차로 표현된 것입니다. 모의고사 유형 번호에 따라 점수를 기재해 주세요.</div>'
+    +'<table><thead>'
+    +'<tr>'
+    +'<th rowspan="2">No</th>'
+    +'<th rowspan="2">비전센터</th>'
+    +'<th rowspan="2">지점명</th>'
+    +'<th rowspan="2">성명</th>'
+    +'<th rowspan="2">개별학습</th>'
+    +'<th rowspan="2">탈락</th>'
+    +'<th colspan="4">테스트(평균)</th>'
+    +roundHeaders
+    +'</tr>'
+    +'<tr>'
+    +'<th>회수</th><th>손보</th><th>제3</th><th>평균점수</th>'
+    +roundSubHeaders
+    +'</tr>'
+    +'</thead><tbody>';
+
+  var no=0;
+  BR.forEach(function(b,bi){
+    var bd=eData[bi]||eData[String(bi)]||{};
+    var attList=(att[bi]&&att[bi].attendees)||[];
+    var passList=(data[bi]&&data[bi].passList)||[];
+    var allPeople=[];
+    passList.forEach(function(n){allPeople.push({name:n,ki:true});});
+    attList.forEach(function(n){if(passList.indexOf(n)<0)allPeople.push({name:n,ki:false});});
+    if(!allPeople.length) return;
+
+    allPeople.forEach(function(p){
+      no++;
+      var pk=p.name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+      var pData=bd[pk]||{};
+      if(!Object.keys(pData).length){
+        Object.keys(bd).forEach(function(k){if(k.replace(/^(reg_|pass_)/,'')===pk)pData=bd[k]||{};});
+      }
+
+      // 회차별 점수 수집
+      var sonScores=[],je3Scores=[],roundData=[];
+      for(var r=1;r<=maxRound;r++){
+        var rd=pData['round'+r]||{};
+        // 회차 내 모든 형의 점수 합산 (평균)
+        var sonTotal=0,je3Total=0,sonCnt=0,je3Cnt=0;
+        Object.keys(rd).forEach(function(t){
+          var td=rd[t]||{};
+          if(td.son==='kipass'||td.son==='pass'||td.son==='fail'){
+            if(typeof td.sonScore==='number'){sonTotal+=td.sonScore;sonCnt++;}
+          }
+          if(td.je3==='kipass'||td.je3==='pass'||td.je3==='fail'){
+            if(typeof td.je3Score==='number'){je3Total+=td.je3Score;je3Cnt++;}
+          }
+          // kipass는 점수 없이 합격
+          if(td.son==='kipass'&&typeof td.sonScore!=='number'){sonTotal+=100;sonCnt++;}
+          if(td.je3==='kipass'&&typeof td.je3Score!=='number'){je3Total+=100;je3Cnt++;}
+        });
+        var sAvg=sonCnt>0?Math.round(sonTotal/sonCnt):null;
+        var jAvg=je3Cnt>0?Math.round(je3Total/je3Cnt):null;
+        roundData.push({s:sAvg,j:jAvg,hasData:Object.keys(rd).length>0});
+        if(sAvg!==null) sonScores.push(sAvg);
+        if(jAvg!==null) je3Scores.push(jAvg);
+      }
+      var totalRounds=roundData.filter(function(r){return r.hasData;}).length;
+      var sonAvg=sonScores.length?Math.round(sonScores.reduce(function(a,b){return a+b;},0)/sonScores.length):0;
+      var je3Avg=je3Scores.length?Math.round(je3Scores.reduce(function(a,b){return a+b;},0)/je3Scores.length):0;
+      var totalAvg=totalRounds>0?Math.round((sonAvg+je3Avg)/2):0;
+
+      var isElim=(att[bi]&&att[bi].eliminated&&att[bi].eliminated[p.name])?'탈락':'';
+      var row='<tr>'
+        +'<td>'+no+'</td>'
+        +'<td class="center-merge">'+(CENTERS[bi]||'')+'</td>'
+        +'<td class="branch-merge">'+b.name+'</td>'
+        +'<td style="text-align:left;padding-left:4px;font-weight:700">'+p.name+(p.ki?' ★':'')+'</td>'
+        +'<td></td>'
+        +'<td>'+(isElim?'<span style="color:#c00;font-weight:700">탈락</span>':'')+'</td>'
+        +'<td>'+totalRounds+'</td>'
+        +'<td class="'+(sonAvg>0&&sonAvg<60?'fail':sonAvg>=60?'pass':'')+'">'+( totalRounds?sonAvg:'')+'</td>'
+        +'<td class="'+(je3Avg>0&&je3Avg<60?'fail':je3Avg>=60?'pass':'')+'">'+( totalRounds?je3Avg:'')+'</td>'
+        +'<td class="'+(totalAvg>0&&totalAvg<60?'fail':totalAvg>=60?'pass':'')+'">'+( totalRounds?totalAvg:'')+'</td>';
+      roundData.forEach(function(rd){
+        var sc=rd.s!==null?rd.s:'';
+        var jc=rd.j!==null?rd.j:'';
+        row+='<td class="'+(rd.s!==null&&rd.s<60?'fail':rd.s>=60?'pass':'')+'">'+sc+'</td>';
+        row+='<td class="'+(rd.j!==null&&rd.j<60?'fail':rd.j>=60?'pass':'')+'">'+jc+'</td>';
+      });
+      row+='</tr>';
+      html+=row;
+    });
+  });
+  html+='</tbody></table>';
+
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>모의테스트점수현황</title><style>'+css+'</style></head><body>'+html+'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},700);
+}
+
+
+// ── 수험자별 출력 (현재 선택 수험자) ──
+function printExamByPerson(){
+  var brEl=document.getElementById('exam-branch-sel');
+  var perEl=document.getElementById('exam-person-sel');
+  var bi=brEl?parseInt(brEl.value):-1;
+  var personVal=perEl?perEl.value||'':'';
+  if(isNaN(bi)||bi<0||!personVal){alert('지점과 수험자를 선택하세요');return;}
+  var pk=personVal.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+  var pname=personVal.replace(/^(pass_|reg_)/,'');
+  var eData=_examData||window._examData||{};
+  var brData=eData[bi]||eData[String(bi)]||{};
+  var pData=brData[pk]||{};
+  // 키 매칭 재시도
+  if(!Object.keys(pData).length){
+    Object.keys(brData).forEach(function(k){
+      if(k.replace(/^(reg_|pass_)/,'')===pk||k===pk) pData=brData[k]||{};
+    });
+  }
+  var rounds=[];for(var r=1;r<=15;r++){if(Object.keys(pData['round'+r]||{}).length>0)rounds.push(r);}
+  if(!rounds.length){alert('입력된 점수 없음. Firebase 연결 확인 후 재시도');return;}
+  var w=window.open('','_blank','width=700,height=600');
+  if(!w){alert('팝업 차단됨');return;}
+  var brName=BR[bi]?BR[bi].name:'';
+  var css='body{font-family:"맑은 고딕",sans-serif;padding:16px;font-size:11px}'
+    +'h2{font-size:14px;color:#c0392b;margin:0 0 4px}'
+    +'.sub{font-size:10px;color:#666;margin-bottom:12px}'
+    +'h3{font-size:11px;color:#555;margin:10px 0 3px;border-bottom:1px solid #eee;padding-bottom:2px}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:4px}'
+    +'th{background:#f5f5f5;padding:4px 5px;border:1px solid #ccc;text-align:center;font-size:10px}'
+    +'td{padding:3px 5px;border:1px solid #ddd;text-align:center;font-size:10px}'
+    +'.pass{color:#1a7a4a;font-weight:700}.fail{color:#c0392b}.part{color:#7c3aed}'
+    +'@media print{@page{size:A4 landscape;margin:8mm}}';
+  var body='<h2>'+pname+' 모의고사 성적</h2>'
+    +'<div class="sub">'+brName+' · 출력: '+new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})+'</div>';
+  rounds.forEach(function(rn){
+    var rd=pData['round'+rn]||{};
+    var sortedTypes=Object.keys(rd).filter(function(t){
+      var td=rd[t]; return td&&(td.son||td.je3||typeof td.sonScore==='number'||typeof td.je3Score==='number');
+    }).sort(function(a,b){return (parseInt(a)||999)-(parseInt(b)||999);});
+    if(!sortedTypes.length) return;
+    body+='<h3>'+rn+'회차</h3><table><thead><tr><th>형</th><th>손보</th><th>제3보험</th><th>합격여부</th></tr></thead><tbody>';
+    sortedTypes.forEach(function(t){
+      var td=rd[t]||{};
+      var sp=td.son==='pass'||td.son==='kipass'||(typeof td.sonScore==='number'&&td.sonScore>=60);
+      var jp=td.je3==='pass'||td.je3==='kipass'||(typeof td.je3Score==='number'&&td.je3Score>=60);
+      var sv=td.son==='kipass'?'기합격':(typeof td.sonScore==='number'?td.sonScore+'점':'-');
+      var jv=td.je3==='kipass'?'기합격':(typeof td.je3Score==='number'?td.je3Score+'점':'-');
+      var ok=sp&&jp;var pt=sp||jp;
+      body+='<tr><td style="font-weight:700">'+t+'</td>'
+        +'<td class="'+(sp?'pass':'fail')+'">'+sv+'</td>'
+        +'<td class="'+(jp?'pass':'fail')+'">'+jv+'</td>'
+        +'<td class="'+(ok?'pass':pt?'part':'fail')+'" style="font-weight:700">'+(ok?'합격':pt?'부분합격':'불합격')+'</td></tr>';
+    });
+    body+='</tbody></table>';
+  });
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+pname+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
   w.document.close();
   setTimeout(function(){w.print();},600);
 }
+
 
 // ── 수험자별 출력 (현재 선택 수험자) ──
 function printExamByPerson(){
@@ -4761,6 +4915,267 @@ function printExamByPerson(){
   w.document.close();
   setTimeout(function(){w.print();},600);
 }
+
+// ── 테스트 현황표 렌더링 ──
+function renderExamStatTable(){
+  var el=document.getElementById('exam-stat-table');
+  if(!el) return;
+  var eData=_examData||window._examData||{};
+  var CENTERS={0:'동광주',1:'동광주',2:'동광주',3:'동광주',4:'동광주',
+    5:'광주',6:'광주',7:'광주',8:'광주',9:'광주',
+    10:'목포',11:'목포',12:'목포',13:'목포',
+    14:'순천',15:'순천',16:'순천',17:'순천',18:'순천'};
+  var CENTER_ORDER=['동광주','광주','목포','순천'];
+  var CENTER_NAMES={동광주:'동광주비전센터',광주:'광주비전센터',목포:'목포비전센터',순천:'순천비전센터'};
+
+  function getPersonAvg(pData){
+    var sonAll=[],je3All=[];
+    for(var r=1;r<=15;r++){
+      var rd=pData['round'+r]||{};
+      Object.keys(rd).forEach(function(t){
+        var td=rd[t]||{};
+        if(typeof td.sonScore==='number') sonAll.push(td.sonScore);
+        else if(td.son==='kipass') sonAll.push(100);
+        if(typeof td.je3Score==='number') je3All.push(td.je3Score);
+        else if(td.je3==='kipass') je3All.push(100);
+      });
+    }
+    if(!sonAll.length&&!je3All.length) return null;
+    var sAvg=sonAll.length?sonAll.reduce(function(a,b){return a+b;},0)/sonAll.length:0;
+    var jAvg=je3All.length?je3All.reduce(function(a,b){return a+b;},0)/je3All.length:0;
+    return Math.round((sAvg+jAvg)/2);
+  }
+
+  function calcBranch(bi){
+    var bd=eData[bi]||eData[String(bi)]||{};
+    var attList=(att[bi]&&att[bi].attendees)||[];
+    var passList=(data[bi]&&data[bi].passList)||[];
+    var eliminated=(att[bi]&&att[bi].eliminated)||{};
+    var total=passList.length+attList.filter(function(n){return passList.indexOf(n)<0;}).length;
+    var dropCnt=Object.keys(eliminated).filter(function(k){return eliminated[k];}).length;
+    var manage=total-dropCnt;
+    var avgs=[];
+    var allPeople=[];
+    passList.forEach(function(n){allPeople.push(n);});
+    attList.forEach(function(n){if(passList.indexOf(n)<0)allPeople.push(n);});
+    allPeople.forEach(function(name){
+      var pk=name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+      var pData=bd[pk]||{};
+      if(!Object.keys(pData).length){Object.keys(bd).forEach(function(k){if(k.replace(/^(reg_|pass_)/,'')===pk)pData=bd[k]||{};});}
+      var avg=getPersonAvg(pData);
+      if(avg!==null) avgs.push(avg);
+    });
+    var under40=avgs.filter(function(v){return v<40;}).length;
+    var b40=avgs.filter(function(v){return v>=40&&v<50;}).length;
+    var b50=avgs.filter(function(v){return v>=50&&v<60;}).length;
+    var b60=avgs.filter(function(v){return v>=60;}).length;
+    var rate=avgs.length?Math.round(b60/avgs.length*1000)/10:0;
+    return{total:total,drop:dropCnt,manage:manage,응시:avgs.length,under40:under40,b40:b40,b50:b50,b60:b60,rate:rate};
+  }
+
+  // 전체 합계
+  var totalStat={total:0,drop:0,manage:0,응시:0,under40:0,b40:0,b50:0,b60:0};
+  var centerStats={};
+  var branchStats=[];
+  CENTER_ORDER.forEach(function(cn){centerStats[cn]={total:0,drop:0,manage:0,응시:0,under40:0,b40:0,b50:0,b60:0};});
+  BR.forEach(function(b,bi){
+    var s=calcBranch(bi);
+    branchStats.push({bi:bi,name:b.name,center:CENTERS[bi]||'',stat:s});
+    var cn=CENTERS[bi];
+    if(cn&&centerStats[cn]){
+      ['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){centerStats[cn][k]+=s[k];});
+    }
+    ['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){totalStat[k]+=s[k];});
+  });
+
+  function rateStr(s){
+    if(!s.응시) return '<span style="color:#f5605a;font-weight:700">0.0%</span>';
+    var r=Math.round(s.b60/s.응시*1000)/10;
+    return '<span style="color:'+(r>=60?'#3ecf8e':'#f5605a')+';font-weight:700">'+r+'%</span>';
+  }
+  function row(cells,bg){
+    return '<tr>'+cells.map(function(v,i){
+      return '<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;'+(bg?'background:'+bg+';':'')+(i<=2?'text-align:left;':'')+'">'+v+'</td>';
+    }).join('')+'</tr>';
+  }
+
+  var h='<table style="width:100%;border-collapse:collapse;font-size:10px;min-width:520px">'
+    +'<thead><tr style="background:#1a2f50">'
+    +'<th colspan="3" style="padding:4px;border:1px solid #1e3055;color:#FF8C55;font-size:10px">구분</th>'
+    +'<th style="padding:4px;border:1px solid #1e3055;color:#e8edf5">총접수</th>'
+    +'<th style="padding:4px;border:1px solid #1e3055;color:#f5605a">탈락</th>'
+    +'<th style="padding:4px;border:1px solid #1e3055;color:#4fa8f5">관리</th>'
+    +'<th style="padding:4px;border:1px solid #1e3055;color:#4fa8f5">응시</th>'
+    +'<th style="padding:4px;border:1px solid #1e3055;color:#f5605a">40↓</th>'
+    +'<th style="padding:4px;border:1px solid #1e3055;color:#FF8C55">40점</th>'
+    +'<th style="padding:4px;border:1px solid #1e3055;color:#a78bfa">50점</th>'
+    +'<th style="padding:4px;border:1px solid #1e3055;color:#3ecf8e">60점↑</th>'
+    +'<th style="padding:4px;border:1px solid #1e3055;color:#3ecf8e">합격률</th>'
+    +'</tr></thead><tbody>';
+
+  // 호남지역단 합계
+  h+='<tr style="background:#0b1628;font-weight:900">'
+    +'<td colspan="3" style="padding:3px 6px;border:1px solid #1e3055;color:#FF8C55">호남지역단</td>'
+    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+totalStat.total+'</td>'
+    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#f5605a">'+totalStat.drop+'</td>'
+    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+totalStat.manage+'</td>'
+    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+totalStat.응시+'</td>'
+    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#f5605a">'+totalStat.under40+'</td>'
+    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+totalStat.b40+'</td>'
+    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+totalStat.b50+'</td>'
+    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#3ecf8e;font-weight:700">'+totalStat.b60+'</td>'
+    +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+rateStr(totalStat)+'</td>'
+    +'</tr>';
+
+  // 비전센터별
+  CENTER_ORDER.forEach(function(cn){
+    var cs=centerStats[cn];
+    var cBranches=branchStats.filter(function(b){return b.center===cn;});
+    // 센터 합계 행
+    h+='<tr style="background:rgba(255,107,43,.08)">'
+      +'<td colspan="3" style="padding:3px 6px;border:1px solid #1e3055;color:#FF8C55;font-weight:700">'+CENTER_NAMES[cn]||cn+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;font-weight:700">'+cs.total+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#f5605a;font-weight:700">'+cs.drop+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;font-weight:700">'+cs.manage+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;font-weight:700">'+cs.응시+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#f5605a;font-weight:700">'+cs.under40+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;font-weight:700">'+cs.b40+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;font-weight:700">'+cs.b50+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center;color:#3ecf8e;font-weight:700">'+cs.b60+'</td>'
+      +'<td style="padding:3px 5px;border:1px solid #1e3055;text-align:center">'+rateStr(cs)+'</td>'
+      +'</tr>';
+    // 지점별
+    cBranches.forEach(function(b){
+      var s=b.stat;
+      h+='<tr>'
+        +'<td style="padding:2px 4px;border:1px solid #1e3055;color:#8899bb;font-size:9px">'+b.name.replace('지점','').replace('TC','TC')+'</td>'
+        +'<td style="padding:2px 4px;border:1px solid #1e3055;color:#8899bb;font-size:9px">'+cn+'</td>'
+        +'<td style="padding:2px 4px;border:1px solid #1e3055;color:#e8edf5;font-size:9px">'+b.name+'</td>'
+        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center">'+s.total+'</td>'
+        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center;color:'+(s.drop?'#f5605a':'#8899bb')+'">'+s.drop+'</td>'
+        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center">'+s.manage+'</td>'
+        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center;color:#4fa8f5">'+s.응시+'</td>'
+        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center;color:'+(s.under40?'#f5605a':'#8899bb')+'">'+s.under40+'</td>'
+        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center">'+s.b40+'</td>'
+        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center;color:#a78bfa">'+s.b50+'</td>'
+        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center;color:#3ecf8e;font-weight:700">'+s.b60+'</td>'
+        +'<td style="padding:2px 5px;border:1px solid #1e3055;text-align:center">'+rateStr(s)+'</td>'
+        +'</tr>';
+    });
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+}
+
+// ── 현황표 출력 ──
+function printExamStat(){
+  var eData=_examData||window._examData||{};
+  var CENTERS={0:'동광주',1:'동광주',2:'동광주',3:'동광주',4:'동광주',
+    5:'광주',6:'광주',7:'광주',8:'광주',9:'광주',
+    10:'목포',11:'목포',12:'목포',13:'목포',
+    14:'순천',15:'순천',16:'순천',17:'순천',18:'순천'};
+  var CENTER_ORDER=['동광주','광주','목포','순천'];
+  var CENTER_NAMES={동광주:'동광주비전센터',광주:'광주비전센터',목포:'목포비전센터',순천:'순천비전센터'};
+
+  function getAvg(pData){
+    var sonAll=[],je3All=[];
+    for(var r=1;r<=15;r++){
+      var rd=pData['round'+r]||{};
+      Object.keys(rd).forEach(function(t){
+        var td=rd[t]||{};
+        if(typeof td.sonScore==='number') sonAll.push(td.sonScore);
+        else if(td.son==='kipass') sonAll.push(100);
+        if(typeof td.je3Score==='number') je3All.push(td.je3Score);
+        else if(td.je3==='kipass') je3All.push(100);
+      });
+    }
+    if(!sonAll.length&&!je3All.length) return null;
+    var s=sonAll.length?sonAll.reduce(function(a,b){return a+b;},0)/sonAll.length:0;
+    var j=je3All.length?je3All.reduce(function(a,b){return a+b;},0)/je3All.length:0;
+    return Math.round((s+j)/2);
+  }
+
+  function calcB(bi){
+    var bd=eData[bi]||eData[String(bi)]||{};
+    var aList=(att[bi]&&att[bi].attendees)||[];
+    var pList=(data[bi]&&data[bi].passList)||[];
+    var elim=(att[bi]&&att[bi].eliminated)||{};
+    var total=pList.length+aList.filter(function(n){return pList.indexOf(n)<0;}).length;
+    var drop=Object.keys(elim).filter(function(k){return elim[k];}).length;
+    var avgs=[];
+    [].concat(pList).concat(aList.filter(function(n){return pList.indexOf(n)<0;})).forEach(function(name){
+      var pk=name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+      var pd=bd[pk]||{};
+      if(!Object.keys(pd).length){Object.keys(bd).forEach(function(k){if(k.replace(/^(reg_|pass_)/,'')===pk)pd=bd[k]||{};});}
+      var avg=getAvg(pd);if(avg!==null)avgs.push(avg);
+    });
+    return{total:total,drop:drop,manage:total-drop,응시:avgs.length,
+      under40:avgs.filter(function(v){return v<40;}).length,
+      b40:avgs.filter(function(v){return v>=40&&v<50;}).length,
+      b50:avgs.filter(function(v){return v>=50&&v<60;}).length,
+      b60:avgs.filter(function(v){return v>=60;}).length};
+  }
+
+  var tot={total:0,drop:0,manage:0,응시:0,under40:0,b40:0,b50:0,b60:0};
+  var cStats={};
+  CENTER_ORDER.forEach(function(cn){cStats[cn]={total:0,drop:0,manage:0,응시:0,under40:0,b40:0,b50:0,b60:0};});
+  var bStats=BR.map(function(b,bi){var s=calcB(bi);
+    var cn=CENTERS[bi];if(cn&&cStats[cn])['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){cStats[cn][k]+=s[k];});
+    ['total','drop','manage','응시','under40','b40','b50','b60'].forEach(function(k){tot[k]+=s[k];});
+    return{bi:bi,name:b.name,center:cn,s:s};
+  });
+
+  function rate(s){var r=s.응시?Math.round(s.b60/s.응시*1000)/10:0;return r+'%';}
+  function tr(cells,bold,bg){
+    return '<tr'+(bg?' style="background:'+bg+'"':'')+'>'
+      +cells.map(function(v,i){return '<td style="border:1px solid #999;padding:3px 4px;text-align:'+(i<3?'left':'center')+';font-size:9px;'+(bold?'font-weight:700;':'')+'">'+v+'</td>';}).join('')+'</tr>';
+  }
+
+  var w=window.open('','_blank','width=1100,height=750');
+  if(!w){alert('팝업 차단됨');return;}
+  var today=new Date();
+  var dateStr=today.getFullYear()+'. '+(today.getMonth()+1)+'월 '+(today.getDate())+'일';
+  var css='*{box-sizing:border-box}body{font-family:"맑은 고딕",sans-serif;font-size:9px;padding:6px}'
+    +'h1{font-size:13px;font-weight:700;margin:0 0 2px}'
+    +'.sub{font-size:9px;color:#666;display:flex;justify-content:space-between;margin-bottom:6px}'
+    +'table{border-collapse:collapse;width:100%}'
+    +'th{background:#dce6f1;border:1px solid #999;padding:3px 4px;text-align:center;font-size:9px}'
+    +'.fail{color:#c00}.pass{color:#1a7a4a;font-weight:700}'
+    +'@media print{@page{size:A4 landscape;margin:6mm}}';
+
+  var html='<h1>■ '+today.getFullYear()+'.'+( today.getMonth()+1)+'월 호남지역단 입문 테스트 현황</h1>'
+    +'<div class="sub"><span>* '+dateStr+' 기준</span><span>(단위 : 명)</span></div>'
+    +'<table><thead>'
+    +'<tr><th colspan="3">구분</th>'
+    +'<th rowspan="2">총접수</th><th rowspan="2">탈락<br>(기합격포함)</th><th rowspan="2">관리인원</th>'
+    +'<th colspan="6">테스트점수(손보+3보 평균)</th></tr>'
+    +'<tr><th>지점명</th><th>비전센터</th><th>지점명</th>'
+    +'<th>테스트<br>응시인원</th><th>40점↓</th><th>40점</th><th>50점</th><th>60점<br>이상</th><th>합격률*</th></tr>'
+    +'</thead><tbody>';
+
+  // 호남지역단
+  html+=tr(['호남지역단','','',tot.total,tot.drop,tot.manage,tot.응시,tot.under40,tot.b40,tot.b50,
+    '<span class="pass">'+tot.b60+'</span>','<span class="'+(tot.응시&&Math.round(tot.b60/tot.응시*1000)/10>=60?'pass':'fail')+'">'+rate(tot)+'</span>'],true,'#f2f9ff');
+
+  CENTER_ORDER.forEach(function(cn){
+    var cs=cStats[cn];
+    var cRate=cs.응시?Math.round(cs.b60/cs.응시*1000)/10:0;
+    html+=tr(['',CENTER_NAMES[cn]||cn,'',cs.total,cs.drop,cs.manage,cs.응시,cs.under40,cs.b40,cs.b50,
+      '<span class="pass">'+cs.b60+'</span>','<span class="'+(cRate>=60?'pass':'fail')+'">'+cRate+'%</span>'],true,'#e2efda');
+    bStats.filter(function(b){return b.center===cn;}).forEach(function(b){
+      var s=b.s;var r=s.응시?Math.round(s.b60/s.응시*1000)/10:0;
+      html+=tr([b.name.replace('지점','').replace('TC','TC'),cn,b.name,
+        s.total,s.drop,s.manage,s.응시,s.under40?'<span class="fail">'+s.under40+'</span>':0,
+        s.b40,s.b50,'<span class="'+(s.b60?'pass':'')+'">'+s.b60+'</span>',
+        '<span class="'+(r>=60?'pass':'fail')+'">'+r+'%</span>'],false,'');
+    });
+  });
+  html+='</tbody></table>';
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>테스트현황</title><style>'+css+'</style></head><body>'+html+'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},600);
+}
+
 
 </script>
 
