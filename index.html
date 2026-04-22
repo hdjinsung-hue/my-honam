@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v4</title>
+<title>호남 지역단 신인도입 현황판 v6</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v4</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v6</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -493,12 +493,9 @@ input[type=file].xf{display:none}
 </select>
       </div>
       <div>
-        <div style="font-size:11px;color:#8899bb;margin-bottom:4px">회차 선택</div>
-        <select id="exam-round-sel" onchange="try{renderExamScores();}catch(e){}" style="width:100%;padding:8px;border:1.5px solid #FF8C55;border-radius:8px;background:#1a2f50;color:#FF8C55;font-size:14px;font-family:inherit;font-weight:900;text-align:center">
-          <option value="1">1회차</option><option value="2">2회차</option><option value="3">3회차</option><option value="4">4회차</option><option value="5">5회차</option>
-          <option value="6">6회차</option><option value="7">7회차</option><option value="8">8회차</option><option value="9">9회차</option><option value="10">10회차</option>
-          <option value="11">11회차</option><option value="12">12회차</option><option value="13">13회차</option><option value="14">14회차</option><option value="15">15회차</option>
-        </select>
+        <div style="font-size:11px;color:#8899bb;margin-bottom:4px">입력 회차 (자동)</div>
+        <div id="exam-round-display" style="width:100%;padding:8px;border:1.5px solid rgba(255,107,43,.4);border-radius:8px;background:#1a2f50;color:#FF8C55;font-size:14px;font-family:inherit;font-weight:900;text-align:center">-회차</div>
+        <input type="hidden" id="exam-round-sel" value="1">
       </div>
     </div>
     <div style="margin-bottom:8px">
@@ -569,6 +566,11 @@ input[type=file].xf{display:none}
   <div id="exam-scores-area" style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:1rem">
     <div style="font-size:13px;font-weight:700;color:#e8edf5;margin-bottom:.625rem">📊 점수 현황</div>
     <div id="exam-scores-body" style="font-size:12px;color:#8899bb">수험자를 선택하면 점수현황이 표시됩니다.</div>
+  </div>
+  <!-- 출력 버튼 -->
+  <div style="margin-top:.75rem;display:flex;gap:8px">
+    <button onclick="printExamByBranch()" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 지점별 전체 출력</button>
+    <button onclick="printExamByPerson()" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.3)">🖨️ 수험자별 출력</button>
   </div>
 </div>
 </div>
@@ -1231,8 +1233,8 @@ function initExam(){
       _examRef.on('value', function(snap){
       // Firebase 값으로 _examData 업데이트 (null이면 유지)
       var _newData = snap.val();
-      if(_newData) _examData = _newData;
-      else if(!_examData) _examData = {};
+      if(_newData){ _examData = _newData; window._examData = _newData; }
+      else if(!_examData){ _examData = {}; window._examData = {}; }
       if(document.getElementById('tab-exam').classList.contains('on')){
         _calcAutoRound();
         renderExamScores();
@@ -4653,6 +4655,113 @@ if('serviceWorker' in navigator){
     regs.forEach(function(reg){ reg.update(); });
   });
 }
+// ── 지점별 전체 출력 ──
+function printExamByBranch(){
+  var w=window.open('','_blank','width=1100,height=750');
+  if(!w){alert('팝업 차단됨');return;}
+  var css='body{font-family:"맑은 고딕",sans-serif;padding:12px;font-size:10px;color:#111}'
+    +'h2{font-size:13px;color:#d04000;margin:14px 0 4px;border-bottom:1.5px solid #eee;padding-bottom:3px}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:6px}'
+    +'th{background:#f0f4f8;padding:4px 5px;border:1px solid #ddd;text-align:center;font-size:9px}'
+    +'td{padding:3px 5px;border:1px solid #ddd;text-align:center;font-size:9px}'
+    +'.pass{color:#1a7a4a;font-weight:700}.fail{color:#c0392b}.part{color:#7c3aed}'
+    +'@media print{@page{size:A4 landscape;margin:8mm}}';
+  var rMap={pass:'합격',fail:'불합격',kipass:'기합격'};
+  var body='<h1 style="font-size:14px;margin:0 0 8px">호남지역단 모의고사 점수현황</h1>'
+    +'<div style="font-size:10px;color:#666;margin-bottom:10px">'+new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})+'</div>';
+  var eData=window._examData||_examData||{};
+  var hasAny=false;
+  (window.BR||[]).forEach(function(b,bi){
+    var brData=eData[bi]||eData[String(bi)]||{};
+    var people=[];
+    var attList=((window.att&&window.att[bi])||{}).attendees||[];
+    var passList=((window.data&&window.data[bi])||{}).passList||[];
+    [].concat(passList.map(function(n){return{name:n,ki:true};}))
+      .concat(attList.map(function(n){return{name:n,ki:false};}))
+      .forEach(function(p){
+        var pk=p.name.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+        var pData=brData[pk]||{};
+        var rounds=[];
+        for(var r=1;r<=15;r++){if(Object.keys(pData['round'+r]||{}).length>0)rounds.push(r);}
+        if(rounds.length>0) people.push({name:p.name,ki:p.ki,pk:pk,pData:pData,rounds:rounds});
+      });
+    if(!people.length) return;
+    hasAny=true;
+    body+='<h2>'+b.name+' · '+b.mgr+' 지점장 ('+people.length+'명)</h2>';
+    people.forEach(function(p){
+      body+='<div style="font-size:10px;font-weight:700;margin:5px 0 2px">'+p.name+(p.ki?' [기합격]':'')+'</div>';
+      body+='<table><thead><tr><th>회차</th><th>형</th><th>손보</th><th>제3보험</th><th>합격</th></tr></thead><tbody>';
+      p.rounds.forEach(function(rn){
+        var rd=p.pData['round'+rn]||{};
+        Object.keys(rd).sort(function(a,b){return parseInt(a)-parseInt(b);}).forEach(function(t){
+          var td=rd[t]||{};
+          var sp=td.son==='pass'||td.son==='kipass'||(typeof td.sonScore==='number'&&td.sonScore>=60);
+          var jp=td.je3==='pass'||td.je3==='kipass'||(typeof td.je3Score==='number'&&td.je3Score>=60);
+          var sv=td.son==='kipass'?'기합격':(typeof td.sonScore==='number'?td.sonScore+'점':'-');
+          var jv=td.je3==='kipass'?'기합격':(typeof td.je3Score==='number'?td.je3Score+'점':'-');
+          var ok=sp&&jp;var pt=sp||jp;
+          body+='<tr><td>'+rn+'회</td><td>'+t+'</td>'
+            +'<td class="'+(sp?'pass':'fail')+'">'+sv+'</td>'
+            +'<td class="'+(jp?'pass':'fail')+'">'+jv+'</td>'
+            +'<td class="'+(ok?'pass':pt?'part':'fail')+'" style="font-weight:700">'+(ok?'합격':pt?'부분합격':'불합격')+'</td></tr>';
+        });
+      });
+      body+='</tbody></table>';
+    });
+  });
+  if(!hasAny) body+='<p>입력된 점수 없음</p>';
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>모의고사점수현황</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},600);
+}
+
+// ── 수험자별 출력 (현재 선택 수험자) ──
+function printExamByPerson(){
+  var brEl=document.getElementById('exam-branch-sel');
+  var perEl=document.getElementById('exam-person-sel');
+  var bi=brEl?parseInt(brEl.value):-1;
+  var personVal=perEl?perEl.value||'':'';
+  if(isNaN(bi)||bi<0||!personVal){alert('지점과 수험자를 선택하세요');return;}
+  var pk=personVal.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+  var pname=personVal.replace(/^(pass_|reg_)/,'');
+  var eData=window._examData||_examData||{};
+  var pData=(eData[bi]||eData[String(bi)]||{})[pk]||{};
+  var rounds=[];for(var r=1;r<=15;r++){if(Object.keys(pData['round'+r]||{}).length>0)rounds.push(r);}
+  if(!rounds.length){alert('입력된 점수가 없습니다');return;}
+  var w=window.open('','_blank','width=700,height=600');
+  if(!w){alert('팝업 차단됨');return;}
+  var brName=(window.BR&&window.BR[bi])?window.BR[bi].name:'';
+  var css='body{font-family:"맑은 고딕",sans-serif;padding:16px;font-size:11px}'
+    +'h2{font-size:14px;color:#d04000;margin:0 0 6px}h3{font-size:12px;color:#555;margin:10px 0 3px}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:6px}'
+    +'th{background:#f0f4f8;padding:5px;border:1px solid #ddd;text-align:center}'
+    +'td{padding:4px 5px;border:1px solid #ddd;text-align:center}'
+    +'.pass{color:#1a7a4a;font-weight:700}.fail{color:#c0392b}.part{color:#7c3aed}'
+    +'@media print{@page{size:A4;margin:10mm}}';
+  var body='<h2>'+pname+' 모의고사 성적표</h2>'
+    +'<div style="font-size:10px;color:#666;margin-bottom:12px">'+brName+' · '+new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})+'</div>';
+  rounds.forEach(function(rn){
+    var rd=pData['round'+rn]||{};
+    body+='<h3>'+rn+'회차</h3><table><thead><tr><th>형</th><th>손보</th><th>제3보험</th><th>합격</th></tr></thead><tbody>';
+    Object.keys(rd).sort(function(a,b){return parseInt(a)-parseInt(b);}).forEach(function(t){
+      var td=rd[t]||{};
+      var sp=td.son==='pass'||td.son==='kipass'||(typeof td.sonScore==='number'&&td.sonScore>=60);
+      var jp=td.je3==='pass'||td.je3==='kipass'||(typeof td.je3Score==='number'&&td.je3Score>=60);
+      var sv=td.son==='kipass'?'기합격':(typeof td.sonScore==='number'?td.sonScore+'점':'-');
+      var jv=td.je3==='kipass'?'기합격':(typeof td.je3Score==='number'?td.je3Score+'점':'-');
+      var ok=sp&&jp;var pt=sp||jp;
+      body+='<tr><td>'+t+'</td>'
+        +'<td class="'+(sp?'pass':'fail')+'">'+sv+'</td>'
+        +'<td class="'+(jp?'pass':'fail')+'">'+jv+'</td>'
+        +'<td class="'+(ok?'pass':pt?'part':'fail')+'" style="font-weight:700">'+(ok?'합격':pt?'부분합격':'불합격')+'</td></tr>';
+    });
+    body+='</tbody></table>';
+  });
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+pname+' 성적표</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},600);
+}
+
 </script>
 
 <!-- 신인도입 지역단 일괄입력 모달 -->
@@ -5066,7 +5175,7 @@ function saveExamScore(){
       var bd=document.getElementById(w+'-badge');if(bd)bd.style.display='none';
     });
 
-    // _examData 즉시 업데이트
+    // _examData 즉시 업데이트 (window + 전역 동시)
     if(!window._examData) window._examData={};
     if(!window._examData[bi]) window._examData[bi]={};
     if(!window._examData[bi][pk]) window._examData[bi][pk]={};
@@ -5075,6 +5184,15 @@ function saveExamScore(){
     var ex=window._examData[bi][pk][rk][type]||{};
     Object.keys(pay).forEach(function(k){ex[k]=pay[k];});
     window._examData[bi][pk][rk][type]=ex;
+    // 블록3의 _examData도 동기화
+    try{
+      if(typeof _examData!=='undefined'){
+        if(!_examData[bi]) _examData[bi]={};
+        if(!_examData[bi][pk]) _examData[bi][pk]={};
+        if(!_examData[bi][pk][rk]) _examData[bi][pk][rk]={};
+        _examData[bi][pk][rk][type]=ex;
+      }
+    }catch(e){}
 
     // 회차 자동계산: 해당 수험자 기준
     _calcAutoRoundFor(bi, pk, roundEl);
@@ -5099,14 +5217,16 @@ function saveExamScore(){
 function _calcAutoRoundFor(bi, pk, roundEl){
   try{
     if(!roundEl) roundEl=document.getElementById('exam-round-sel');
-    if(!roundEl) return;
-    var pData=(window._examData[bi]||{})[pk]||{};
+    var disp=document.getElementById('exam-round-display');
+    var _ed2=window._examData||_examData||{}; var pData=_ed2[bi]||_ed2[String(bi)]||{};
+    var pPersonData=pData[pk]||{};
     var maxR=0;
     for(var r=1;r<=15;r++){
-      if(Object.keys(pData['round'+r]||{}).length>0) maxR=r;
+      if(Object.keys(pPersonData['round'+r]||{}).length>0) maxR=r;
     }
     var next=Math.min(maxR+1,15);
-    roundEl.value=String(next);
+    if(roundEl) roundEl.value=String(next);
+    if(disp) disp.textContent=next+'회차';
   }catch(e){}
 }
 
@@ -5115,7 +5235,8 @@ function renderExamScoresInline(bi, pk, personVal){
   var body=document.getElementById('exam-scores-body');
   if(!body) return;
   var pname=personVal.replace(/^(pass_|reg_)/,'');
-  var pData=(window._examData[bi]||{})[pk]||{};
+  var _ed=window._examData||_examData||{};
+  var pData=(_ed[bi]||_ed[String(bi)]||{})[pk]||{};
   var rMap={pass:'합격✅',fail:'불합격❌',kipass:'기합격★'};
 
   // 데이터 있는 모든 회차
