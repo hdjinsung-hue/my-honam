@@ -5078,24 +5078,56 @@ function saveExamScore(){
       var _res=_ok?'합격':_part?'부분합격':'불합격';
       var _rc=_ok?'#3ecf8e':_part?'#a78bfa':'#f5605a';
       var _pkey=personVal.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
-      _body.innerHTML='<div style="font-size:12px;font-weight:700;color:#FF8C55;margin-bottom:6px">'+personVal.replace(/^(pass_|reg_)/,'')+'  · '+round+'회차</div>'
-        +'<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:#0b1628">'
-        +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #1e3055;color:#8899bb">형</th>'
-        +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">손보</th>'
-        +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">제3보험</th>'
-        +'<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #1e3055;color:#FF8C55">합격여부</th>'
-        +'<th style="padding:6px 5px;border-bottom:1px solid #1e3055;width:45px"></th>'
-        +'</tr></thead><tbody>'
-        +'<tr style="border-bottom:1px solid rgba(30,48,85,.5)">'
-        +'<td style="padding:5px 8px;font-weight:700;color:#e8edf5">'+type+'</td>'
-        +'<td style="padding:5px 8px;text-align:center;color:'+_sC+';font-weight:700">'+_sDisp+'</td>'
-        +'<td style="padding:5px 8px;text-align:center;color:'+_jC+';font-weight:700">'+_jDisp+'</td>'
-        +'<td style="padding:5px 8px;text-align:center;font-weight:900;color:'+_rc+'">'+_res+'</td>'
-        +'<td style="padding:3px 5px;text-align:center">'
-          +'<button data-bi="'+bi+'" data-key="'+_pkey+'" data-round="'+round+'" data-type="'+type+'" onclick="deleteExamScore(this)" '
-          +'style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:#f5605a;border:1px solid rgba(245,96,90,.3)">삭제</button>'
-        +'</td></tr>'
-        +'</tbody></table>';
+      var _pname=personVal.replace(/^(pass_|reg_)/,'');
+      var _pData=(_examData[bi]||{})[_pkey]||{};
+      var _rMap={pass:'합격 ✅',fail:'불합격 ❌',kipass:'기합격★'};
+      // 데이터 있는 모든 회차 수집
+      var _allRounds=[];
+      for(var _r=1;_r<=15;_r++){
+        if(Object.keys(_pData['round'+_r]||{}).length>0) _allRounds.push(_r);
+      }
+      var _html='<div style="font-size:12px;font-weight:700;color:#FF8C55;margin-bottom:8px">'+_pname+'  누적 점수현황</div>';
+      if(_allRounds.length===0){
+        _html+='<div style="color:#8899bb;font-size:11px">입력된 점수가 없습니다.</div>';
+      } else {
+        _allRounds.forEach(function(_rn){
+          var _rd=_pData['round'+_rn]||{};
+          var _types=Object.keys(_rd);
+          if(!_types.length) return;
+          var _isCur=String(_rn)===String(round);
+          _html+='<div style="font-size:11px;font-weight:700;color:'+(_isCur?'#3ecf8e':'#8899bb')+';margin:6px 0 3px">'
+            +_rn+'회차'+(_isCur?' ← 방금 저장':'')+' </div>'
+            +'<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px">'
+            +'<thead><tr style="background:#0b1628">'
+            +'<th style="padding:5px 8px;text-align:left;border-bottom:1px solid #1e3055;color:#8899bb">형</th>'
+            +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#4fa8f5">손보</th>'
+            +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#3ecf8e">제3보험</th>'
+            +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid #1e3055;color:#FF8C55">합격</th>'
+            +'<th style="padding:5px 5px;border-bottom:1px solid #1e3055;width:40px"></th>'
+            +'</tr></thead><tbody>';
+          _types.forEach(function(_t){
+            var _td=_rd[_t]||{};
+            var _sp=_td.son==='pass'||_td.son==='kipass'||(typeof _td.sonScore==='number'&&_td.sonScore>=60);
+            var _jp=_td.je3==='pass'||_td.je3==='kipass'||(typeof _td.je3Score==='number'&&_td.je3Score>=60);
+            var _sv=_td.son==='kipass'?'기합격★':(typeof _td.sonScore==='number'?_td.sonScore+'점':(_td.son?_rMap[_td.son]||_td.son:'-'));
+            var _jv=_td.je3==='kipass'?'기합격★':(typeof _td.je3Score==='number'?_td.je3Score+'점':(_td.je3?_rMap[_td.je3]||_td.je3:'-'));
+            var _ok=_sp&&_jp; var _part=_sp||_jp;
+            var _res=_ok?'합격':_part?'부분':' - ';
+            var _rc=_ok?'#3ecf8e':_part?'#a78bfa':'#8899bb';
+            _html+='<tr style="border-bottom:1px solid rgba(30,48,85,.4)">'
+              +'<td style="padding:4px 8px;font-weight:700;color:#e8edf5">'+_t+'</td>'
+              +'<td style="padding:4px 6px;text-align:center;color:'+(_sp?'#3ecf8e':'#f5605a')+';font-weight:700">'+_sv+'</td>'
+              +'<td style="padding:4px 6px;text-align:center;color:'+(_jp?'#3ecf8e':'#f5605a')+';font-weight:700">'+_jv+'</td>'
+              +'<td style="padding:4px 6px;text-align:center;font-weight:900;color:'+_rc+'">'+_res+'</td>'
+              +'<td style="padding:3px 4px;text-align:center">'
+              +'<button data-bi="'+bi+'" data-key="'+_pkey+'" data-round="'+_rn+'" data-type="'+_t+'" onclick="deleteExamScore(this)" '
+              +'style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:#f5605a;border:1px solid rgba(245,96,90,.3)">삭제</button>'
+              +'</td></tr>';
+          });
+          _html+='</tbody></table>';
+        });
+      }
+      _body.innerHTML=_html;
     }
     try{renderExamScores();}catch(e){}
     try{renderExamPassCard();}catch(e){}
