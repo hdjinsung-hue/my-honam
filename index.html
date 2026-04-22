@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v14</title>
+<title>호남 지역단 신인도입 현황판 v22</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v14</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v22</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -5366,4 +5366,110 @@ function renderExamScoresInline(bi, pk, personVal){
   }
   body.innerHTML=h;
 }
+
+// ── 명단 붙여넣기 파싱 ──
+function parsePasteList(){
+  var inp=document.getElementById('paste-inp');
+  var prev=document.getElementById('paste-preview');
+  var ok=document.getElementById('paste-ok');
+  if(!inp||!prev) return;
+  var text=inp.value.trim();
+  if(!text){alert('내용을 입력해주세요.');return;}
+  var lines=text.split('\n').map(function(l){return l.trim();}).filter(function(l){return l;});
+  var result={};var curBranch=null;var count=0;
+  lines.forEach(function(line){
+    var isBranch=BR.some(function(b){return b.name===line||b.name.replace('지점','')===line||line.endsWith('지점');});
+    if(isBranch){
+      var matched=BR.find(function(b){return b.name===line||b.name===line+'지점';});
+      curBranch=matched?matched.name:line;
+      if(!result[curBranch]) result[curBranch]=[];
+    } else if(curBranch&&line){
+      result[curBranch].push(line);count++;
+    }
+  });
+  if(!Object.keys(result).length){alert('지점명과 명단을 확인해주세요.');return;}
+  window._pasteResult=result;
+  var html='';
+  Object.keys(result).forEach(function(bn){html+='<b>'+bn+'</b>: '+result[bn].join(', ')+'<br>';});
+  prev.innerHTML='<div style="color:#3ecf8e;margin-bottom:4px">'+count+'명 파싱됨</div>'+html;
+  prev.style.display='block';
+  if(ok) ok.style.display='block';
+}
+
+function applyPasteList(){
+  var result=window._pasteResult||{};
+  var changed=0;
+  Object.keys(result).forEach(function(bn){
+    var bi=BR.findIndex(function(b){return b.name===bn||b.name===bn+'지점';});
+    if(bi<0) return;
+    result[bn].forEach(function(name){
+      if(att[bi].attendees.indexOf(name)<0){att[bi].attendees.push(name);changed++;}
+    });
+    if(att[bi].attendees.length&&attRef) attRef.child(bi).child('attendees').set(att[bi].attendees);
+  });
+  document.getElementById('paste-ov').style.display='none';
+  if(changed) alert(changed+'명이 추가되었습니다.');
+  renderAtt();
+}
+
+// ── 날짜별 출석 일괄 적용 ──
+function applyGlobalAtt(){
+  var parsed=window._globalAttParsed;
+  if(!parsed||!Object.keys(parsed).length){alert('먼저 파싱하세요.');return;}
+  var changed=0;
+  Object.keys(parsed).forEach(function(dateKey){
+    var names=parsed[dateKey]||[];
+    BR.forEach(function(b,bi){
+      var found=[];
+      names.forEach(function(name){
+        if(att[bi].attendees.indexOf(name)>=0){
+          var dayList=att[bi].attendance[dateKey]||[];
+          if(dayList.indexOf(name)<0){dayList.push(name);att[bi].attendance[dateKey]=dayList;changed++;found.push(name);}
+        }
+      });
+      if(found.length&&attRef) attRef.child(bi).child('attendance').child(dateKey).set(att[bi].attendance[dateKey]);
+    });
+  });
+  document.getElementById('global-att-modal').style.display='none';
+  if(changed) alert(changed+'건 출석 처리되었습니다.');
+  renderAtt();
+}
 </script>
+<!-- ── 입문출결 모달들 ── -->
+<div class="overlay" id="att-list-modal" style="display:none">
+  <div class="modal" style="max-width:600px;max-height:85vh;overflow-y:auto">
+    <div class="mhdr"><h3 id="alm-title">전체 접수인원 명단</h3><button class="mcls" onclick="document.getElementById('att-list-modal').style.display='none'">✕</button></div>
+    <div id="alm-sub" style="font-size:11px;color:var(--t3);padding:4px 0 8px"></div>
+    <div id="alm-body" style="font-size:12px"></div>
+  </div>
+</div>
+<div class="overlay" id="daily-modal" style="display:none">
+  <div class="modal" style="max-width:700px;max-height:90vh;overflow-y:auto">
+    <div class="mhdr"><h3>날짜별 출석 현황</h3><button class="mcls" onclick="document.getElementById('daily-modal').style.display='none'">✕</button></div>
+    <div id="daily-modal-sub" style="font-size:11px;color:var(--t3);padding:4px 0 8px"></div>
+    <div id="daily-modal-body" style="font-size:12px"></div>
+  </div>
+</div>
+<div class="overlay" id="global-att-modal" style="display:none">
+  <div class="modal" style="max-width:560px">
+    <div class="mhdr"><h3>날짜별 출석 일괄 업로드</h3><button class="mcls" onclick="document.getElementById('global-att-modal').style.display='none'">✕</button></div>
+    <textarea id="global-att-inp" style="width:100%;height:160px;background:var(--bg3);color:var(--t1);border:1px solid var(--bd);border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;margin:8px 0" placeholder="붙여넣기 후 파싱 클릭"></textarea>
+    <div id="global-att-preview" style="display:none;font-size:11px;color:var(--t2);max-height:120px;overflow-y:auto;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="parseGlobalAtt()" style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);font-family:inherit">파싱</button>
+      <button id="global-att-ok" onclick="applyGlobalAtt()" style="display:none;flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:#1a7a4a;color:#fff;border:none;font-family:inherit">적용</button>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="paste-ov" style="display:none">
+  <div class="modal" style="max-width:520px">
+    <div class="mhdr"><h3>교육생 명단 일괄 등록</h3><button class="mcls" onclick="document.getElementById('paste-ov').style.display='none'">✕</button></div>
+    <textarea id="paste-inp" style="width:100%;height:200px;background:var(--bg3);color:var(--t1);border:1px solid var(--bd);border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;margin:8px 0" placeholder="광주제일지점&#10;홍길동&#10;김철수&#10;&#10;새광주지점&#10;이영희"></textarea>
+    <div id="paste-preview" style="display:none;font-size:11px;max-height:120px;overflow-y:auto;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="parsePasteList()" style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);font-family:inherit">파싱</button>
+      <button id="paste-ok" onclick="applyPasteList()" style="display:none;flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:#1a7a4a;color:#fff;border:none;font-family:inherit">적용</button>
+    </div>
+  </div>
+</div>
+
