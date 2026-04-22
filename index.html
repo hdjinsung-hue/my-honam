@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v3</title>
+<title>호남 지역단 신인도입 현황판 v4</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v3</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v4</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -1777,6 +1777,7 @@ function initFirebaseApp(){
       });
     }
     db=firebase.database();
+    window.db=db;  // 블록4(saveExamScore)에서 접근 가능하도록 전역 노출
     dbRef=db.ref('honam_recruit');
     attRef=db.ref('honam_attendance');
     var stbtn=document.getElementById('stbtn');
@@ -4998,6 +4999,10 @@ if('serviceWorker' in navigator){
 // ── 모의고사 전역 변수 명시적 초기화 ──
 if(typeof window._examData==='undefined') window._examData={};
 if(typeof window._examRef==='undefined') window._examRef=null;
+// window.db가 없으면 firebase로 직접 초기화
+if(!window.db && typeof firebase!=='undefined' && firebase.apps && firebase.apps.length){
+  try{ window.db=firebase.database(); }catch(e){}
+}
 // EXAM_TYPES 전역 보장
 if(typeof window.EXAM_TYPES==='undefined'){
   window.EXAM_TYPES=[];
