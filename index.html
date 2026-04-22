@@ -1195,10 +1195,11 @@ function printAdminExamStat(){
 }
 
 function initExam(){
-  if(!db) return;
+  if(!db){ console.warn('initExam: db is null'); return; }
   if(!_examRef){
-    _examRef = db.ref('honam_exam');
-    _examRef.on('value', function(snap){
+    try{
+      _examRef = db.ref('honam_exam');
+      _examRef.on('value', function(snap){
       _examData = snap.val()||{};
       if(document.getElementById('tab-exam').classList.contains('on')){
         _calcAutoRound();
@@ -1206,6 +1207,7 @@ function initExam(){
         renderExamPassCard();
       }
     });
+    }catch(e){ console.error("initExam error:", e); _examRef=null; }
   }
 }
 
@@ -1318,97 +1320,6 @@ function _calcAutoRound(){
 
 function setExamResult(which, result){ toggleExamBtn(which, result); }
 function onExamPartialChange(which){ /* 구버전 호환 */ }
-
-function saveExamScore(){
-  // _examRef 없으면 즉시 초기화 시도
-  if(!_examRef){
-    if(db){ try{ _examRef=db.ref('honam_exam'); }catch(e){} }
-    if(!_examRef){ alert('Firebase 연결 중입니다. 잠시 후 다시 시도해주세요.'); return; }
-  }
-  var brSelEl=document.getElementById('exam-branch-sel');
-  var bi=brSelEl?parseInt(brSelEl.value):-1;
-  var personVal=(document.getElementById('exam-person-sel')||{}).value||'';
-  var round=(document.getElementById('exam-round-sel')||{}).value||'';
-  var type=(document.getElementById('exam-type-sel')||{}).value||'';
-  var sonVal=(document.getElementById('exam-score-son')||{}).value||'';
-  var je3Val=(document.getElementById('exam-score-je3')||{}).value||'';
-
-  if(isNaN(bi)||bi<0){ alert('지점을 선택해주세요.'); return; }
-  if(!personVal||personVal==='(명단 없음)'){ alert('수험자를 선택해주세요.'); return; }
-  if(!round||round==='0'){ alert('회차를 확인해주세요.'); return; }
-  if(!type||type==='all'||type==='전체'){ alert('형을 선택해주세요.'); return; }
-
-  var kpSon=!!(document.getElementById('chk-son-kipass')&&document.getElementById('chk-son-kipass').checked);
-  var kpJe3=!!(document.getElementById('chk-je3-kipass')&&document.getElementById('chk-je3-kipass').checked);
-  if(!kpSon&&!kpJe3&&sonVal===''&&je3Val===''){
-    alert('점수를 입력하거나 기합격을 체크해주세요.'); return;
-  }
-
-  // personKey: Firebase 키에 사용 불가 문자 제거
-  var personKey=personVal.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
-  var path=bi+'/'+personKey+'/round'+round+'/'+type;
-
-  // payload: null 절대 포함 안 함 (null은 Firebase에서 키 삭제)
-  var payload={};
-  if(kpSon){
-    payload.son='kipass';
-    // sonScore는 건드리지 않음 (기존 값 보존)
-  } else if(sonVal!==''){
-    var sonScore=parseInt(sonVal);
-    if(!isNaN(sonScore)){
-      payload.son=(sonScore>=60?'pass':'fail');
-      payload.sonScore=sonScore;
-    }
-  }
-  if(kpJe3){
-    payload.je3='kipass';
-    // je3Score는 건드리지 않음 (기존 값 보존)
-  } else if(je3Val!==''){
-    var je3Score=parseInt(je3Val);
-    if(!isNaN(je3Score)){
-      payload.je3=(je3Score>=60?'pass':'fail');
-      payload.je3Score=je3Score;
-    }
-  }
-
-  if(Object.keys(payload).length===0){ alert('입력된 데이터가 없습니다.'); return; }
-
-  // update (병합 저장 - 다른 과목 기존 데이터 보존)
-  _examRef.child(path).update(payload).then(function(){
-    // 저장 성공 알림
-    var saveLbl=type+' 저장완료';
-    var prev=document.getElementById('exam-result-preview');
-    if(prev){
-      prev.style.display='block';
-      prev.style.background='rgba(62,207,142,.15)';
-      prev.style.color='#3ecf8e';
-      prev.style.border='1px solid rgba(62,207,142,.4)';
-      prev.textContent='✅ '+saveLbl;
-      setTimeout(function(){if(prev)prev.style.display='none';},1500);
-    }
-    _calcAutoRound();
-    // 입력란 초기화
-    var si=document.getElementById('exam-score-son');
-    var ji=document.getElementById('exam-score-je3');
-    if(si){si.value='';si.disabled=false;si.style.opacity='1';}
-    if(ji){ji.value='';ji.disabled=false;ji.style.opacity='1';}
-    ['son','je3'].forEach(function(w){
-      var chk=document.getElementById('chk-'+w+'-kipass');
-      if(chk) chk.checked=false;
-      var badge=document.getElementById(w+'-badge');
-      if(badge) badge.style.display='none';
-    });
-    renderExamScores();
-    showExamBadges();
-    renderExamPassCard();
-    var sonLog=kpSon?'기합격':(payload.sonScore!==undefined?(payload.sonScore+'점'):'-');
-    var je3Log=kpJe3?'기합격':(payload.je3Score!==undefined?(payload.je3Score+'점'):'-');
-    writeLog(BR[bi].name,'모의고사',personVal.replace(/^(pass|reg)_/,'')+' '+round+'회 '+type+' 손보:'+sonLog+' 제3:'+je3Log);
-  }).catch(function(e){
-    alert('저장 실패: '+e.message);
-    console.error('saveExamScore error:', e);
-  });
-}
 
 function renderExamScores(){
   var body=document.getElementById('exam-scores-body');
@@ -5061,3 +4972,77 @@ if('serviceWorker' in navigator){
 
 </body>
 </html>
+<script>
+// saveExamScore - 모의고사 점수 저장
+function saveExamScore(){
+  var _btn=document.querySelector('button[onclick="saveExamScore()"]');
+  var _prev=document.getElementById('exam-result-preview');
+  function _show(txt,col){if(_prev){_prev.style.display='block';_prev.style.background='rgba('+col+')';_prev.style.color='#fff';_prev.style.border='none';_prev.textContent=txt;}}
+  function _reset(){if(_btn){_btn.innerHTML='💾 저장';_btn.disabled=false;}}
+  if(_btn){_btn.textContent='⏳ 저장 중...';_btn.disabled=true;}
+
+  var bi=parseInt((document.getElementById('exam-branch-sel')||{value:'-1'}).value||'-1');
+  var personVal=(document.getElementById('exam-person-sel')||{value:''}).value||'';
+  var round=(document.getElementById('exam-round-sel')||{value:'1'}).value||'1';
+  var type=(document.getElementById('exam-type-sel')||{value:''}).value||'';
+  var sonEl=document.getElementById('exam-score-son');
+  var je3El=document.getElementById('exam-score-je3');
+  var sonVal=sonEl?sonEl.value||'':'';
+  var je3Val=je3El?je3El.value||'':'';
+  var kpSon=!!(document.getElementById('chk-son-kipass')&&document.getElementById('chk-son-kipass').checked);
+  var kpJe3=!!(document.getElementById('chk-je3-kipass')&&document.getElementById('chk-je3-kipass').checked);
+
+  if(isNaN(bi)||bi<0){_reset();_show('지점 선택 필요','245,96,90,.9');return;}
+  if(!personVal){_reset();_show('수험자 선택 필요','245,96,90,.9');return;}
+  if(!type||type==='all'){_reset();_show('형 선택 필요','245,96,90,.9');return;}
+  if(!kpSon&&!kpJe3&&!sonVal&&!je3Val){_reset();_show('점수 입력 또는 기합격 체크','245,96,90,.9');return;}
+  if(!db){_reset();_show('Firebase 연결 안됨','245,96,90,.9');return;}
+
+  var pk=personVal.replace(/\./g,'_').replace(/#/g,'_').replace(/\$/g,'_').replace(/\[/g,'_').replace(/\]/g,'_');
+  var pay={};
+  if(kpSon){pay.son='kipass';}else if(sonVal){var ss=parseInt(sonVal);if(!isNaN(ss)){pay.son=ss>=60?'pass':'fail';pay.sonScore=ss;}}
+  if(kpJe3){pay.je3='kipass';}else if(je3Val){var jj=parseInt(je3Val);if(!isNaN(jj)){pay.je3=jj>=60?'pass':'fail';pay.je3Score=jj;}}
+  if(!Object.keys(pay).length){_reset();_show('입력 없음','245,96,90,.9');return;}
+
+  var done=false;
+  var tmr=setTimeout(function(){
+    if(!done){done=true;_reset();_show('Firebase 규칙 오류 - 콘솔 Rules에 honam_exam 추가 필요','255,107,43,.97');}
+  },4000);
+
+  db.ref('honam_exam').child(String(bi)).child(pk).child('round'+String(round)).child(type)
+  .update(pay)
+  .then(function(){
+    if(done)return; done=true; clearTimeout(tmr); _reset();
+    _show('저장완료: '+type+' ('+personVal.replace(/^(pass_|reg_)/,'')+'  '+round+'회)','62,207,142,.9');
+    setTimeout(function(){if(_prev)_prev.style.display='none';},2500);
+    if(sonEl){sonEl.value='';sonEl.disabled=false;sonEl.style.opacity='1';}
+    if(je3El){je3El.value='';je3El.disabled=false;je3El.style.opacity='1';}
+    ['son','je3'].forEach(function(w){
+      var ch=document.getElementById('chk-'+w+'-kipass');if(ch)ch.checked=false;
+      var bd=document.getElementById(w+'-badge');if(bd)bd.style.display='none';
+    });
+    // _examData 로컬 즉시 업데이트 (Firebase 리스너 대기 없이)
+    try{
+      if(!_examData) _examData={};
+      if(!_examData[bi]) _examData[bi]={};
+      if(!_examData[bi][pk]) _examData[bi][pk]={};
+      var rk='round'+String(round);
+      if(!_examData[bi][pk][rk]) _examData[bi][pk][rk]={};
+      var existing=_examData[bi][pk][rk][type]||{};
+      Object.keys(pay).forEach(function(k){ existing[k]=pay[k]; });
+      _examData[bi][pk][rk][type]=existing;
+    }catch(ex){}
+    // initExam 재시도 (리스너 설정 보장)
+    try{ if(!_examRef&&db){ _examRef=db.ref('honam_exam'); _examRef.on('value',function(s){_examData=s.val()||{};}); } }catch(ex){}
+    _calcAutoRound(); renderExamScores(); renderExamPassCard();
+    var pn=personVal.replace(/^(pass_|reg_)/,'');
+    var sl=kpSon?'기합격':(pay.sonScore!==undefined?String(pay.sonScore)+'점':'-');
+    var jl=kpJe3?'기합격':(pay.je3Score!==undefined?String(pay.je3Score)+'점':'-');
+    if(window.BR&&BR[bi])writeLog(BR[bi].name,'모의고사',pn+' '+round+'회 '+type+' 손보:'+sl+' 제3:'+jl);
+  })
+  .catch(function(e){
+    if(done)return; done=true; clearTimeout(tmr); _reset();
+    _show('저장 실패('+e.code+'): Firebase Rules honam_exam 추가 필요','245,96,90,.9');
+  });
+}
+</script>
