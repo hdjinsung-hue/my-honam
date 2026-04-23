@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v40</title>
+<title>호남 지역단 신인도입 현황판 v43</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v40</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v43</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -2835,11 +2835,10 @@ function renderAmModal(){
       '<div class="att-mlist">' +
       a.attendees.map((name, ni) => {
         const isElim = !!(a.eliminated && a.eliminated[name]);
-        const ns = name.split("'").join("&#39;");
         return `<div class="att-mitem">
           <span class="mn">${name}</span>
           ${isElim ? '<span class="melim">탈락</span>' : ''}
-          <button class="mdel" onclick="amDel('${ns}')" title="삭제">✕</button>
+          <span style="font-size:10px;color:var(--t3);padding:0 4px" title="삭제는 관리자 모드에서 가능합니다">🔒</span>
         </div>`;
       }).join('') +
       '</div>';
@@ -4441,12 +4440,14 @@ function closePwModal(){
   if(pwModal) pwModal.style.display='none';
 }
 function switchAdminTab(tab,el){
-  ['goal','branch','reset','dates','attend','log','examstat'].forEach(function(t){var p=document.getElementById('admin-'+t);if(p)p.style.display=t===tab?'block':'none';});
+  ['goal','branch','reset','dates','attend','log','examstat','nextmonth'].forEach(function(t){var p=document.getElementById('admin-'+t);if(p)p.style.display=t===tab?'block':'none';});
   if(tab==='branch')renderAdminBranch();
   if(tab==='attend')renderAdminAttend();
   if(tab==='dates')initCalendar();
   if(tab==='examstat')renderAdminExamStat();
   if(tab==='log'){loadLog(0);}
+  if(tab==='nextmonth')renderAdminNextMonth();
+  if(tab==='reset'){renderAdminResetList();renderAdminAttNames();}
   document.querySelectorAll('.admin-tab').forEach(function(b){b.style.background='var(--bg3)';b.style.color='var(--t2)';b.style.border='1px solid var(--bd)';});
   el.style.background='#7c3aed';el.style.color='#fff';el.style.border='none';
   if(tab==='log')loadLog();
@@ -4477,6 +4478,48 @@ function adminResetBranch(i,typeN){
   if(type==='att'){att[i]={attendees:[],attendance:{},eliminated:{},completed:{}};if(attRef)saveAtt();renderAtt();}
   else{data[i].passList=[];data[i].regList=[];if(dbRef)dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));render(-1,false);}
   renderAdminResetList(); alert(b.name+' 초기화 완료');
+}
+
+// ── 관리자 교육생 명단 삭제 ──
+function renderAdminAttNames(){
+  var sel=document.getElementById('admin-att-branch-sel');
+  // 셀렉터 초기화
+  if(sel&&sel.options.length===0){
+    BR.forEach(function(b,i){var o=document.createElement('option');o.value=i;o.textContent=b.name;sel.appendChild(o);});
+  }
+  var bi=sel?parseInt(sel.value):0;
+  var el=document.getElementById('admin-att-names-list');if(!el)return;
+  var a=att[bi];
+  if(!a||!a.attendees.length){el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:8px 0">등록된 교육생이 없습니다.</div>';return;}
+  var elim=a.eliminated||{};
+  var html='<div style="font-size:11px;color:var(--t3);margin-bottom:6px">클릭하여 개별 삭제 (삭제 즉시 반영)</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:5px">';
+  a.attendees.forEach(function(name){
+    var isE=!!elim[name];
+    var safeName=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    html+='<div style="display:flex;align-items:center;gap:3px;background:var(--bg3);border:1px solid '+(isE?'rgba(245,96,90,.4)':'var(--bd)')+';border-radius:8px;padding:4px 8px">'
+      +'<span style="font-size:12px;font-weight:700;color:'+(isE?'var(--rd)':'var(--t)')+'">'+name+(isE?' (탈락)':'')+'</span>'
+      +'<button onclick="adminDelAttName('+bi+',\''+safeName+'\')" '
+      +'style="padding:2px 6px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.15);color:var(--rd);border:1px solid rgba(245,96,90,.3);touch-action:manipulation">✕</button>'
+      +'</div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+function adminDelAttName(bi,name){
+  if(!confirm('"'+name+'" 을(를) 명단에서 삭제하시겠습니까?\n출석기록도 함께 삭제됩니다.'))return;
+  writeLog(BR[bi].name,'출결','교육생 삭제(관리자): '+name);
+  var a=att[bi];
+  a.attendees=a.attendees.filter(function(n){return n!==name;});
+  DATES.forEach(function(d){a.attendance[d.key]=(a.attendance[d.key]||[]).filter(function(n){return n!==name;});});
+  if(a.eliminated)delete a.eliminated[name];
+  var _d2=data[bi];
+  _d2.passList=(_d2.passList||[]).filter(function(n){return n!==name;});
+  _d2.regList=(_d2.regList||[]).filter(function(n){return n!==name;});
+  if(dbRef)dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
+  if(attRef)saveAtt();
+  renderAdminAttNames();
+  var open=getOpen();renderAtt();restoreOpen(open);
 }
 
 // ── 출석완료 현황 ──
@@ -5807,33 +5850,38 @@ function renderNext(){
       var bn=(function(name){var mt=name.match(/^(.+?)(지점|TC지점)$/);return mt?{top:mt[1],bot:mt[2]}:{top:name,bot:''};} )(b.name);
       var hasAnyData=false;
       dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};if(c.nameList||c.noEntry)hasAnyData=true;});
-      var statusHtml='',barColor,bg,bdr;
+      // 상태 결정
+      var badgeHtml,barColor,bg,bdr;
       if(!hasAnyData){
-        // 미입력
-        statusHtml='<div style="font-size:16px;font-weight:900;color:#8899bb;margin-top:6px">미입력</div>';
+        // 미입력 — 빨간 배지 우측
+        badgeHtml='<span style="font-size:11px;font-weight:700;color:var(--rd);background:rgba(245,96,90,.15);border:1px solid rgba(245,96,90,.4);border-radius:8px;padding:3px 9px;white-space:nowrap">미입력</span>';
         bg='linear-gradient(160deg,#111828,#0d1520)';
         bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(255,255,255,.08)';
         barColor='rgba(255,255,255,.12)';
       } else if(biTotal===0&&hasNoEntry){
-        // 접수 0명
-        statusHtml='<div style="font-size:16px;font-weight:900;color:var(--rd);margin-top:6px">접수 0명</div>'
-          +'<div style="font-size:9px;font-weight:700;color:var(--rd);margin-top:3px;line-height:1.4">도입활동 적극<br>노력바랍니다.</div>';
+        // 접수 0명 — 빨간 배지
+        badgeHtml='<span style="font-size:11px;font-weight:700;color:var(--rd);background:rgba(245,96,90,.15);border:1px solid rgba(245,96,90,.4);border-radius:8px;padding:3px 9px;white-space:nowrap">접수 0명</span>';
         bg='linear-gradient(160deg,#200a0a,#180606)';
         bdr=isOpen?'2px solid var(--rd)':'1.5px solid rgba(245,96,90,.5)';
         barColor='rgba(245,96,90,.7)';
       } else {
-        // 접수 N명 - 파란 배경
-        statusHtml='<div style="display:inline-block;font-size:15px;font-weight:900;color:#fff;background:#1a5ea8;border-radius:8px;padding:5px 12px;margin-top:6px">접수 '+biTotal+'명</div>';
+        // 접수 N명 — 파란 배지 우측
+        badgeHtml='<span style="font-size:11px;font-weight:700;color:#4fa8f5;background:rgba(79,168,245,.15);border:1px solid rgba(79,168,245,.45);border-radius:8px;padding:3px 9px;white-space:nowrap">접수 '+biTotal+'명</span>';
         bg='linear-gradient(160deg,#0a1a2e,#071222)';
-        bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(79,168,245,.6)';
+        bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(79,168,245,.5)';
         barColor='#4fa8f5';
       }
       html+='<button onclick="nextTogglePanel('+bi+')" style="display:block;padding:0;background:'+bg+';border:'+bdr+';border-radius:14px;cursor:pointer;font-family:inherit;width:100%;text-align:left;overflow:hidden;touch-action:manipulation">'
         +'<div style="height:3px;background:'+barColor+'"></div>'
-        +'<div style="padding:10px 10px 12px">'
-        +'<div style="font-size:14px;font-weight:900;color:#e8edf5;margin-bottom:2px">'+bn.top+'<span style="font-size:9px;color:var(--or);margin-left:2px">'+bn.bot+'</span></div>'
-        +'<div style="font-size:11px;color:#c0c8d8;margin-bottom:2px">'+b.mgr+'</div>'
-        +statusHtml
+        +'<div style="padding:10px 10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
+        // 좌측: 지점명 + 지점장
+        +'<div style="min-width:0">'
+        +'<div style="font-size:14px;font-weight:900;color:#e8edf5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+bn.top+'<span style="font-size:9px;color:var(--or);margin-left:2px">'+bn.bot+'</span></div>'
+        +'<div style="font-size:11px;color:#c0c8d8;margin-top:2px">'+b.mgr+'</div>'
+        +(biTotal===0&&hasNoEntry?'<div style="font-size:9px;color:var(--rd);margin-top:3px;line-height:1.3">도입활동 적극<br>노력바랍니다.</div>':'')
+        +'</div>'
+        // 우측: 상태 배지
+        +'<div style="flex-shrink:0">'+badgeHtml+'</div>'
         +'</div>'
         +'</button>';
     });
@@ -6276,6 +6324,94 @@ function xlsAdminExamStat(){
   XLSX.utils.book_append_sheet(wb,ws,'모의고사현황');
   _xlsDownload(wb,'모의고사현황_'+_xlsDate()+'.xlsx');
 }
+
+// ── 관리자 익월후보 관리 ──
+function renderAdminNextMonth(){
+  var yEl=document.getElementById('anm-year');
+  var mEl=document.getElementById('anm-month');
+  var now=new Date();
+  if(yEl&&yEl.options.length===0){
+    for(var y=now.getFullYear()-1;y<=now.getFullYear()+2;y++){var o=document.createElement('option');o.value=y;o.textContent=y+'년';yEl.appendChild(o);}
+    yEl.value=now.getFullYear();
+  }
+  if(mEl&&mEl.options.length===0){
+    for(var m=1;m<=12;m++){var o2=document.createElement('option');o2.value=m;o2.textContent=m+'월';mEl.appendChild(o2);}
+    var nm=now.getMonth()+2;var ny=now.getFullYear();if(nm>12){nm=1;ny++;}
+    if(yEl)yEl.value=ny; mEl.value=nm;
+  }
+  var ym=String(yEl?yEl.value:now.getFullYear())+String(mEl?mEl.value:1).padStart(2,'0');
+  var el=document.getElementById('admin-nextmonth-body');if(!el)return;
+  if(!_nextData||!_nextData[ym]||!Object.keys(_nextData[ym]).length){
+    el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:10px 0">해당 월에 입력된 데이터가 없습니다.</div>';return;
+  }
+  var DOW=['일','월','화','수','목','금','토'];
+  var y2=parseInt(ym.slice(0,4)),m2=parseInt(ym.slice(4));
+  function dlbl(dd){var dt=new Date(y2,m2-1,parseInt(dd));return m2+'/'+parseInt(dd)+'('+DOW[dt.getDay()]+')';}
+  var ymData=_nextData[ym];
+  var dates=Object.keys(ymData).sort();
+  var html='';
+  BR.forEach(function(b,bi){
+    var hasEntry=false;var brHtml='';
+    dates.forEach(function(dd){
+      var c=(ymData[dd]&&ymData[dd][bi])||{};
+      var entries=_parseNames(c.nameList);if(!entries.length)return;
+      hasEntry=true;
+      brHtml+='<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;color:var(--or2);margin-bottom:4px">'+dlbl(dd)+'</div><div style="display:flex;flex-wrap:wrap;gap:5px">';
+      entries.forEach(function(p){
+        var ck=!!(c.cards&&c.cards[p.name]);
+        var safeName=p.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        brHtml+='<div style="display:flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;padding:4px 8px">'
+          +'<span style="font-size:12px;font-weight:700;color:var(--t)">'+p.name+'</span>'
+          +(p.recruiter?'<span style="font-size:10px;color:#3ecf8e">('+p.recruiter+')</span>':'')
+          +(ck?'<span style="font-size:9px;color:var(--or)">카드✓</span>':'')
+          +'<button onclick="adminNextDelName(\''+ym+'\',\''+dd+'\','+bi+',\''+safeName+'\')" '
+          +'style="padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.15);color:var(--rd);border:1px solid rgba(245,96,90,.3);touch-action:manipulation">✕</button>'
+          +'</div>';
+      });
+      brHtml+='</div>'
+        +'<button onclick="adminNextClearDate(\''+ym+'\',\''+dd+'\','+bi+')" '
+        +'style="margin-top:5px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:var(--rd);border:1px solid rgba(245,96,90,.25)">📅 날짜 전체 삭제</button>'
+        +'</div>';
+    });
+    if(!hasEntry)return;
+    html+='<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:8px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+      +'<span style="font-size:13px;font-weight:700;color:var(--or)">'+b.name+'</span>'
+      +'<button onclick="adminNextClearBranch(\''+ym+'\','+bi+')" '
+      +'style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.15);color:var(--rd);border:1px solid rgba(245,96,90,.3)">🏢 지점 전체 삭제</button>'
+      +'</div>'+brHtml+'</div>';
+  });
+  el.innerHTML=html||'<div style="font-size:12px;color:var(--t3);padding:10px 0">입력된 후보자가 없습니다.</div>';
+}
+function adminNextDelName(ym,dd,bi,name){
+  if(!confirm('['+name+'] 후보자를 삭제할까요?'))return;
+  var cell=_nextData[ym]&&_nextData[ym][dd]&&_nextData[ym][dd][bi];if(!cell)return;
+  var lines=(cell.nameList||'').split('\n').filter(function(l){
+    var ln=l.trim();if(!ln)return false;
+    var mt=ln.match(/^(.+?)\((.+?)\)\s*$/);var lname=mt?mt[1].trim():ln;
+    return lname!==name;
+  });
+  cell.nameList=lines.join('\n');
+  if(cell.cards)delete cell.cards[name];
+  _saveNext(ym);renderAdminNextMonth();
+}
+function adminNextClearDate(ym,dd,bi){
+  if(!confirm('이 날짜의 ['+BR[bi].name+'] 후보자 전체를 삭제할까요?'))return;
+  if(_nextData[ym]&&_nextData[ym][dd]&&_nextData[ym][dd][bi]){
+    _nextData[ym][dd][bi]={nameList:'',cards:{},noEntry:false};
+  }
+  _saveNext(ym);renderAdminNextMonth();
+}
+function adminNextClearBranch(ym,bi){
+  if(!confirm('['+BR[bi].name+'] 지점의 모든 후보자를 삭제할까요?'))return;
+  if(_nextData[ym]){
+    Object.keys(_nextData[ym]).forEach(function(dd){
+      if(_nextData[ym][dd]&&_nextData[ym][dd][bi])
+        _nextData[ym][dd][bi]={nameList:'',cards:{},noEntry:false};
+    });
+  }
+  _saveNext(ym);renderAdminNextMonth();
+}
 </script>
 <!-- ── 입문출결 모달들 ── -->
 <div class="overlay" id="att-list-modal" style="display:none">
@@ -6344,6 +6480,7 @@ function xlsAdminExamStat(){
       <button class="admin-tab" onclick="switchAdminTab('attend',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📋 출결현황</button>
       <button class="admin-tab" onclick="switchAdminTab('log',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📜 로그</button>
       <button class="admin-tab" onclick="switchAdminTab('examstat',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📝 모의고사</button>
+      <button class="admin-tab" onclick="switchAdminTab('nextmonth',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📅 익월후보</button>
     </div>
 
     <!-- 🎯 목표 -->
@@ -6397,6 +6534,13 @@ function xlsAdminExamStat(){
       </div>
       <div style="font-size:11px;color:var(--t2);margin-bottom:8px;font-weight:700">지점별 초기화</div>
       <div id="admin-reset-list"></div>
+
+      <!-- 교육생 명단 삭제 -->
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--bd)">
+        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">👤 교육생 명단 삭제</div>
+        <select id="admin-att-branch-sel" onchange="renderAdminAttNames()" style="width:100%;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit;margin-bottom:8px"></select>
+        <div id="admin-att-names-list" style="max-height:260px;overflow-y:auto"></div>
+      </div>
     </div>
 
     <!-- 📅 날짜 -->
@@ -6451,6 +6595,16 @@ function xlsAdminExamStat(){
         <button onclick="xlsAdminExamStat()" style="padding:6px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.1);color:#3ecf8e;border:1px dashed rgba(62,207,142,.4)">📥</button>
       </div>
       <div id="admin-examstat-body" style="font-size:12px;max-height:400px;overflow-y:auto"></div>
+    </div>
+
+    <!-- 📅 익월후보 관리 -->
+    <div id="admin-nextmonth" style="display:none">
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+        <select id="anm-year" onchange="renderAdminNextMonth()" style="padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit"></select>
+        <select id="anm-month" onchange="renderAdminNextMonth()" style="padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit"></select>
+        <span style="font-size:11px;color:var(--t3)">후보자를 선택해 삭제하세요</span>
+      </div>
+      <div id="admin-nextmonth-body" style="max-height:420px;overflow-y:auto;font-size:12px"></div>
     </div>
 
   </div>
