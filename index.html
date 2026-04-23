@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v43</title>
+<title>호남 지역단 신인도입 현황판 v44</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v43</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v44</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -620,6 +620,9 @@ input[type=file].xf{display:none}
       </div>
     </div>
   </div>
+
+  <!-- 마감시간 경고 배너 -->
+  <div id="next-deadline-banner" style="display:none;margin-bottom:.75rem"></div>
 
   <!-- 현황 테이블 -->
   <div id="next-table-wrap" style="overflow-x:auto">
@@ -1814,7 +1817,7 @@ function goTab(t){
       try{ renderExam(); }
       catch(e){ console.error('renderExam error:',e); }
     }
-    if(t==='next'){ initNext(); }
+    if(t==='next'){ initNext(); checkNextDeadlineWarning(); }
   }catch(e){ console.error('goTab error:',e); }
 }
 
@@ -4433,6 +4436,11 @@ function checkPw(){
     if(ri)ri.value=document.getElementById('hdr-region-name')?document.getElementById('hdr-region-name').textContent:'';
     var rc=document.getElementById('region-name-cur');
     if(rc)rc.textContent='현재: '+window._regionName;
+    // 마감시간 현재값 표시
+    var dlInp=document.getElementById('next-deadline-inp');
+    var dlCur=document.getElementById('next-deadline-cur');
+    if(dlInp&&_nextDeadline) dlInp.value=_nextDeadline;
+    if(dlCur) dlCur.textContent='현재 설정: '+(_nextDeadline?_nextDeadline+' 마감':'없음');
   }
 }
 function closePwModal(){
@@ -5702,7 +5710,8 @@ function initNext(){
   if(dSel&&!dSel.value) dSel.value=now.getDate();
   if(db&&!_nextRef){
     _nextRef=db.ref('honam_nextmonth');
-    _nextRef.on('value',function(snap){_nextData=snap.val()||{};renderNext();});
+    _nextRef.on('value',function(snap){_nextData=snap.val()||{};renderNext();checkNextDeadlineWarning();});
+    loadNextDeadline();
   } else { renderNext(); }
 }
 
@@ -5733,6 +5742,118 @@ function _getCellData(ym,dd,bi){
   return _nextData[ym][dd][bi];
 }
 function _saveNext(ym){if(_nextRef)_nextRef.child(ym).set(_nextData[ym]||{});}
+// ══════════════════════════════════════════
+// ⏰ 익월후보 마감시간 경고
+// ══════════════════════════════════════════
+var _nextDeadline = ''; // "HH:MM" 형식
+var _deadlineTimer = null;
+
+// Firebase에서 마감시간 로드
+function loadNextDeadline(){
+  if(!db) return;
+  db.ref('honam_config/nextDeadline').on('value',function(snap){
+    _nextDeadline = snap.val()||'';
+    var inp=document.getElementById('next-deadline-inp');
+    var cur=document.getElementById('next-deadline-cur');
+    if(inp&&_nextDeadline) inp.value=_nextDeadline;
+    if(cur) cur.textContent='현재 설정: '+(_nextDeadline?_nextDeadline+' 마감':' 없음');
+    checkNextDeadlineWarning();
+  });
+  // 매 1분마다 경고 체크
+  if(_deadlineTimer) clearInterval(_deadlineTimer);
+  _deadlineTimer = setInterval(checkNextDeadlineWarning, 60000);
+}
+
+function saveNextDeadline(){
+  var inp=document.getElementById('next-deadline-inp');
+  if(!inp||!inp.value){alert('시간을 선택해주세요.');return;}
+  _nextDeadline=inp.value;
+  if(db) db.ref('honam_config/nextDeadline').set(_nextDeadline);
+  var cur=document.getElementById('next-deadline-cur');
+  if(cur) cur.textContent='현재 설정: '+_nextDeadline+' 마감';
+  alert('마감시간이 '+_nextDeadline+'으로 설정되었습니다.');
+  checkNextDeadlineWarning();
+}
+
+function clearNextDeadline(){
+  if(!confirm('마감시간 설정을 해제하시겠습니까?')) return;
+  _nextDeadline='';
+  if(db) db.ref('honam_config/nextDeadline').remove();
+  var cur=document.getElementById('next-deadline-cur');
+  if(cur) cur.textContent='현재 설정: 없음';
+  var banner=document.getElementById('next-deadline-banner');
+  if(banner){banner.style.display='none';banner.innerHTML='';}
+}
+
+function checkNextDeadlineWarning(){
+  var banner=document.getElementById('next-deadline-banner');
+  if(!banner) return;
+  if(!_nextDeadline){banner.style.display='none';banner.innerHTML='';return;}
+
+  // 익월후보 탭이 활성화되어 있을 때만 표시
+  var tab=document.getElementById('tab-next');
+  if(!tab||!tab.classList.contains('on')){banner.style.display='none';return;}
+
+  var now=new Date();
+  var nowMinutes=now.getHours()*60+now.getMinutes();
+  var parts=_nextDeadline.split(':');
+  var deadlineMinutes=parseInt(parts[0])*60+parseInt(parts[1]||'0');
+
+  // 마감시간이 지났는지 체크
+  if(nowMinutes < deadlineMinutes){
+    // 마감 30분 전 예고
+    var remain=deadlineMinutes-nowMinutes;
+    if(remain<=30){
+      var ym=_nextYM();var ymData=_nextData[ym]||{};
+      var dates=_nextWeekdays();
+      var today=String(now.getDate()).padStart(2,'0');
+      var todayInDates=dates.indexOf(today)>=0?today:null;
+      if(!todayInDates){banner.style.display='none';return;}
+      var unenteredBranches=BR.filter(function(_,bi){
+        var c=(ymData[todayInDates]&&ymData[todayInDates][bi])||{};
+        return !c.nameList&&!c.noEntry;
+      });
+      if(!unenteredBranches.length){banner.style.display='none';return;}
+      var html='<div style="background:rgba(255,165,0,.12);border:1.5px solid orange;border-radius:10px;padding:10px 14px">'
+        +'<div style="font-size:12px;font-weight:700;color:orange;margin-bottom:6px">⏰ 마감 '+remain+'분 전 알림 ('+_nextDeadline+' 마감)</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:6px">';
+      unenteredBranches.forEach(function(b){
+        html+='<span style="font-size:12px;font-weight:700;color:#fff;background:rgba(255,165,0,.3);border-radius:6px;padding:3px 10px">'+b.name+' — '+_nextDeadline+'까지 입력하셔야 합니다.</span>';
+      });
+      html+='</div></div>';
+      banner.style.display='block';banner.innerHTML=html;
+    } else {
+      banner.style.display='none';
+    }
+    return;
+  }
+
+  // 마감시간 경과 → 미입력 지점 경고
+  var ym=_nextYM();var ymData=_nextData[ym]||{};
+  var dates=_nextWeekdays();
+  var today=String(now.getDate()).padStart(2,'0');
+  var todayInDates=dates.indexOf(today)>=0?today:null;
+  if(!todayInDates){banner.style.display='none';return;}
+
+  var unenteredBranches=BR.filter(function(_,bi){
+    var c=(ymData[todayInDates]&&ymData[todayInDates][bi])||{};
+    return !c.nameList&&!c.noEntry;
+  });
+
+  if(!unenteredBranches.length){
+    banner.style.display='none';banner.innerHTML='';return;
+  }
+
+  var html='<div style="background:rgba(245,96,90,.12);border:1.5px solid var(--rd);border-radius:10px;padding:10px 14px">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:6px">🚨 마감시간('+_nextDeadline+') 경과 — 미입력 지점</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  unenteredBranches.forEach(function(b){
+    html+='<span style="font-size:13px;font-weight:700;color:#fff;background:rgba(245,96,90,.35);border:1px solid rgba(245,96,90,.5);border-radius:8px;padding:5px 12px">⚠️ '+b.name+' — '+_nextDeadline+'까지 입력하셔야 합니다.</span>';
+  });
+  html+='</div></div>';
+  banner.style.display='block';banner.innerHTML=html;
+}
+
 function _esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // 명단 저장 후 패널 닫기
@@ -6498,6 +6619,19 @@ function adminNextClearBranch(ym,bi){
       </div>
       <div id="admin-goal-list"></div>
       <button onclick="saveGoals()" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or);color:#fff;border:none">💾 목표 저장</button>
+
+      <!-- 익월후보 마감시간 설정 -->
+      <div style="margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:10px;border:1px solid var(--bd)">
+        <div style="font-size:11px;font-weight:700;color:var(--or2);margin-bottom:8px">⏰ 익월후보 입력 마감시간 설정</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:6px">마감시간이 지나도 미입력 지점에 경고 메시지가 표시됩니다.</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="time" id="next-deadline-inp" value="18:00"
+            style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:13px;font-family:inherit;flex:1">
+          <button onclick="saveNextDeadline()" style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or);color:#fff;border:none">저장</button>
+          <button onclick="clearNextDeadline()" style="padding:7px 10px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg);color:var(--t2);border:1px solid var(--bd)">해제</button>
+        </div>
+        <div id="next-deadline-cur" style="font-size:11px;color:var(--t3);margin-top:5px">현재 설정: 없음</div>
+      </div>
     </div>
 
     <!-- 🏢 지점 -->
