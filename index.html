@@ -5,13 +5,13 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="1776903271">
+<meta name="version" content="1776910759">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v27</title>
+<title>호남 지역단 신인도입 현황판 v40</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v27</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v40</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -355,6 +355,7 @@ input[type=file].xf{display:none}
   <button class="tab on" id="tbtn-main" onclick="goTab('main')">📊 신인도입 현황</button>
   <button class="tab" id="tbtn-att" onclick="goTab('att')">📋 입문 출결</button>
   <button class="tab" id="tbtn-exam" onclick="goTab('exam')">📝 모의고사</button>
+  <button class="tab" id="tbtn-next" onclick="goTab('next')" style="font-size:12px">📅 익월후보</button>
   <button onclick="openAdmin()" style="margin-left:auto;padding:6px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3);white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent">⚙️ 관리자</button>
 </div>
 
@@ -597,7 +598,37 @@ input[type=file].xf{display:none}
 </div>
 </div>
 
-<!-- 신인도입 명단 모달 -->
+<!-- 익월후보 탭 -->
+<div class="tab-pane" id="tab-next">
+<div class="wrap" style="padding-bottom:2rem">
+
+  <!-- 헤더 -->
+  <div style="background:var(--bg2);border:1.5px solid var(--or);border-radius:14px;padding:.875rem 1rem;margin-bottom:.875rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:13px;font-weight:900;color:var(--or)">📅 익월 도입후보자 현황</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px">일자별 · 지점별 · 지점명 클릭 시 후보자/유치자 입력</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <select id="next-year-sel" onchange="renderNext()" style="padding:6px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit"></select>
+        <select id="next-month-sel" onchange="renderNext()" style="padding:6px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit"></select>
+        <span style="font-size:11px;color:var(--t2)">시작일</span>
+        <input type="number" id="next-start-day" min="1" max="31" value="27" onchange="renderNext()" style="width:52px;padding:6px 6px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit;text-align:center">
+        <span style="font-size:11px;color:var(--t2)">일~</span>
+        <button onclick="printNext()" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3);touch-action:manipulation">🖨️ 출력</button>
+        <button onclick="xlsNext()" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.12);color:#3ecf8e;border:1px dashed rgba(62,207,142,.4);touch-action:manipulation">📥 엑셀</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 현황 테이블 -->
+  <div id="next-table-wrap" style="overflow-x:auto">
+    <div style="color:var(--t3);font-size:12px;padding:20px 0;text-align:center">월/년도를 선택하면 현황이 표시됩니다.</div>
+  </div>
+
+  <div class="footer">현대해상 <span id="next-footer-region">호남지역단</span> 신인도입 현황판</div>
+</div>
+</div>
 <div class="overlay" id="overlay" style="display:none">
   <div class="modal">
     <div class="mhdr"><h3 id="mb"></h3><button class="mcls" id="mcls">✕</button></div>
@@ -1772,7 +1803,7 @@ function sn(full){
 // 탭 전환
 function goTab(t){
   try{
-    ['main','att','exam'].forEach(function(x){
+    ['main','att','exam','next'].forEach(function(x){
       var tp=document.getElementById('tab-'+x);
       var tb=document.getElementById('tbtn-'+x);
       if(tp) tp.classList.toggle('on',x===t);
@@ -1783,6 +1814,7 @@ function goTab(t){
       try{ renderExam(); }
       catch(e){ console.error('renderExam error:',e); }
     }
+    if(t==='next'){ initNext(); }
   }catch(e){ console.error('goTab error:',e); }
 }
 
@@ -5601,6 +5633,357 @@ function xlsPersonDateAtt(){
 }
 
 // ══════════════════════════════════════════
+// 📅 익월 도입후보자 현황
+// ══════════════════════════════════════════
+var _nextRef = null;
+// {ym:{dd:{bi:{nameList:'홍길동(유치자)\n박철수', cards:{홍길동:true}, noEntry:true}}}}
+var _nextData = {};
+var _nextOpenPanel = -1;  // 열린 지점 인덱스
+var _nextPanelDate = '';  // 패널에서 보여주는 날짜 dd
+var _nextRenderDates = [];
+var _nextRenderYM = '';
+
+function initNext(){
+  var now=new Date();
+  var ySel=document.getElementById('next-year-sel');
+  var mSel=document.getElementById('next-month-sel');
+  var dSel=document.getElementById('next-start-day');
+  if(ySel&&ySel.options.length===0){
+    for(var y=now.getFullYear()-1;y<=now.getFullYear()+2;y++){var o=document.createElement('option');o.value=y;o.textContent=y+'년';ySel.appendChild(o);}
+    ySel.value=now.getFullYear();
+  }
+  if(mSel&&mSel.options.length===0){
+    for(var m=1;m<=12;m++){var o2=document.createElement('option');o2.value=m;o2.textContent=m+'월';mSel.appendChild(o2);}
+    mSel.value=now.getMonth()+1;
+  }
+  if(dSel&&!dSel.value) dSel.value=now.getDate();
+  if(db&&!_nextRef){
+    _nextRef=db.ref('honam_nextmonth');
+    _nextRef.on('value',function(snap){_nextData=snap.val()||{};renderNext();});
+  } else { renderNext(); }
+}
+
+function _nextYM(){
+  var ySel=document.getElementById('next-year-sel'),mSel=document.getElementById('next-month-sel');
+  return String(ySel?ySel.value:new Date().getFullYear())+String(mSel?mSel.value:1).padStart(2,'0');
+}
+function _nextStartDay(){var el=document.getElementById('next-start-day');return el?parseInt(el.value)||1:1;}
+function _nextWeekdays(){
+  var ym=_nextYM(),y=parseInt(ym.slice(0,4)),m=parseInt(ym.slice(4));
+  var sd=_nextStartDay(),days=new Date(y,m,0).getDate(),res=[];
+  for(var d=sd;d<=days;d++){var dow=new Date(y,m-1,d).getDay();if(dow>=1&&dow<=5)res.push(String(d).padStart(2,'0'));}
+  return res;
+}
+function _parseNames(nl){
+  if(!nl||nl==='__NOENTRY__') return [];
+  return nl.split('\n').map(function(l){
+    l=l.trim();if(!l)return null;
+    var mt=l.match(/^(.+?)\((.+?)\)\s*$/);
+    if(mt)return{name:mt[1].trim(),recruiter:mt[2].trim()};
+    return{name:l,recruiter:''};
+  }).filter(Boolean);
+}
+function _getCellData(ym,dd,bi){
+  if(!_nextData[ym])_nextData[ym]={};
+  if(!_nextData[ym][dd])_nextData[ym][dd]={};
+  if(!_nextData[ym][dd][bi])_nextData[ym][dd][bi]={nameList:'',cards:{}};
+  return _nextData[ym][dd][bi];
+}
+function _saveNext(ym){if(_nextRef)_nextRef.child(ym).set(_nextData[ym]||{});}
+function _esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// 명단 저장 후 패널 닫기
+function nextSaveAndClose(bi){
+  var ym=_nextRenderYM,dd=_nextPanelDate;if(!ym||!dd)return;
+  var ta=document.getElementById('nta_'+bi);if(!ta)return;
+  var cell=_getCellData(ym,dd,bi);
+  cell.nameList=ta.value;
+  cell.noEntry=false;
+  var names=_parseNames(ta.value).map(function(p){return p.name;});
+  Object.keys(cell.cards||{}).forEach(function(k){if(names.indexOf(k)<0)delete cell.cards[k];});
+  _saveNext(ym);
+  _nextOpenPanel=-1;
+  renderNext();
+}
+// 인원없음 저장 후 패널 닫기
+function nextNoEntry(bi){
+  var ym=_nextRenderYM,dd=_nextPanelDate;if(!ym||!dd)return;
+  var cell=_getCellData(ym,dd,bi);
+  cell.nameList='';cell.cards={};cell.noEntry=true;
+  _saveNext(ym);
+  _nextOpenPanel=-1;
+  renderNext();
+}
+// 카드 체크 저장 (패널 안에서)
+function nextSaveCard(bi,pidx,checked){
+  var ym=_nextRenderYM,dd=_nextPanelDate;if(!ym||!dd)return;
+  var ta=document.getElementById('nta_'+bi);
+  var entries=_parseNames(ta?ta.value:'');
+  var p=entries[pidx];if(!p)return;
+  var cell=_getCellData(ym,dd,bi);
+  if(!cell.cards)cell.cards={};
+  cell.cards[p.name]=checked;
+  _saveNext(ym);
+  // 카드 목록만 갱신
+  var cardEl=document.getElementById('ncard_'+bi);
+  if(cardEl)cardEl.innerHTML=_buildCardList(bi,entries,cell.cards);
+}
+function _buildCardList(bi,entries,cards){
+  if(!entries.length)return '<div style="font-size:11px;color:var(--t3);padding:6px 0">명단 입력 후 ✅ 입력 버튼을 누르세요</div>';
+  return entries.map(function(p,pi){
+    var ck=!!cards[p.name];
+    return '<label style="display:flex;align-items:center;gap:7px;padding:6px 0;cursor:pointer;border-bottom:1px solid rgba(30,48,85,.3)">'
+      +'<input type="checkbox" '+(ck?'checked':'')+' '
+      +'onchange="nextSaveCard('+bi+','+pi+',this.checked)" '
+      +'style="width:16px;height:16px;cursor:pointer;accent-color:#FF6B2B;flex-shrink:0">'
+      +'<span style="font-size:13px;font-weight:700;color:var(--t)">'+p.name+'</span>'
+      +(p.recruiter?'<span style="font-size:11px;color:#3ecf8e">('+p.recruiter+')</span>':'')
+      +(ck?'':'<span style="font-size:10px;color:var(--or);margin-left:4px">배양등록후 후보자 카드 제출 바랍니다.</span>')
+      +'</label>';
+  }).join('');
+}
+
+// 날짜 이동
+function nextPanelNav(dir){
+  var dates=_nextRenderDates;
+  var idx=dates.indexOf(_nextPanelDate);
+  var ni=idx+dir;
+  if(ni>=0&&ni<dates.length){_nextPanelDate=dates[ni];renderNext();}
+}
+
+// 지점 패널 토글
+function nextTogglePanel(bi){
+  if(_nextOpenPanel===bi){ _nextOpenPanel=-1; }
+  else {
+    _nextOpenPanel=bi;
+    // 기본 날짜: 오늘 날짜 혹은 시작일 중 가장 가까운 평일
+    var dates=_nextWeekdays();
+    if(!_nextPanelDate||dates.indexOf(_nextPanelDate)<0){
+      var now=new Date();
+      var today=String(now.getDate()).padStart(2,'0');
+      _nextPanelDate=dates.indexOf(today)>=0?today:dates[0]||'';
+    }
+  }
+  renderNext();
+}
+
+function renderNext(){
+  var ym=_nextYM();_nextRenderYM=ym;
+  var ymData=_nextData[ym]||{};
+  var dates=_nextWeekdays();_nextRenderDates=dates;
+  var wrap=document.getElementById('next-table-wrap');if(!wrap)return;
+  var y=ym.slice(0,4),m=parseInt(ym.slice(4));
+  var DOW=['일','월','화','수','목','금','토'];
+  function dateLbl(dd){var dt=new Date(parseInt(y),m-1,parseInt(dd));return m+'/'+parseInt(dd)+'('+DOW[dt.getDay()]+')';}
+
+  // 전체 합계
+  var grandTotal=0;
+  BR.forEach(function(_,bi){dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};grandTotal+=_parseNames(c.nameList).length;});});
+
+  var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;padding:8px 12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'
+    +'<span style="font-size:13px;font-weight:700;color:var(--or)">'+y+'년 '+m+'월 접수현황</span>'
+    +'<span style="font-size:18px;font-weight:900;color:var(--or)">'+grandTotal+'명</span>'
+    +'</div>';
+
+  // 3열 지점 버튼 그리드
+  var numRows=Math.ceil(BR.length/3);
+  for(var row=0;row<numRows;row++){
+    var rowBis=[];
+    for(var col=0;col<3;col++){var idx=row*3+col;if(idx<BR.length)rowBis.push(idx);}
+
+    html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:0">';
+    rowBis.forEach(function(bi){
+      var b=BR[bi];
+      var biTotal=0;
+      var hasNoEntry=false;
+      dates.forEach(function(dd){
+        var c=(ymData[dd]&&ymData[dd][bi])||{};
+        biTotal+=_parseNames(c.nameList).length;
+        if(c.noEntry) hasNoEntry=true;
+      });
+      var isOpen=(_nextOpenPanel===bi);
+      var bdr=isOpen?'2px solid var(--or)':'1.5px solid rgba(255,107,43,.3)';
+      var bg=isOpen?'linear-gradient(160deg,#2a1400,#1e1000)':'linear-gradient(160deg,#1a2040,#111828)';
+      var bn=(function(name){var mt=name.match(/^(.+?)(지점|TC지점)$/);return mt?{top:mt[1],bot:mt[2]}:{top:name,bot:''};} )(b.name);
+      var hasAnyData=false;
+      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};if(c.nameList||c.noEntry)hasAnyData=true;});
+      var statusHtml='',barColor,bg,bdr;
+      if(!hasAnyData){
+        // 미입력
+        statusHtml='<div style="font-size:16px;font-weight:900;color:#8899bb;margin-top:6px">미입력</div>';
+        bg='linear-gradient(160deg,#111828,#0d1520)';
+        bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(255,255,255,.08)';
+        barColor='rgba(255,255,255,.12)';
+      } else if(biTotal===0&&hasNoEntry){
+        // 접수 0명
+        statusHtml='<div style="font-size:16px;font-weight:900;color:var(--rd);margin-top:6px">접수 0명</div>'
+          +'<div style="font-size:9px;font-weight:700;color:var(--rd);margin-top:3px;line-height:1.4">도입활동 적극<br>노력바랍니다.</div>';
+        bg='linear-gradient(160deg,#200a0a,#180606)';
+        bdr=isOpen?'2px solid var(--rd)':'1.5px solid rgba(245,96,90,.5)';
+        barColor='rgba(245,96,90,.7)';
+      } else {
+        // 접수 N명 - 파란 배경
+        statusHtml='<div style="display:inline-block;font-size:15px;font-weight:900;color:#fff;background:#1a5ea8;border-radius:8px;padding:5px 12px;margin-top:6px">접수 '+biTotal+'명</div>';
+        bg='linear-gradient(160deg,#0a1a2e,#071222)';
+        bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(79,168,245,.6)';
+        barColor='#4fa8f5';
+      }
+      html+='<button onclick="nextTogglePanel('+bi+')" style="display:block;padding:0;background:'+bg+';border:'+bdr+';border-radius:14px;cursor:pointer;font-family:inherit;width:100%;text-align:left;overflow:hidden;touch-action:manipulation">'
+        +'<div style="height:3px;background:'+barColor+'"></div>'
+        +'<div style="padding:10px 10px 12px">'
+        +'<div style="font-size:14px;font-weight:900;color:#e8edf5;margin-bottom:2px">'+bn.top+'<span style="font-size:9px;color:var(--or);margin-left:2px">'+bn.bot+'</span></div>'
+        +'<div style="font-size:11px;color:#c0c8d8;margin-bottom:2px">'+b.mgr+'</div>'
+        +statusHtml
+        +'</div>'
+        +'</button>';
+    });
+    for(var pad=rowBis.length;pad<3;pad++) html+='<div></div>';
+    html+='</div>';
+
+    // 패널 (해당 행에 열린 지점이 있을 때)
+    if(rowBis.indexOf(_nextOpenPanel)>=0){
+      var bi=_nextOpenPanel;
+      var b=BR[bi];
+      var dd=_nextPanelDate;
+      var diIdx=dates.indexOf(dd);
+      var c=(ymData[dd]&&ymData[dd][bi])||{};
+      var nameList=c.nameList||'';
+      var cards=c.cards||{};
+      var entries=_parseNames(nameList);
+      var hu=entries.length,yu=entries.filter(function(p){return p.recruiter;}).length;
+      var cardCnt=Object.values(cards).filter(Boolean).length;
+      var canPrev=diIdx>0,canNext=diIdx<dates.length-1;
+
+      html+='<div style="background:var(--bg2);border:1.5px solid var(--or);border-radius:14px;margin:.5rem 0 .5rem;padding:.875rem 1rem">';
+      // 패널 헤더
+      html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">'
+        +'<span style="font-size:14px;font-weight:900;color:var(--or)">✏️ '+b.name+'</span>'
+        +'<button onclick="nextTogglePanel('+bi+')" style="background:none;border:none;color:var(--t2);font-size:18px;cursor:pointer;padding:0 4px">✕</button>'
+        +'</div>';
+
+      // 날짜 네비게이션
+      html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:.75rem">'
+        +'<button onclick="nextPanelNav(-1)" '+(canPrev?'':'disabled')+' '
+        +'style="padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;background:'+(canPrev?'var(--bg3)':'rgba(255,255,255,.05)')+';color:'+(canPrev?'var(--t)':'var(--t3)')+';border:1px solid '+(canPrev?'var(--bd)':'rgba(30,48,85,.2)')+';touch-action:manipulation">‹</button>'
+        +'<div style="flex:1;text-align:center;font-size:15px;font-weight:900;color:var(--or2);background:rgba(255,107,43,.1);border-radius:10px;padding:8px 0">'+dateLbl(dd)+'</div>'
+        +'<button onclick="nextPanelNav(1)" '+(canNext?'':'disabled')+' '
+        +'style="padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;background:'+(canNext?'var(--bg3)':'rgba(255,255,255,.05)')+';color:'+(canNext?'var(--t)':'var(--t3)')+';border:1px solid '+(canNext?'var(--bd)':'rgba(30,48,85,.2)')+';touch-action:manipulation">›</button>'
+        +'</div>';
+
+      // 입력 영역
+      html+='<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">';
+      // textarea + 버튼들
+      html+='<div style="flex:0 0 220px">'
+        +'<div style="font-size:10px;color:var(--t3);margin-bottom:4px">홍길동(유치자이름) — 한 줄에 한 명</div>'
+        +'<textarea id="nta_'+bi+'" rows="5" '
+        +'style="width:100%;padding:8px;border:1px solid rgba(255,107,43,.3);border-radius:8px;background:var(--bg);color:var(--t);font-size:14px;font-family:inherit;resize:vertical;line-height:1.9" '
+        +'placeholder="홍길동(김영희)&#10;박철수&#10;이순신(최유치)">'+_esc(nameList)+'</textarea>'
+        // 버튼 행
+        +'<div style="display:flex;gap:6px;margin-top:6px">'
+        +'<button onclick="event.stopPropagation();nextSaveAndClose('+bi+')" '
+        +'style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or);color:#fff;border:none;touch-action:manipulation">✅ 입력</button>'
+        +'<button onclick="event.stopPropagation();nextNoEntry('+bi+')" '
+        +'style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.15);color:var(--rd);border:1px solid rgba(245,96,90,.35);touch-action:manipulation">인원없음</button>'
+        +'</div>'
+        +'<div style="font-size:11px;margin-top:5px;color:var(--t2)">후보 <b style="color:#4fa8f5">'+hu+'</b>명 / 유치 <b style="color:#3ecf8e">'+yu+'</b>명 / 카드제출 <b style="color:var(--or)">'+cardCnt+'</b>명</div>'
+        +'</div>';
+      // 카드 체크리스트
+      html+='<div style="flex:1;min-width:180px;max-height:220px;overflow-y:auto">'
+        +'<div id="ncard_'+bi+'">'+_buildCardList(bi,entries,cards)+'</div>'
+        +'</div>';
+      html+='</div></div>';
+    }
+  }
+
+  wrap.innerHTML=html;
+}
+
+function printNext(){
+  var ym=_nextYM();var ymData=_nextData[ym]||{};var dates=_nextWeekdays();
+  var y=ym.slice(0,4),m=parseInt(ym.slice(4));
+  var DOW=['일','월','화','수','목','금','토'];
+  function dateLbl(dd){var dt=new Date(parseInt(y),m-1,parseInt(dd));return m+'/'+parseInt(dd)+'('+DOW[dt.getDay()]+')';}
+  var CENTERS={0:'동광주',1:'동광주',2:'동광주',3:'동광주',4:'동광주',5:'광주',6:'광주',7:'광주',8:'광주',9:'광주',10:'목포',11:'목포',12:'목포',13:'목포',14:'순천',15:'순천',16:'순천',17:'순천',18:'순천'};
+  var CENTER_ORDER=['동광주','광주','목포','순천'];
+  var w=window.open('','_blank','width=1100,height=750');
+  if(!w){alert('팝업 차단됨');return;}
+  var today=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
+  var css='body{font-family:"맑은 고딕",sans-serif;padding:14px;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'h1{font-size:15px;color:#FF6B2B;margin:0 0 3px}.sub{font-size:9px;color:#666;margin-bottom:10px}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:12px}'
+    +'th{background:#ffe0cc;color:#a83a00;padding:5px 4px;border:1px solid #f4a36a;text-align:center;font-weight:700;font-size:9px}'
+    +'th.l{text-align:left;padding-left:7px}td{padding:4px 3px;border:1px solid #e0e0e0;text-align:center;font-size:9px}'
+    +'td.l{text-align:left;padding-left:7px}.cr{background:#fff8f5;font-weight:700;color:#a83a00}'
+    +'.tot{background:#fff3eb;font-weight:700;color:#FF6B2B}'
+    +'.names{font-size:8px;color:#333;white-space:pre;text-align:left;padding:3px 5px;background:#f9f9f9;vertical-align:top}'
+    +'.warn{color:#c0392b;font-size:8px;font-weight:700}'
+    +'@media print{@page{size:A4 landscape;margin:6mm}body{padding:0}}';
+  var thD=dates.map(function(dd){return '<th>'+dateLbl(dd)+'</th>';}).join('');
+  var tbody='';var totHu=0;
+  CENTER_ORDER.forEach(function(ckey){
+    var brIdxs=BR.map(function(_,i){return i;}).filter(function(i){return CENTERS[i]===ckey;});
+    var cHu=0;var brRows='';
+    brIdxs.forEach(function(bi){
+      var b=BR[bi];var rHu=0;var hasNoEntry=false;
+      var cells=dates.map(function(dd){
+        var c=(ymData[dd]&&ymData[dd][bi])||{};
+        var entries=_parseNames(c.nameList);var cards=c.cards||{};
+        if(c.noEntry) hasNoEntry=true;
+        rHu+=entries.length;cHu+=entries.length;
+        if(c.noEntry&&!entries.length) return '<td class="warn">인원없음</td>';
+        var txt=entries.map(function(p){return p.name+(p.recruiter?'('+p.recruiter+')':'')+(cards[p.name]?'[카드]':'');}).join('\n')||'';
+        return '<td class="names">'+(txt||'-')+'</td>';
+      }).join('');
+      var warnTxt=(rHu===0&&hasNoEntry)?'<span class="warn">도입활동 적극 노력바랍니다.</span>':'';
+      brRows+='<tr><td class="l" style="padding-left:12px">'+b.name+''+warnTxt+'</td>'+cells+'<td style="font-weight:700;color:#1a5ea8">'+rHu+'</td></tr>';
+    });
+    totHu+=cHu;
+    tbody+='<tr class="cr"><td class="l">▸ '+ckey+' 비전센터</td>'
+      +dates.map(function(dd){var h=0;brIdxs.forEach(function(bi){h+=_parseNames((ymData[dd]&&ymData[dd][bi]&&ymData[dd][bi].nameList)||'').length;});return '<td>'+(h||'-')+'</td>';}).join('')
+      +'<td>'+cHu+'</td></tr>'+brRows;
+  });
+  tbody+='<tr class="tot"><td class="l">전체 합계</td>'
+    +dates.map(function(dd){var h=0;BR.forEach(function(_,bi){h+=_parseNames((ymData[dd]&&ymData[dd][bi]&&ymData[dd][bi].nameList)||'').length;});return '<td>'+(h||'-')+'</td>';}).join('')
+    +'<td>'+totHu+'</td></tr>';
+  var body='<h1>📅 '+y+'년 '+m+'월 익월 도입후보자 현황</h1><div class="sub">출력일: '+today+' | 형식: 후보자(유치자) [카드]=카드제출완료</div>'
+    +'<table><thead><tr><th class="l">지점</th>'+thD+'<th>접수인원</th></tr></thead><tbody>'+tbody+'</tbody></table>';
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>익월도입후보</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  w.document.close();setTimeout(function(){w.print();},600);
+}
+
+function xlsNext(){
+  var ym=_nextYM();var ymData=_nextData[ym]||{};var dates=_nextWeekdays();
+  var y=ym.slice(0,4),m=parseInt(ym.slice(4));
+  var DOW=['일','월','화','수','목','금','토'];
+  function dateLbl(dd){var dt=new Date(parseInt(y),m-1,parseInt(dd));return m+'/'+parseInt(dd)+'('+DOW[dt.getDay()]+')';}
+  var hdr=['지점'].concat(dates.map(dateLbl)).concat(['접수인원']);
+  var rows=[hdr];var totArr=[];dates.forEach(function(){totArr.push(0);});var grand=0;
+  BR.forEach(function(b,bi){
+    var rHu=0;var row=[b.name];
+    dates.forEach(function(dd,di){
+      var c=(ymData[dd]&&ymData[dd][bi])||{};
+      var hu=_parseNames(c.nameList).length;
+      row.push(c.noEntry&&!hu?'인원없음':hu||0);
+      rHu+=hu;if(!c.noEntry||hu)totArr[di]+=hu;
+    });
+    row.push(rHu);rows.push(row);grand+=rHu;
+  });
+  rows.push(['전체 합계'].concat(totArr).concat([grand]));
+  var hdr2=['지점','날짜','후보자','유치자','카드제출'];var rows2=[hdr2];
+  BR.forEach(function(b,bi){
+    dates.forEach(function(dd){
+      var c=(ymData[dd]&&ymData[dd][bi])||{};
+      _parseNames(c.nameList).forEach(function(p){
+        rows2.push([b.name,dateLbl(dd),p.name,p.recruiter,!!(c.cards&&c.cards[p.name])?'O':'']);
+      });
+    });
+  });
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),y+'년'+m+'월_현황');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows2),'명단상세');
+  _xlsDownload(wb,'익월도입후보_'+ym+'_'+_xlsDate()+'.xlsx');
+}
+
 // 📥 엑셀 다운로드 공통 유틸
 // ══════════════════════════════════════════
 function _xlsDownload(wb, filename){
