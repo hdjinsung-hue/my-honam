@@ -5,13 +5,13 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="1776902575">
+<meta name="version" content="1776903271">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v26</title>
+<title>호남 지역단 신인도입 현황판 v27</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v26</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v27</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -5446,93 +5446,113 @@ function applyGlobalAtt(){
 // 🖨️ 교육생별 날짜별 출석현황 출력
 // ══════════════════════════════════════════
 function _buildPersonDateData(){
-  // 반환: { headers, rows }
-  // headers: ['지점','이름', ...날짜라벨..., '출석일수','출석률']
-  // rows: 각 교육생 1행
-  var headers=['지점','이름'].concat(DATES.map(function(d){return d.lbl;})).concat(['출석일수','출석률(%)']);
-  var rows=[];
-  BR.forEach(function(b,i){
-    var a=att[i];
-    if(!a.attendees.length) return;
-    var elim=a.eliminated||{};
-    a.attendees.forEach(function(name){
-      var isElim=!!elim[name];
-      var dayCells=DATES.map(function(d){
+  var _att   = (typeof att   !== 'undefined') ? att   : [];
+  var _data  = (typeof data  !== 'undefined') ? data  : [];
+  var _dates = (typeof DATES !== 'undefined') ? DATES : [];
+  var _br    = (typeof BR    !== 'undefined') ? BR    : [];
+
+  var headers = ['지점','이름'].concat(_dates.map(function(d){return d.lbl;})).concat(['출석일수','출석률(%)']);
+  var rows = [];
+
+  _br.forEach(function(b, i){
+    var a     = _att[i]  || {attendees:[], attendance:{}, eliminated:{}, absenceReason:{}};
+    var dItem = _data[i] || {passList:[], regList:[]};
+
+    // 명단: att.attendees 우선, 없으면 passList+regList 합집합
+    var people = (a.attendees && a.attendees.length > 0)
+      ? a.attendees.slice()
+      : [].concat(dItem.passList||[]).concat((dItem.regList||[]).filter(function(n){
+          return (dItem.passList||[]).indexOf(n) < 0;
+        }));
+
+    if(!people.length) return;
+
+    var elim = a.eliminated || {};
+
+    people.forEach(function(name){
+      var isElim = !!elim[name];
+      var dayCells = _dates.map(function(d){
         if(isElim) return '탈락';
-        var list=a.attendance[d.key]||[];
-        return list.indexOf(name)>=0?'O':'';
+        var list = (a.attendance && a.attendance[d.key]) ? a.attendance[d.key] : [];
+        return list.indexOf(name) >= 0 ? 'O' : '';
       });
-      var attCnt=dayCells.filter(function(v){return v==='O';}).length;
-      var totalDays=DATES.length;
-      var rate=totalDays>0?Math.round(attCnt/totalDays*100):0;
-      rows.push([b.name,name].concat(dayCells).concat([attCnt,rate]));
+      var attCnt   = dayCells.filter(function(v){return v==='O';}).length;
+      var totalDay = _dates.length;
+      var rate     = totalDay > 0 ? Math.round(attCnt / totalDay * 100) : 0;
+      rows.push([b.name, name].concat(dayCells).concat([attCnt, rate]));
     });
   });
-  return {headers:headers,rows:rows};
+
+  return {headers: headers, rows: rows, dates: _dates};
 }
 
 function printPersonDateAtt(){
-  var d=_buildPersonDateData();
-  var w=window.open('','_blank','width=1100,height=700');
-  if(!w){alert('팝업 차단됨');return;}
-  var today=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
-  var totAtt=att.reduce(function(s,a){return s+a.attendees.length;},0);
+  var d = _buildPersonDateData();
+  if(!d.rows.length){ alert('출석 데이터가 없습니다.\nFirebase 연결 후 재시도해 주세요.'); return; }
 
-  var css='body{font-family:"맑은 고딕","Apple SD Gothic Neo",sans-serif;padding:16px;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'h1{font-size:17px;color:#FF6B2B;margin:0 0 3px}'
-    +'.sub{font-size:10px;color:#666;margin-bottom:12px}'
-    +'table{width:100%;border-collapse:collapse;font-size:10px}'
-    +'th{background:#ffe0cc;color:#a83a00;padding:5px 4px;border:1px solid #f4a36a;text-align:center;white-space:nowrap;font-weight:700}'
-    +'th.l{text-align:left}'
-    +'td{padding:4px 3px;border:1px solid #e0e0e0;text-align:center;white-space:nowrap}'
-    +'td.l{text-align:left;font-weight:700}'
-    +'.o{color:#1a7a4a;font-weight:900;font-size:12px}'
-    +'.elim{color:#c0392b;font-size:9px}'
+  var w = window.open('','_blank','width=1100,height=750');
+  if(!w){ alert('팝업 차단됨'); return; }
+
+  var today = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
+  var totAtt = d.rows.length;
+
+  var css = 'body{font-family:"맑은 고딕","Apple SD Gothic Neo",sans-serif;padding:12px;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'h1{font-size:15px;color:#FF6B2B;margin:0 0 2px}'
+    +'.sub{font-size:9px;color:#666;margin-bottom:10px}'
+    +'table{width:100%;border-collapse:collapse;font-size:9px}'
+    +'th{background:#ffe0cc;color:#a83a00;padding:4px 3px;border:1px solid #f4a36a;text-align:center;white-space:nowrap;font-weight:700}'
+    +'th.l{text-align:left;padding-left:6px}'
+    +'td{padding:3px 2px;border:1px solid #e0e0e0;text-align:center;white-space:nowrap}'
+    +'td.l{text-align:left;padding-left:6px;font-weight:700}'
+    +'.o{color:#1a7a4a;font-weight:900}'
+    +'.elim{color:#c0392b;font-size:8px}'
     +'.tot{background:#fff3eb;font-weight:700}'
     +'.sum-col{background:#e8f5ee;font-weight:700;color:#0d5c3a}'
     +'tr:nth-child(even) td{background:#fafafa}'
     +'tr.br-row td{background:#fff8f5;font-weight:700;color:#a83a00;border-top:2px solid #f4a36a}'
-    +'@media print{@page{size:A3 landscape;margin:6mm}body{padding:0}}';
+    +'@media print{@page{size:A4 landscape;margin:5mm}body{padding:0}}';
 
-  var thCols=d.headers.map(function(h,idx){
-    return idx<2?'<th class="l">'+h+'</th>':'<th>'+h+'</th>';
+  var colLen = d.headers.length;
+  var thCols = d.headers.map(function(h,idx){
+    return idx < 2 ? '<th class="l">'+h+'</th>' : '<th>'+h+'</th>';
   }).join('');
 
-  var tbody='';
-  var prevBranch='';
+  var tbody = '';
+  var prevBranch = '';
   d.rows.forEach(function(row){
-    var branchName=row[0];
-    if(branchName!==prevBranch){
-      // 지점 구분 행
-      tbody+='<tr class="br-row"><td class="l" colspan="'+d.headers.length+'">▸ '+branchName+'</td></tr>';
-      prevBranch=branchName;
+    var branchName = row[0];
+    if(branchName !== prevBranch){
+      tbody += '<tr class="br-row"><td class="l" colspan="'+colLen+'">▸ '+branchName+'</td></tr>';
+      prevBranch = branchName;
     }
-    var tds=row.map(function(v,idx){
-      if(idx===0) return ''; // 지점명은 구분행으로 대체
-      if(idx===1) return '<td class="l">'+v+'</td>';
-      if(v==='O') return '<td class="o">●</td>';
-      if(v==='탈락') return '<td class="elim">탈락</td>';
-      if(idx>=d.headers.length-2) return '<td class="sum-col">'+v+'</td>';
-      return '<td>-</td>';
+    // idx=0: 지점명(구분행으로 표시), idx=1: 이름
+    var tds = [];
+    row.forEach(function(v, idx){
+      if(idx === 0) return; // 지점명 건너뜀
+      if(idx === 1){ tds.push('<td class="l">'+v+'</td>'); return; }
+      if(v === 'O'){ tds.push('<td class="o">●</td>'); return; }
+      if(v === '탈락'){ tds.push('<td class="elim">탈락</td>'); return; }
+      if(idx >= colLen - 2){ tds.push('<td class="sum-col">'+v+'</td>'); return; }
+      tds.push('<td>-</td>');
     });
-    tds.shift(); // 지점명 제거
-    tbody+='<tr>'+tds.join('')+'</tr>';
+    tbody += '<tr>'+tds.join('')+'</tr>';
   });
 
   // 날짜별 합계 행
-  var sumRow=['<td class="l tot" colspan="2">전체 합계</td>'];
-  DATES.forEach(function(d2){
-    var cnt=att.reduce(function(s,a){
-      var elim=a.eliminated||{};
-      return s+(a.attendance[d2.key]||[]).filter(function(n){return !elim[n];}).length;
+  var _att2 = (typeof att !== 'undefined') ? att : [];
+  var sumCells = ['<td class="l tot" colspan="2">전체 합계</td>'];
+  d.dates.forEach(function(dt){
+    var cnt = _att2.reduce(function(s,a){
+      var elim = a.eliminated||{};
+      return s + (a.attendance&&a.attendance[dt.key]||[]).filter(function(n){return !elim[n];}).length;
     },0);
-    sumRow.push('<td class="tot">'+(cnt>0?cnt:'-')+'</td>');
+    sumCells.push('<td class="tot">'+(cnt>0?cnt:'-')+'</td>');
   });
-  sumRow.push('<td class="tot">-</td><td class="tot">-</td>');
-  tbody+='<tr>'+sumRow.join('')+'</tr>';
+  sumCells.push('<td class="tot">-</td><td class="tot">-</td>');
+  tbody += '<tr>'+sumCells.join('')+'</tr>';
 
-  var body='<h1>📊 교육생별 날짜별 출석 현황</h1>'
-    +'<div class="sub">출력일: '+today+' · 전체 접수 '+totAtt+'명 · ● = 출석</div>'
+  var body = '<h1>📊 교육생별 날짜별 출석 현황</h1>'
+    +'<div class="sub">출력일: '+today+' · 전체 교육생 '+totAtt+'명 · ● = 출석</div>'
     +'<table><thead><tr>'+thCols+'</tr></thead><tbody>'+tbody+'</tbody></table>';
 
   w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>교육생별 출석현황</title><style>'+css+'</style></head><body>'+body+'</body></html>');
@@ -5542,33 +5562,42 @@ function printPersonDateAtt(){
 
 // ── 교육생별 날짜별 출석 엑셀 ──
 function xlsPersonDateAtt(){
-  var d=_buildPersonDateData();
-  var wb=XLSX.utils.book_new();
+  var d = _buildPersonDateData();
+  if(!d.rows.length){ alert('출석 데이터가 없습니다.\nFirebase 연결 후 재시도해 주세요.'); return; }
 
-  // 시트1: 교육생별 출석 (전체)
-  var sheetData=[d.headers].concat(d.rows);
-  var ws=XLSX.utils.aoa_to_sheet(sheetData);
-  XLSX.utils.book_append_sheet(wb,ws,'교육생별 출석현황');
+  var wb = XLSX.utils.book_new();
+
+  // 시트1: 교육생별 출석현황
+  var ws = XLSX.utils.aoa_to_sheet([d.headers].concat(d.rows));
+  XLSX.utils.book_append_sheet(wb, ws, '교육생별 출석현황');
 
   // 시트2: 지점별 요약
-  var sum=[['지점','접수','탈락'].concat(DATES.map(function(dt){return dt.lbl;})).concat(['총출석','출석률(%)'])];
-  BR.forEach(function(b,i){
-    var a=att[i]; if(!a.attendees.length) return;
-    var elim=a.eliminated||{};
-    var elimCnt=Object.values(elim).filter(function(v){return v;}).length;
-    var dayCnts=DATES.map(function(dt){
-      return (a.attendance[dt.key]||[]).filter(function(n){return !elim[n];}).length;
+  var _att2 = (typeof att !== 'undefined') ? att : [];
+  var _data2 = (typeof data !== 'undefined') ? data : [];
+  var sumHdr = ['지점','접수','탈락'].concat(d.dates.map(function(dt){return dt.lbl;})).concat(['총출석','출석률(%)']);
+  var sumRows = [sumHdr];
+  (typeof BR !== 'undefined' ? BR : []).forEach(function(b,i){
+    var a = _att2[i] || {attendees:[], attendance:{}, eliminated:{}};
+    var dItem = _data2[i] || {passList:[], regList:[]};
+    var people = (a.attendees && a.attendees.length > 0)
+      ? a.attendees
+      : [].concat(dItem.passList||[]).concat((dItem.regList||[]).filter(function(n){return (dItem.passList||[]).indexOf(n)<0;}));
+    if(!people.length) return;
+    var elim = a.eliminated || {};
+    var elimCnt = Object.values(elim).filter(function(v){return v;}).length;
+    var dayCnts = d.dates.map(function(dt){
+      return (a.attendance&&a.attendance[dt.key]||[]).filter(function(n){return !elim[n];}).length;
     });
-    var totalAtt=dayCnts.reduce(function(s,x){return s+x;},0);
-    var active=a.attendees.length-elimCnt;
-    var maxPossible=active*DATES.length;
-    var rate=maxPossible>0?Math.round(totalAtt/maxPossible*100):0;
-    sum.push([b.name,a.attendees.length,elimCnt].concat(dayCnts).concat([totalAtt,rate]));
+    var totalAtt = dayCnts.reduce(function(s,x){return s+x;},0);
+    var active = people.length - elimCnt;
+    var maxPossible = active * d.dates.length;
+    var rate = maxPossible > 0 ? Math.round(totalAtt / maxPossible * 100) : 0;
+    sumRows.push([b.name, people.length, elimCnt].concat(dayCnts).concat([totalAtt, rate]));
   });
-  var ws2=XLSX.utils.aoa_to_sheet(sum);
-  XLSX.utils.book_append_sheet(wb,ws2,'지점별 요약');
+  var ws2 = XLSX.utils.aoa_to_sheet(sumRows);
+  XLSX.utils.book_append_sheet(wb, ws2, '지점별 요약');
 
-  _xlsDownload(wb,'교육생별출석현황_'+_xlsDate()+'.xlsx');
+  _xlsDownload(wb, '교육생별출석현황_'+_xlsDate()+'.xlsx');
 }
 
 // ══════════════════════════════════════════
