@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v46</title>
+<title>호남 지역단 신인도입 현황판 v47</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v46</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v47</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -6053,7 +6053,7 @@ function renderNext(){
       } else if(biTotal===0&&hasNoEntry){
         // 접수 0명 → 우측: "접수 0명" 배지, 카드 하단: "도입 집중" 크게
         badgeHtml='<span style="font-size:11px;font-weight:700;color:var(--rd);background:rgba(245,96,90,.15);border:1px solid rgba(245,96,90,.4);border-radius:8px;padding:3px 9px;white-space:nowrap">접수 0명</span>';
-        extraHtml='<div style="margin-top:6px;text-align:center;font-size:18px;font-weight:900;color:var(--rd);letter-spacing:2px;background:rgba(245,96,90,.12);border-radius:8px;padding:5px 0">🚨 도입 집중</div>';
+        extraHtml='<div style="margin-top:6px;text-align:center;background:rgba(245,96,90,.12);border-radius:8px;padding:5px 0"><div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">🚨 도입</div><div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">집중 🚨</div></div>';
         bg='linear-gradient(160deg,#200a0a,#180606)';
         bdr=isOpen?'2px solid var(--rd)':'1.5px solid rgba(245,96,90,.5)';
         barColor='rgba(245,96,90,.7)';
