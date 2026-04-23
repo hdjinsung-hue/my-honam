@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v44</title>
+<title>호남 지역단 신인도입 현황판 v45</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v44</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v45</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -612,9 +612,8 @@ input[type=file].xf{display:none}
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <select id="next-year-sel" onchange="renderNext()" style="padding:6px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit"></select>
         <select id="next-month-sel" onchange="renderNext()" style="padding:6px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit"></select>
-        <span style="font-size:11px;color:var(--t2)">시작일</span>
-        <input type="number" id="next-start-day" min="1" max="31" value="27" onchange="renderNext()" style="width:52px;padding:6px 6px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit;text-align:center">
-        <span style="font-size:11px;color:var(--t2)">일~</span>
+        <input type="hidden" id="next-start-day" value="1">
+        <span id="next-startday-lbl" style="font-size:11px;color:var(--t3)"></span>
         <button onclick="printNext()" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3);touch-action:manipulation">🖨️ 출력</button>
         <button onclick="xlsNext()" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.12);color:#3ecf8e;border:1px dashed rgba(62,207,142,.4);touch-action:manipulation">📥 엑셀</button>
       </div>
@@ -4441,6 +4440,8 @@ function checkPw(){
     var dlCur=document.getElementById('next-deadline-cur');
     if(dlInp&&_nextDeadline) dlInp.value=_nextDeadline;
     if(dlCur) dlCur.textContent='현재 설정: '+(_nextDeadline?_nextDeadline+' 마감':'없음');
+    // 시작날짜 셀렉터 초기화
+    initAdminNextStartDate();
   }
 }
 function closePwModal(){
@@ -5698,7 +5699,6 @@ function initNext(){
   var now=new Date();
   var ySel=document.getElementById('next-year-sel');
   var mSel=document.getElementById('next-month-sel');
-  var dSel=document.getElementById('next-start-day');
   if(ySel&&ySel.options.length===0){
     for(var y=now.getFullYear()-1;y<=now.getFullYear()+2;y++){var o=document.createElement('option');o.value=y;o.textContent=y+'년';ySel.appendChild(o);}
     ySel.value=now.getFullYear();
@@ -5707,7 +5707,13 @@ function initNext(){
     for(var m=1;m<=12;m++){var o2=document.createElement('option');o2.value=m;o2.textContent=m+'월';mSel.appendChild(o2);}
     mSel.value=now.getMonth()+1;
   }
-  if(dSel&&!dSel.value) dSel.value=now.getDate();
+  // 저장된 시작날짜 적용 (있으면 덮어씀)
+  if(_nextStartDate){
+    _applyNextStartDate();
+  } else {
+    var dInp=document.getElementById('next-start-day');
+    if(dInp&&!dInp.value) dInp.value=1;
+  }
   if(db&&!_nextRef){
     _nextRef=db.ref('honam_nextmonth');
     _nextRef.on('value',function(snap){_nextData=snap.val()||{};renderNext();checkNextDeadlineWarning();});
@@ -5745,23 +5751,88 @@ function _saveNext(ym){if(_nextRef)_nextRef.child(ym).set(_nextData[ym]||{});}
 // ══════════════════════════════════════════
 // ⏰ 익월후보 마감시간 경고
 // ══════════════════════════════════════════
-var _nextDeadline = ''; // "HH:MM" 형식
+var _nextDeadline = ''; // "HH:MM"
+var _nextStartDate = null; // {year, month, day}
 var _deadlineTimer = null;
 
-// Firebase에서 마감시간 로드
+// Firebase에서 시작날짜 + 마감시간 로드
 function loadNextDeadline(){
   if(!db) return;
+  // 시작날짜
+  db.ref('honam_config/nextStartDate').on('value',function(snap){
+    _nextStartDate = snap.val()||null;
+    _applyNextStartDate();
+  });
+  // 마감시간
   db.ref('honam_config/nextDeadline').on('value',function(snap){
     _nextDeadline = snap.val()||'';
     var inp=document.getElementById('next-deadline-inp');
     var cur=document.getElementById('next-deadline-cur');
     if(inp&&_nextDeadline) inp.value=_nextDeadline;
-    if(cur) cur.textContent='현재 설정: '+(_nextDeadline?_nextDeadline+' 마감':' 없음');
+    if(cur) cur.textContent='현재 설정: '+(_nextDeadline?_nextDeadline+' 마감':'없음');
     checkNextDeadlineWarning();
   });
-  // 매 1분마다 경고 체크
   if(_deadlineTimer) clearInterval(_deadlineTimer);
   _deadlineTimer = setInterval(checkNextDeadlineWarning, 60000);
+}
+
+// 시작날짜를 탭 셀렉터 + hidden input에 반영
+function _applyNextStartDate(){
+  if(!_nextStartDate) return;
+  var ySel=document.getElementById('next-year-sel');
+  var mSel=document.getElementById('next-month-sel');
+  var dInp=document.getElementById('next-start-day');
+  var lbl=document.getElementById('next-startday-lbl');
+  if(ySel) ySel.value=_nextStartDate.year;
+  if(mSel) mSel.value=_nextStartDate.month;
+  if(dInp) dInp.value=_nextStartDate.day;
+  if(lbl) lbl.textContent=_nextStartDate.year+'년 '+_nextStartDate.month+'월 '+_nextStartDate.day+'일~';
+  // 관리자 셀렉터도 갱신
+  var aY=document.getElementById('admin-next-year');
+  var aM=document.getElementById('admin-next-month');
+  var aD=document.getElementById('admin-next-startday');
+  var cur=document.getElementById('admin-next-startdate-cur');
+  if(aY&&aY.options.length>0) aY.value=_nextStartDate.year;
+  if(aM&&aM.options.length>0) aM.value=_nextStartDate.month;
+  if(aD) aD.value=_nextStartDate.day;
+  if(cur) cur.textContent='현재 설정: '+_nextStartDate.year+'년 '+_nextStartDate.month+'월 '+_nextStartDate.day+'일~';
+  renderNext();
+}
+
+// 관리자 시작날짜 셀렉터 초기화
+function initAdminNextStartDate(){
+  var aY=document.getElementById('admin-next-year');
+  var aM=document.getElementById('admin-next-month');
+  var now=new Date();
+  if(aY&&aY.options.length===0){
+    for(var y=now.getFullYear()-1;y<=now.getFullYear()+2;y++){
+      var o=document.createElement('option');o.value=y;o.textContent=y+'년';aY.appendChild(o);
+    }
+    aY.value=_nextStartDate?_nextStartDate.year:now.getFullYear();
+  }
+  if(aM&&aM.options.length===0){
+    for(var m=1;m<=12;m++){
+      var o2=document.createElement('option');o2.value=m;o2.textContent=m+'월';aM.appendChild(o2);
+    }
+    aM.value=_nextStartDate?_nextStartDate.month:(now.getMonth()+2>12?1:now.getMonth()+2);
+  }
+  var aD=document.getElementById('admin-next-startday');
+  if(aD&&!aD.value&&_nextStartDate) aD.value=_nextStartDate.day;
+  var cur=document.getElementById('admin-next-startdate-cur');
+  if(cur) cur.textContent='현재 설정: '+(_nextStartDate?_nextStartDate.year+'년 '+_nextStartDate.month+'월 '+_nextStartDate.day+'일~':'없음');
+}
+
+function saveNextStartDate(){
+  var aY=document.getElementById('admin-next-year');
+  var aM=document.getElementById('admin-next-month');
+  var aD=document.getElementById('admin-next-startday');
+  if(!aY||!aM||!aD||!aD.value){alert('년/월/시작일을 모두 입력해주세요.');return;}
+  var obj={year:parseInt(aY.value),month:parseInt(aM.value),day:parseInt(aD.value)};
+  if(!obj.day||obj.day<1||obj.day>31){alert('올바른 시작일을 입력하세요.');return;}
+  _nextStartDate=obj;
+  if(db) db.ref('honam_config/nextStartDate').set(obj);
+  _applyNextStartDate();
+  alert(obj.year+'년 '+obj.month+'월 '+obj.day+'일부터 설정되었습니다.');
 }
 
 function saveNextDeadline(){
@@ -6619,6 +6690,21 @@ function adminNextClearBranch(ym,bi){
       </div>
       <div id="admin-goal-list"></div>
       <button onclick="saveGoals()" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or);color:#fff;border:none">💾 목표 저장</button>
+
+      <!-- 익월후보 시작날짜 설정 -->
+      <div style="margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:10px;border:1px solid var(--bd)">
+        <div style="font-size:11px;font-weight:700;color:var(--or2);margin-bottom:8px">📅 익월후보 입력 시작날짜 설정</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:6px">설정한 날짜부터 평일만 자동 생성됩니다.</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="admin-next-year" style="padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:12px;font-family:inherit"></select>
+          <select id="admin-next-month" style="padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:12px;font-family:inherit"></select>
+          <input type="number" id="admin-next-startday" min="1" max="31" placeholder="시작일"
+            style="width:60px;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:13px;font-family:inherit;text-align:center">
+          <span style="font-size:12px;color:var(--t2)">일 ~</span>
+          <button onclick="saveNextStartDate()" style="padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or);color:#fff;border:none;touch-action:manipulation">💾 저장</button>
+        </div>
+        <div id="admin-next-startdate-cur" style="font-size:11px;color:var(--t3);margin-top:5px">현재 설정: 없음</div>
+      </div>
 
       <!-- 익월후보 마감시간 설정 -->
       <div style="margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:10px;border:1px solid var(--bd)">
