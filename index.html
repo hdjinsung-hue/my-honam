@@ -5,13 +5,13 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="1776910759">
+<meta name="version" content="1777003040">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v69</title>
+<title>호남 지역단 신인도입 현황판 v70</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v69</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v70</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -6355,36 +6355,56 @@ function renderNext(){
       var todayEntered=todayNoEntry||todayNames>0;
       var isOpen=(_nextOpenPanel===bi);
       var bn=(function(nm){var mt=nm.match(/^(.+?)(지점|TC지점)$/);return mt?{top:mt[1],bot:mt[2]}:{top:nm,bot:''};} )(b.name);
-      // 상태 결정
-      var badgeHtml,extraHtml='',barColor,bg,bdr;
-      var subText='';
-      if(biTotal>0) subText='<div style="font-size:11px;color:#4fa8f5;margin-top:2px;font-weight:700">누적 접수 '+biTotal+'명</div>';
+       var badgeHtml,extraHtml='',barColor,bg,bdr;
+       var subText='';
+       // 누적 (전체 날짜 합산)
+       var cumulText=biTotal>0?'<div style="font-size:10px;color:#4fa8f5;margin-top:3px;font-weight:700">&#128197; 누적 접수 '+biTotal+'명</div>':'';
 
-      if(!todayEntered){
-        // 오늘 미입력
-        badgeHtml='<span style="font-size:11px;font-weight:700;color:var(--rd);background:rgba(245,96,90,.15);border:1px solid rgba(245,96,90,.4);border-radius:8px;padding:3px 9px;white-space:nowrap">미입력</span>';
-        bg='linear-gradient(160deg,#111828,#0d1520)';
-        bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(255,255,255,.08)';
-        barColor='rgba(255,255,255,.12)';
-      } else {
-        // 오늘 입력 있음(명단 OR 인원없음) → 모두 입력완료
-        badgeHtml='<span style="font-size:11px;font-weight:700;color:#3ecf8e;background:rgba(62,207,142,.15);border:1px solid rgba(62,207,142,.4);border-radius:8px;padding:3px 9px;white-space:nowrap">입력완료</span>';
-        bg='linear-gradient(160deg,#071e14,#051510)';
-        bdr=isOpen?'2px solid #3ecf8e':'1.5px solid rgba(62,207,142,.4)';
-        barColor='#3ecf8e';
-        // 오늘 접수 명단 있으면 서브텍스트에 오늘 명단 수 표시
-        if(todayNames>0){
-          subText='<div style="font-size:11px;color:#4fa8f5;margin-top:2px;font-weight:700">오늘 접수 '+todayNames+'명</div>';
-        }
-        // 누적 있으면 추가 표시
-        if(biTotal>0&&todayNoEntry){
-          subText='<div style="font-size:11px;color:#4fa8f5;margin-top:2px;font-weight:700">누적 접수 '+biTotal+'명</div>';
-        }
-        // 인원없음 + 누적 0명 → 도입집중
-        if(todayNoEntry&&biTotal===0){
-          extraHtml='<div style="margin-top:6px;text-align:center;background:rgba(245,96,90,.12);border-radius:8px;padding:5px 0"><div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">🚨 도입</div><div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">집중 🚨</div></div>';
-        }
-      }
+       if(!todayEntered){
+         // ★ 오늘 미입력
+         badgeHtml='<div style="text-align:center">'
+           +'<div style="font-size:12px;font-weight:900;color:var(--rd);background:rgba(245,96,90,.15);border:1px solid rgba(245,96,90,.4);border-radius:8px;padding:4px 10px;white-space:nowrap">미입력</div>'
+           +cumulText
+           +'</div>';
+         bg='linear-gradient(160deg,#111828,#0d1520)';
+         bdr=isOpen?'2px solid var(--rd)':'1.5px solid rgba(245,96,90,.25)';
+         barColor='rgba(245,96,90,.3)';
+         subText='';
+       } else {
+         // 오늘 입력 완료
+         if(todayNames>0){
+           // 명단 있음 → 파란 배지
+           badgeHtml='<div style="text-align:center">'
+             +'<div style="font-size:12px;font-weight:900;color:#4fa8f5;background:rgba(79,168,245,.15);border:1px solid rgba(79,168,245,.4);border-radius:8px;padding:4px 10px;white-space:nowrap">접수 '+todayNames+'명</div>'
+             +(biTotal>todayNames?'<div style="font-size:10px;color:#4fa8f5;margin-top:3px;font-weight:700">&#128197; 누적 '+biTotal+'명</div>':'')
+             +'</div>';
+           bg='linear-gradient(160deg,#071530,#050e22)';
+           bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(79,168,245,.4)';
+           barColor='#4fa8f5';
+         } else if(todayNoEntry&&biTotal>0){
+           // 인원없음 + 누적 있음 → 초록 입력완료 + 누적
+           badgeHtml='<div style="text-align:center">'
+             +'<div style="font-size:12px;font-weight:900;color:#3ecf8e;background:rgba(62,207,142,.15);border:1px solid rgba(62,207,142,.4);border-radius:8px;padding:4px 10px;white-space:nowrap">입력완료</div>'
+             +cumulText
+             +'</div>';
+           bg='linear-gradient(160deg,#071e14,#051510)';
+           bdr=isOpen?'2px solid #3ecf8e':'1.5px solid rgba(62,207,142,.4)';
+           barColor='#3ecf8e';
+         } else {
+           // 인원없음 + 누적 0 → 도입집중
+           badgeHtml='<div style="text-align:center">'
+             +'<div style="font-size:12px;font-weight:900;color:var(--rd);background:rgba(245,96,90,.15);border:1px solid rgba(245,96,90,.4);border-radius:8px;padding:4px 10px;white-space:nowrap">접수 0명</div>'
+             +'</div>';
+           extraHtml='<div style="margin-top:6px;text-align:center;background:rgba(245,96,90,.12);border-radius:8px;padding:5px 0">'
+             +'<div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">&#128680; 도입</div>'
+             +'<div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">집중 &#128680;</div>'
+             +'</div>';
+           bg='linear-gradient(160deg,#200a0a,#180606)';
+           bdr=isOpen?'2px solid var(--rd)':'1.5px solid rgba(245,96,90,.5)';
+           barColor='rgba(245,96,90,.7)';
+         }
+       }
+
       html+='<button onclick="nextTogglePanel('+bi+')" style="display:block;padding:0;background:'+bg+';border:'+bdr+';border-radius:14px;cursor:pointer;font-family:inherit;width:100%;text-align:left;overflow:hidden;touch-action:manipulation">'
         +'<div style="height:3px;background:'+barColor+'"></div>'
         +'<div style="padding:10px 10px 10px">'
