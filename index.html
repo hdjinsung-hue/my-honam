@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v66</title>
+<title>호남 지역단 신인도입 현황판 v69</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v66</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v69</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -6366,22 +6366,24 @@ function renderNext(){
         bg='linear-gradient(160deg,#111828,#0d1520)';
         bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(255,255,255,.08)';
         barColor='rgba(255,255,255,.12)';
-      } else if(todayNoEntry){
-        // 오늘 인원없음 저장 → 입력완료
+      } else {
+        // 오늘 입력 있음(명단 OR 인원없음) → 모두 입력완료
         badgeHtml='<span style="font-size:11px;font-weight:700;color:#3ecf8e;background:rgba(62,207,142,.15);border:1px solid rgba(62,207,142,.4);border-radius:8px;padding:3px 9px;white-space:nowrap">입력완료</span>';
         bg='linear-gradient(160deg,#071e14,#051510)';
         bdr=isOpen?'2px solid #3ecf8e':'1.5px solid rgba(62,207,142,.4)';
         barColor='#3ecf8e';
-        if(biTotal===0){
+        // 오늘 접수 명단 있으면 서브텍스트에 오늘 명단 수 표시
+        if(todayNames>0){
+          subText='<div style="font-size:11px;color:#4fa8f5;margin-top:2px;font-weight:700">오늘 접수 '+todayNames+'명</div>';
+        }
+        // 누적 있으면 추가 표시
+        if(biTotal>0&&todayNoEntry){
+          subText='<div style="font-size:11px;color:#4fa8f5;margin-top:2px;font-weight:700">누적 접수 '+biTotal+'명</div>';
+        }
+        // 인원없음 + 누적 0명 → 도입집중
+        if(todayNoEntry&&biTotal===0){
           extraHtml='<div style="margin-top:6px;text-align:center;background:rgba(245,96,90,.12);border-radius:8px;padding:5px 0"><div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">🚨 도입</div><div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">집중 🚨</div></div>';
         }
-      } else {
-        // 오늘 접수 명단 있음        // 접수 N명 있음 (noEntry 없음)
-        badgeHtml='<span style="font-size:11px;font-weight:700;color:#4fa8f5;background:rgba(79,168,245,.15);border:1px solid rgba(79,168,245,.45);border-radius:8px;padding:3px 9px;white-space:nowrap">접수 '+biTotal+'명</span>';
-        bg='linear-gradient(160deg,#0a1a2e,#071222)';
-        bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(79,168,245,.5)';
-        barColor='#4fa8f5';
-        subText=''; // 배지에 이미 표시되므로 중복 제거
       }
       html+='<button onclick="nextTogglePanel('+bi+')" style="display:block;padding:0;background:'+bg+';border:'+bdr+';border-radius:14px;cursor:pointer;font-family:inherit;width:100%;text-align:left;overflow:hidden;touch-action:manipulation">'
         +'<div style="height:3px;background:'+barColor+'"></div>'
@@ -7058,65 +7060,45 @@ function renderForceEligList(){
   var el=document.getElementById('force-elig-list');
   if(!sel||!el) return;
   var bi=parseInt(sel.value)||0;
-  var seen={}, allPeople=[];
-  function addP(n){ if(n&&!seen[n]){seen[n]=true;allPeople.push(n);} }
-  var passList=(data[bi]&&data[bi].passList)||[];
-  var regList=(data[bi]&&data[bi].regList)||[];
-  var attList=(att[bi]&&att[bi].attendees)||[];
-  passList.forEach(addP); regList.forEach(addP); attList.forEach(addP);
-  var examBi=(window._examData&&window._examData[bi])||{};
-  var knownNames=passList.concat(regList).concat(attList);
-  Object.keys(examBi).forEach(function(pk){
-    var m=null;
-    for(var ki=0;ki<knownNames.length;ki++){
-      if(knownNames[ki].replace(/[.#$\[\]]/g,'_')===pk){m=knownNames[ki];break;}
-    }
-    addP(m||pk);
-  });
-  if(!allPeople.length){
-    el.innerHTML='<div style="padding:6px;font-size:11px;color:var(--t3)">등록된 수험자가 없습니다. 신인도입 명단 또는 입문출결에 먼저 등록하세요.</div>';
-    return;
+  var names=(att[bi]&&att[bi].attendees)||[];
+  while(el.firstChild) el.removeChild(el.firstChild);
+  if(!names.length){
+    var msg=document.createElement('div');
+    msg.style.cssText='padding:8px;font-size:11px;color:var(--t3)';
+    msg.textContent='입문출결 명단에 등록된 수험자가 없습니다.';
+    el.appendChild(msg); return;
   }
-  // DOM 방식으로 생성 (따옴표 충돌 없음)
-  var wrap=document.createElement('div');
   var hint=document.createElement('div');
   hint.style.cssText='font-size:10px;color:var(--t3);margin-bottom:6px';
   hint.textContent='체크 시 기준 미충족이어도 응시 가능 처리됩니다.';
-  wrap.appendChild(hint);
-  allPeople.forEach(function(name){
+  el.appendChild(hint);
+  names.forEach(function(name){
     var pk=name.replace(/[.#$\[\]]/g,'_');
     var eligKey=bi+'__'+pk;
-    var saved=_eligData[eligKey]||{};
-    var forced=!!saved.forceEligible;
+    var forced=!!(_eligData[eligKey]&&_eligData[eligKey].forceEligible);
     var e2=_calcEligibility(bi,pk);
     var row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;margin-bottom:4px;background:var(--bg3);border:1px solid '+(forced?'rgba(167,139,250,.5)':'rgba(30,48,85,.5)');
+    row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:4px;background:var(--bg3);border:1px solid '+(forced?'rgba(167,139,250,.5)':'rgba(30,48,85,.4)');
     var nm=document.createElement('span');
-    nm.style.cssText='font-size:12px;font-weight:700;flex:1;color:'+(forced?'#a78bfa':'var(--t)');
-    nm.textContent=name;
-    row.appendChild(nm);
+    nm.style.cssText='font-size:13px;font-weight:700;flex:1;color:'+(forced?'#a78bfa':'var(--t)');
+    nm.textContent=name; row.appendChild(nm);
     var st=document.createElement('span');
-    st.style.cssText='font-size:10px;color:'+(e2.eligible?'#3ecf8e':'#f5605a');
-    st.textContent=e2.eligible?'응시가능':'미충족';
-    row.appendChild(st);
-    if(forced){var ic=document.createElement('span');ic.style.cssText='font-size:9px;color:#a78bfa';ic.textContent='⚡';row.appendChild(ic);}
+    st.style.cssText='font-size:10px;font-weight:700;color:'+(e2.eligible?'#3ecf8e':'#f5605a');
+    st.textContent=e2.eligible?'응시가능':'미충족'; row.appendChild(st);
     var lbl=document.createElement('label');
-    lbl.style.cssText='display:flex;align-items:center;gap:4px;cursor:pointer;touch-action:manipulation';
+    lbl.style.cssText='display:flex;align-items:center;gap:5px;cursor:pointer;touch-action:manipulation';
     var chk=document.createElement('input');
     chk.type='checkbox'; chk.checked=forced;
-    chk.style.cssText='width:15px;height:15px;cursor:pointer;accent-color:#a78bfa';
+    chk.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:#a78bfa';
     chk.dataset.ek=eligKey;
-    chk.addEventListener('change',function(){saveForceElig(this.dataset.ek,this.checked);});
+    chk.addEventListener('change',function(){ saveForceElig(this.dataset.ek,this.checked); });
     lbl.appendChild(chk);
     var lt=document.createElement('span');
-    lt.style.cssText='font-size:10px;font-weight:700;color:'+(forced?'#a78bfa':'var(--t3)');
-    lt.textContent=forced?'승인됨':'승인';
-    lbl.appendChild(lt);
+    lt.style.cssText='font-size:11px;font-weight:700;color:'+(forced?'#a78bfa':'var(--t3)');
+    lt.textContent=forced?'⚡승인됨':'승인'; lbl.appendChild(lt);
     row.appendChild(lbl);
-    wrap.appendChild(row);
+    el.appendChild(row);
   });
-  el.innerHTML='';
-  el.appendChild(wrap);
 }
 
 function saveForceElig(eligKey,checked){
