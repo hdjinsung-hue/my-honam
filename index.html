@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v47</title>
+<title>호남 지역단 신인도입 현황판 v66</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v47</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v66</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -472,6 +472,8 @@ input[type=file].xf{display:none}
       <div style="display:flex;gap:6px;align-items:center">
       <button onclick="printExamStat()" style="padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3)">🖨️ 출력</button>
       <button onclick="xlsExamStat()" style="padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.3)">📥 엑셀</button>
+      <button onclick="printFinalEligList()" style="padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3)">📋 응시명단출력</button>
+      <button onclick="xlsFinalEligList()" style="padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.08);color:#a78bfa;border:1px dashed rgba(167,139,250,.4)">📥 응시명단엑셀</button>
       </div>
     </div>
     <div id="exam-stat-table" style="font-size:11px;overflow-x:auto">
@@ -587,6 +589,8 @@ input[type=file].xf{display:none}
   <div id="exam-scores-area" style="background:#111f38;border:1.5px solid #1e3055;border-radius:14px;padding:1rem">
     <div style="font-size:13px;font-weight:700;color:#e8edf5;margin-bottom:.625rem">📊 점수 현황</div>
     <div id="exam-scores-body" style="font-size:12px;color:#8899bb">수험자를 선택하면 점수현황이 표시됩니다.</div>
+    <!-- 정시응시 가능 여부 -->
+    <div id="exam-elig-panel" style="margin-top:14px"></div>
   </div>
   <!-- 출력 버튼 -->
   <div style="margin-top:.75rem;display:flex;gap:8px;flex-wrap:wrap">
@@ -616,6 +620,7 @@ input[type=file].xf{display:none}
         <span id="next-startday-lbl" style="font-size:11px;color:var(--t3)"></span>
         <button onclick="printNext()" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.3);touch-action:manipulation">🖨️ 출력</button>
         <button onclick="xlsNext()" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.12);color:#3ecf8e;border:1px dashed rgba(62,207,142,.4);touch-action:manipulation">📥 엑셀</button>
+        <button onclick="showNextSmsModal()" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.35);touch-action:manipulation">📋 문자생성</button>
       </div>
     </div>
   </div>
@@ -630,6 +635,32 @@ input[type=file].xf{display:none}
 
   <div class="footer">현대해상 <span id="next-footer-region">호남지역단</span> 신인도입 현황판</div>
 </div>
+</div>
+
+<!-- 📋 문자 생성 모달 -->
+<div class="overlay" id="next-sms-modal" style="display:none" onclick="if(event.target===this)closeNextSmsModal()">
+  <div class="modal" style="max-width:500px">
+    <div class="mhdr">
+      <h3>📋 문자내용 자동생성</h3>
+      <button class="mcls" onclick="closeNextSmsModal()">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <select id="sms-type" onchange="generateSms()" style="flex:1;padding:7px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit">
+        <option value="deadline">⏰ 마감 알림 (미입력)</option>
+        <option value="all">📊 전체 접수현황</option>
+        <option value="noentry">🚨 도입집중 (접수0명)</option>
+      </select>
+      <button onclick="copySms()" style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:#a78bfa;color:#fff;border:none;touch-action:manipulation">📋 복사</button>
+    </div>
+    <!-- 수신자 선택 -->
+    <div style="font-size:11px;color:var(--t2);margin-bottom:5px;font-weight:700">수신 지점장 선택</div>
+    <div id="sms-branch-chk" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;max-height:100px;overflow-y:auto"></div>
+    <!-- 문자 미리보기 -->
+    <div style="font-size:11px;color:var(--t2);margin-bottom:5px;font-weight:700">문자 내용 미리보기</div>
+    <textarea id="sms-preview" rows="10" readonly
+      style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg3);color:var(--t);font-size:13px;font-family:inherit;resize:vertical;line-height:1.7"></textarea>
+    <div style="font-size:11px;color:var(--t3);margin-top:5px">복사 후 문자앱 / 카카오톡에 붙여넣기 하세요.</div>
+  </div>
 </div>
 <div class="overlay" id="overlay" style="display:none">
   <div class="modal">
@@ -1451,6 +1482,7 @@ function renderExamScores(){
   if(allRounds.length===0){
     html+='<div style="color:#8899bb;font-size:11px">입력된 점수가 없습니다.</div>';
     body.innerHTML=html;
+    setTimeout(function(){try{renderExamEligPanel();}catch(e){console.warn("eligPanel:",e);}},0);
     return;
   }
 
@@ -1491,8 +1523,11 @@ function renderExamScores(){
     });
     html+='</tbody></table>';
   });
+
   body.innerHTML=html;
+  setTimeout(function(){try{renderExamEligPanel();}catch(e){console.warn("eligPanel:",e);}},0);
 }
+
 function printExamScores(){
   var bi = parseInt(document.getElementById('exam-branch-sel').value);
   var personVal = document.getElementById('exam-person-sel').value;
@@ -1843,6 +1878,8 @@ function initFirebaseApp(){
     var stbtn=document.getElementById('stbtn');
     if(stbtn)stbtn.style.display='flex';
     startSync();
+    // 정시응시 데이터 로드
+    loadEligData();
   }catch(e){
     console.error('Firebase 초기화 오류:',e);
     setLive('','연결 실패 - 새로고침 하세요');
@@ -4442,6 +4479,8 @@ function checkPw(){
     if(dlCur) dlCur.textContent='현재 설정: '+(_nextDeadline?_nextDeadline+' 마감':'없음');
     // 시작날짜 셀렉터 초기화
     initAdminNextStartDate();
+    // 지점장 연락처 목록 렌더
+    renderAdminMgrList();
   }
 }
 function closePwModal(){
@@ -4449,13 +4488,14 @@ function closePwModal(){
   if(pwModal) pwModal.style.display='none';
 }
 function switchAdminTab(tab,el){
-  ['goal','branch','reset','dates','attend','log','examstat','nextmonth'].forEach(function(t){var p=document.getElementById('admin-'+t);if(p)p.style.display=t===tab?'block':'none';});
+  ['goal','branch','reset','dates','attend','log','examstat','nextmonth','sms'].forEach(function(t){var p=document.getElementById('admin-'+t);if(p)p.style.display=t===tab?'block':'none';});
   if(tab==='branch')renderAdminBranch();
   if(tab==='attend')renderAdminAttend();
   if(tab==='dates')initCalendar();
-  if(tab==='examstat')renderAdminExamStat();
+  if(tab==='examstat'){renderAdminExamStat();initForceEligSel();}
   if(tab==='log'){loadLog(0);}
   if(tab==='nextmonth')renderAdminNextMonth();
+  if(tab==='sms'){renderAdminSmsTab();}
   if(tab==='reset'){renderAdminResetList();renderAdminAttNames();}
   document.querySelectorAll('.admin-tab').forEach(function(b){b.style.background='var(--bg3)';b.style.color='var(--t2)';b.style.border='1px solid var(--bd)';});
   el.style.background='#7c3aed';el.style.color='#fff';el.style.border='none';
@@ -5718,6 +5758,7 @@ function initNext(){
     _nextRef=db.ref('honam_nextmonth');
     _nextRef.on('value',function(snap){_nextData=snap.val()||{};renderNext();checkNextDeadlineWarning();});
     loadNextDeadline();
+    loadManagers();
   } else { renderNext(); }
 }
 
@@ -5748,6 +5789,269 @@ function _getCellData(ym,dd,bi){
   return _nextData[ym][dd][bi];
 }
 function _saveNext(ym){if(_nextRef)_nextRef.child(ym).set(_nextData[ym]||{});}
+// ══════════════════════════════════════════
+// 📱 지점장 연락처 + 문자 자동생성
+// ══════════════════════════════════════════
+var _managers = {}; // {bi: {name, phone}}
+
+function loadManagers(){
+  if(!db) return;
+  db.ref('honam_config/managers').on('value',function(snap){
+    _managers = snap.val()||{};
+    renderAdminMgrList();
+  });
+}
+
+function renderAdminMgrList(){
+  var el=document.getElementById('admin-mgr-list');if(!el)return;
+  var html='';
+  BR.forEach(function(b,bi){
+    var mgr=_managers[bi]||{name:b.mgr||'',phone:''};
+    html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+      +'<span style="font-size:12px;font-weight:700;color:var(--t);min-width:90px;flex-shrink:0">'+b.name+'</span>'
+      +'<input type="text" id="mgr-name-'+bi+'" value="'+_esc(mgr.name)+'" placeholder="지점장이름"'
+      +' style="width:70px;padding:5px 7px;border:1px solid var(--bd);border-radius:7px;background:var(--bg);color:var(--t);font-size:12px;font-family:inherit">'
+      +'<input type="tel" id="mgr-phone-'+bi+'" value="'+_esc(mgr.phone)+'" placeholder="010-0000-0000"'
+      +' style="flex:1;padding:5px 7px;border:1px solid var(--bd);border-radius:7px;background:var(--bg);color:var(--t);font-size:12px;font-family:inherit">'
+      +'</div>';
+  });
+  html+='<button onclick="saveMgrs()" style="width:100%;margin-top:6px;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or);color:#fff;border:none;touch-action:manipulation">💾 연락처 저장</button>';
+  el.innerHTML=html;
+}
+
+function saveMgrs(){
+  var obj={};
+  BR.forEach(function(b,bi){
+    var nEl=document.getElementById('mgr-name-'+bi);
+    var pEl=document.getElementById('mgr-phone-'+bi);
+    obj[bi]={name:nEl?nEl.value.trim():b.mgr,phone:pEl?pEl.value.trim():''};
+  });
+  _managers=obj;
+  if(db) db.ref('honam_config/managers').set(obj);
+  alert('연락처가 저장되었습니다.');
+}
+
+// ── 관리자 문자발송 탭 ──
+function renderAdminSmsTab(){
+  // 유형 라디오
+  var typeEl=document.querySelector('input[name="admin-sms-type"]:checked');
+  var type=typeEl?typeEl.value:'deadline';
+  var customArea=document.getElementById('admin-sms-custom-area');
+  if(customArea) customArea.style.display=type==='custom'?'block':'none';
+
+  // 체크박스 그리드 생성 (처음 한 번만)
+  var chkEl=document.getElementById('admin-sms-chk');
+  if(chkEl&&chkEl.children.length===0){
+    chkEl.innerHTML=BR.map(function(b,bi){
+      var mgr=_managers[bi]||{};
+      var mgrName=mgr.name||b.mgr||'';
+      var phone=mgr.phone||'';
+      return '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg3);border-radius:8px;padding:5px 8px;font-size:11px;color:var(--t);border:1px solid var(--bd)">'
+        +'<input type="checkbox" checked data-bi="'+bi+'" class="admin-sms-br-chk" onchange="adminSmsGenerate()" style="accent-color:var(--or);width:14px;height:14px">'
+        +'<span><b>'+b.name+'</b>'+(mgrName?' '+mgrName:'')+(phone?' <span style="color:var(--t3)">'+phone+'</span>':'')+'</span>'
+        +'</label>';
+    }).join('');
+  }
+  adminSmsGenerate();
+}
+
+function adminSmsCheckAll(v){
+  document.querySelectorAll('.admin-sms-br-chk').forEach(function(c){c.checked=v;});
+  adminSmsGenerate();
+}
+
+function adminSmsGenerate(){
+  var typeEl=document.querySelector('input[name="admin-sms-type"]:checked');
+  var type=typeEl?typeEl.value:'deadline';
+  var ym=_nextYM();var ymData=_nextData[ym]||{};
+  var dates=_nextWeekdays();
+  var now=new Date();
+  var m=parseInt(ym.slice(4));
+  var regionName=window._regionName||'호남지역단';
+  var dl=_nextDeadline||'18:00';
+
+  var selBis=[];
+  document.querySelectorAll('.admin-sms-br-chk:checked').forEach(function(c){selBis.push(parseInt(c.dataset.bi));});
+
+  var lines=['[현대해상 '+regionName+']',''];
+
+  if(type==='deadline'){
+    var today=String(now.getDate()).padStart(2,'0');
+    var todayInDates=dates.indexOf(today)>=0?today:(dates[0]||'');
+    var DOW=['일','월','화','수','목','금','토'];
+    var dtObj=todayInDates?new Date(parseInt(ym.slice(0,4)),m-1,parseInt(todayInDates)):now;
+    var dlbl=todayInDates?(m+'/'+parseInt(todayInDates)+'('+DOW[dtObj.getDay()]+')'):m+'월';
+    lines.push('📋 익월('+m+'월) 후보자 입력 마감 안내','');
+    var cnt=0;
+    selBis.forEach(function(bi){
+      var c=(ymData[todayInDates]&&ymData[todayInDates][bi])||{};
+      if(!c.nameList&&!c.noEntry){
+        var mgr=_managers[bi]||{};var mgrName=mgr.name||BR[bi].mgr||'지점장';
+        lines.push('▶ '+BR[bi].name+' '+mgrName+' 지점장님');
+        lines.push('  '+dlbl+' '+dl+'까지 입력 부탁드립니다.','');cnt++;
+      }
+    });
+    if(!cnt){lines.push('✅ 선택 지점 모두 입력 완료!','');}
+  } else if(type==='all'){
+    lines.push('📊 '+m+'월 익월 도입후보자 접수현황','');
+    var tot=0;
+    selBis.forEach(function(bi){
+      var biT=0;dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biT+=_parseNames(c.nameList).length;});
+      var hasAny=false;dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};if(c.nameList||c.noEntry)hasAny=true;});
+      var mgr=_managers[bi]||{};var mgrName=mgr.name||BR[bi].mgr||'지점장';
+      var status=!hasAny?'미입력':biT===0?'접수 0명':'접수 '+biT+'명';
+      lines.push('▶ '+BR[bi].name+' '+mgrName+': '+status);
+      tot+=biT;
+    });
+    lines.push('','총 접수인원: '+tot+'명');
+  } else if(type==='noentry'){
+    lines.push('🚨 도입 집중 요청','');
+    var cnt2=0;
+    selBis.forEach(function(bi){
+      var biT=0;var hasNE=false;
+      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biT+=_parseNames(c.nameList).length;if(c.noEntry)hasNE=true;});
+      if(biT===0&&hasNE){
+        var mgr=_managers[bi]||{};var mgrName=mgr.name||BR[bi].mgr||'지점장';
+        lines.push('▶ '+BR[bi].name+' '+mgrName+' 지점장님');
+        lines.push('  '+m+'월 익월 후보자 접수 0명입니다.');
+        lines.push('  도입활동에 집중해 주시기 바랍니다.','');cnt2++;
+      }
+    });
+    if(!cnt2) lines.push('해당 지점 없음');
+  } else if(type==='custom'){
+    lines.push('안녕하세요. 현대해상 '+regionName+'입니다.','');
+    selBis.forEach(function(bi){
+      var mgr=_managers[bi]||{};var mgrName=mgr.name||BR[bi].mgr||'지점장';
+      lines.push('▶ '+BR[bi].name+' '+mgrName+' 지점장님');
+    });
+    lines.push('');
+  }
+
+  // 직접입력 추가 메시지
+  var customText=document.getElementById('admin-sms-custom-text');
+  if(customText&&customText.value.trim()){lines.push('',customText.value.trim());}
+
+  var preview=document.getElementById('admin-sms-preview');
+  if(preview) preview.value=lines.join('\n');
+}
+
+function adminSmsCopy(){
+  var preview=document.getElementById('admin-sms-preview');
+  if(!preview||!preview.value){alert('내용이 없습니다.');return;}
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(preview.value).then(function(){alert('📋 복사되었습니다!\n문자앱/카카오톡에 붙여넣기 하세요.');});
+  } else {
+    preview.select();document.execCommand('copy');
+    alert('📋 복사되었습니다!\n문자앱/카카오톡에 붙여넣기 하세요.');
+  }
+}
+
+// ── 문자 생성 모달 ──
+function showNextSmsModal(){
+  var modal=document.getElementById('next-sms-modal');if(!modal)return;
+  modal.style.display='flex';
+  // 수신자 체크박스 그리드
+  var chkEl=document.getElementById('sms-branch-chk');
+  if(chkEl){
+    chkEl.innerHTML=BR.map(function(b,bi){
+      return '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;background:var(--bg3);border-radius:7px;padding:3px 8px;font-size:11px;color:var(--t)">'
+        +'<input type="checkbox" checked data-bi="'+bi+'" onchange="generateSms()" style="accent-color:var(--or)">'
+        +b.name+'</label>';
+    }).join('');
+  }
+  generateSms();
+}
+function closeNextSmsModal(){
+  var modal=document.getElementById('next-sms-modal');if(modal)modal.style.display='none';
+}
+
+function generateSms(){
+  var type=(document.getElementById('sms-type')||{}).value||'deadline';
+  var ym=_nextYM();var ymData=_nextData[ym]||{};
+  var dates=_nextWeekdays();
+  var now=new Date();
+  var m=parseInt(ym.slice(4));
+  var regionName=window._regionName||'호남지역단';
+  var dl=_nextDeadline||'18:00';
+
+  // 선택된 지점 인덱스
+  var selBis=[];
+  var chks=document.querySelectorAll('#sms-branch-chk input[type=checkbox]');
+  chks.forEach(function(c){if(c.checked)selBis.push(parseInt(c.dataset.bi));});
+
+  var lines=['[현대해상 '+regionName+']',''];
+
+  if(type==='deadline'){
+    // 미입력 지점 마감 알림
+    var today=String(now.getDate()).padStart(2,'0');
+    var todayInDates=dates.indexOf(today)>=0?today:dates[0]||'';
+    var DOW=['일','월','화','수','목','금','토'];
+    var dt=todayInDates?new Date(parseInt(ym.slice(0,4)),m-1,parseInt(todayInDates)):now;
+    var dlbl=todayInDates?(m+'/'+parseInt(todayInDates)+'('+DOW[dt.getDay()]+')'):m+'월';
+    lines.push('📋 익월('+m+'월) 후보자 입력 마감 안내');
+    lines.push('');
+    var count=0;
+    selBis.forEach(function(bi){
+      var c=(ymData[todayInDates]&&ymData[todayInDates][bi])||{};
+      if(!c.nameList&&!c.noEntry){
+        var mgr=_managers[bi]||{};
+        var mgrName=mgr.name||BR[bi].mgr||'지점장';
+        lines.push('▶ '+BR[bi].name+' '+mgrName+' 지점장님');
+        lines.push('  '+dlbl+' '+dl+'까지 입력 부탁드립니다.');
+        lines.push('');
+        count++;
+      }
+    });
+    if(!count){lines.push('✅ 모든 지점 입력 완료!');lines.push('');}
+
+  } else if(type==='all'){
+    // 전체 현황
+    lines.push('📊 '+m+'월 익월 도입후보자 접수현황');lines.push('');
+    var total=0;
+    selBis.forEach(function(bi){
+      var biTotal=0;
+      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biTotal+=_parseNames(c.nameList).length;});
+      var mgr=_managers[bi]||{};var mgrName=mgr.name||BR[bi].mgr||'지점장';
+      var hasAny=false;dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};if(c.nameList||c.noEntry)hasAny=true;});
+      var status=!hasAny?'미입력':biTotal===0?'접수 0명':'접수 '+biTotal+'명';
+      lines.push('▶ '+BR[bi].name+' '+mgrName+': '+status);
+      total+=biTotal;
+    });
+    lines.push('');lines.push('총 접수인원: '+total+'명');
+
+  } else if(type==='noentry'){
+    // 도입집중 (접수 0명)
+    lines.push('🚨 도입 집중 요청');lines.push('');
+    var count2=0;
+    selBis.forEach(function(bi){
+      var biTotal=0;var hasNoEntry=false;
+      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biTotal+=_parseNames(c.nameList).length;if(c.noEntry)hasNoEntry=true;});
+      if(biTotal===0&&hasNoEntry){
+        var mgr=_managers[bi]||{};var mgrName=mgr.name||BR[bi].mgr||'지점장';
+        lines.push('▶ '+BR[bi].name+' '+mgrName+' 지점장님');
+        lines.push('  '+m+'월 익월 후보자 접수 0명입니다.');
+        lines.push('  도입활동에 집중해 주시기 바랍니다.');
+        lines.push('');count2++;
+      }
+    });
+    if(!count2){lines.push('해당 지점 없음');}
+  }
+
+  var preview=document.getElementById('sms-preview');
+  if(preview) preview.value=lines.join('\n');
+}
+
+function copySms(){
+  var preview=document.getElementById('sms-preview');
+  if(!preview||!preview.value){alert('내용이 없습니다.');return;}
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(preview.value).then(function(){alert('📋 복사되었습니다!\n문자앱/카카오톡에 붙여넣기 하세요.');});
+  } else {
+    preview.select();document.execCommand('copy');
+    alert('📋 복사되었습니다!\n문자앱/카카오톡에 붙여넣기 하세요.');
+  }
+}
+
 // ══════════════════════════════════════════
 // ⏰ 익월후보 마감시간 경고
 // ══════════════════════════════════════════
@@ -6009,11 +6313,18 @@ function renderNext(){
   var wrap=document.getElementById('next-table-wrap');if(!wrap)return;
   var y=ym.slice(0,4),m=parseInt(ym.slice(4));
   var DOW=['일','월','화','수','목','금','토'];
-  function dateLbl(dd){var dt=new Date(parseInt(y),m-1,parseInt(dd));return m+'/'+parseInt(dd)+'('+DOW[dt.getDay()]+')';}
+  function dateLbl(dd){
+    if(!dd||dd==='') return '-';
+    var dt=new Date(parseInt(y),m-1,parseInt(dd));
+    if(isNaN(dt.getTime())) return m+'/'+parseInt(dd);
+    return m+'/'+parseInt(dd)+'('+DOW[dt.getDay()]+')';
+  }
+  try {
 
   // 전체 합계
   var grandTotal=0;
-  BR.forEach(function(_,bi){dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};grandTotal+=_parseNames(c.nameList).length;});});
+  var allDates=Object.keys(ymData);
+  BR.forEach(function(_,bi){allDates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};grandTotal+=_parseNames(c.nameList).length;});});
 
   var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;padding:8px 12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'
     +'<span style="font-size:13px;font-weight:700;color:var(--or)">'+y+'년 '+m+'월 접수현황</span>'
@@ -6029,53 +6340,60 @@ function renderNext(){
     html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:0">';
     rowBis.forEach(function(bi){
       var b=BR[bi];
+      var allStoredDates=Object.keys(ymData);
+      // 누계 (전체 날짜 기준)
       var biTotal=0;
-      var hasNoEntry=false;
-      dates.forEach(function(dd){
+      allStoredDates.forEach(function(dd){
         var c=(ymData[dd]&&ymData[dd][bi])||{};
         biTotal+=_parseNames(c.nameList).length;
-        if(c.noEntry) hasNoEntry=true;
       });
+      // ★ 상태 배지는 오늘 날짜 기준으로만 판단
+      var todayDD=String(new Date().getDate()).padStart(2,'0');
+      var todayCell=(ymData[todayDD]&&ymData[todayDD][bi])||{};
+      var todayNoEntry=!!todayCell.noEntry;
+      var todayNames=_parseNames(todayCell.nameList).length;
+      var todayEntered=todayNoEntry||todayNames>0;
       var isOpen=(_nextOpenPanel===bi);
-      var bdr=isOpen?'2px solid var(--or)':'1.5px solid rgba(255,107,43,.3)';
-      var bg=isOpen?'linear-gradient(160deg,#2a1400,#1e1000)':'linear-gradient(160deg,#1a2040,#111828)';
-      var bn=(function(name){var mt=name.match(/^(.+?)(지점|TC지점)$/);return mt?{top:mt[1],bot:mt[2]}:{top:name,bot:''};} )(b.name);
-      var hasAnyData=false;
-      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};if(c.nameList||c.noEntry)hasAnyData=true;});
+      var bn=(function(nm){var mt=nm.match(/^(.+?)(지점|TC지점)$/);return mt?{top:mt[1],bot:mt[2]}:{top:nm,bot:''};} )(b.name);
       // 상태 결정
       var badgeHtml,extraHtml='',barColor,bg,bdr;
-      if(!hasAnyData){
-        // 미입력
+      var subText='';
+      if(biTotal>0) subText='<div style="font-size:11px;color:#4fa8f5;margin-top:2px;font-weight:700">누적 접수 '+biTotal+'명</div>';
+
+      if(!todayEntered){
+        // 오늘 미입력
         badgeHtml='<span style="font-size:11px;font-weight:700;color:var(--rd);background:rgba(245,96,90,.15);border:1px solid rgba(245,96,90,.4);border-radius:8px;padding:3px 9px;white-space:nowrap">미입력</span>';
         bg='linear-gradient(160deg,#111828,#0d1520)';
         bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(255,255,255,.08)';
         barColor='rgba(255,255,255,.12)';
-      } else if(biTotal===0&&hasNoEntry){
-        // 접수 0명 → 우측: "접수 0명" 배지, 카드 하단: "도입 집중" 크게
-        badgeHtml='<span style="font-size:11px;font-weight:700;color:var(--rd);background:rgba(245,96,90,.15);border:1px solid rgba(245,96,90,.4);border-radius:8px;padding:3px 9px;white-space:nowrap">접수 0명</span>';
-        extraHtml='<div style="margin-top:6px;text-align:center;background:rgba(245,96,90,.12);border-radius:8px;padding:5px 0"><div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">🚨 도입</div><div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">집중 🚨</div></div>';
-        bg='linear-gradient(160deg,#200a0a,#180606)';
-        bdr=isOpen?'2px solid var(--rd)':'1.5px solid rgba(245,96,90,.5)';
-        barColor='rgba(245,96,90,.7)';
+      } else if(todayNoEntry){
+        // 오늘 인원없음 저장 → 입력완료
+        badgeHtml='<span style="font-size:11px;font-weight:700;color:#3ecf8e;background:rgba(62,207,142,.15);border:1px solid rgba(62,207,142,.4);border-radius:8px;padding:3px 9px;white-space:nowrap">입력완료</span>';
+        bg='linear-gradient(160deg,#071e14,#051510)';
+        bdr=isOpen?'2px solid #3ecf8e':'1.5px solid rgba(62,207,142,.4)';
+        barColor='#3ecf8e';
+        if(biTotal===0){
+          extraHtml='<div style="margin-top:6px;text-align:center;background:rgba(245,96,90,.12);border-radius:8px;padding:5px 0"><div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">🚨 도입</div><div style="font-size:18px;font-weight:900;color:var(--rd);letter-spacing:4px">집중 🚨</div></div>';
+        }
       } else {
-        // 접수 N명 — 파란 배지
+        // 오늘 접수 명단 있음        // 접수 N명 있음 (noEntry 없음)
         badgeHtml='<span style="font-size:11px;font-weight:700;color:#4fa8f5;background:rgba(79,168,245,.15);border:1px solid rgba(79,168,245,.45);border-radius:8px;padding:3px 9px;white-space:nowrap">접수 '+biTotal+'명</span>';
         bg='linear-gradient(160deg,#0a1a2e,#071222)';
         bdr=isOpen?'2px solid #4fa8f5':'1.5px solid rgba(79,168,245,.5)';
         barColor='#4fa8f5';
+        subText=''; // 배지에 이미 표시되므로 중복 제거
       }
       html+='<button onclick="nextTogglePanel('+bi+')" style="display:block;padding:0;background:'+bg+';border:'+bdr+';border-radius:14px;cursor:pointer;font-family:inherit;width:100%;text-align:left;overflow:hidden;touch-action:manipulation">'
         +'<div style="height:3px;background:'+barColor+'"></div>'
         +'<div style="padding:10px 10px 10px">'
-        // 상단: 지점명+지점장 좌측 / 배지 우측
         +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'
         +'<div style="min-width:0">'
-        +'<div style="font-size:14px;font-weight:900;color:#e8edf5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+bn.top+'<span style="font-size:9px;color:var(--or);margin-left:2px">'+bn.bot+'</span></div>'
-        +'<div style="font-size:11px;color:#c0c8d8;margin-top:2px">'+b.mgr+'</div>'
+        +'<div style="font-size:13px;font-weight:900;color:#e8edf5;word-break:keep-all;line-height:1.3">'+bn.top+'<span style="font-size:9px;color:var(--or);margin-left:2px">'+bn.bot+'</span></div>'
+        +'<div style="font-size:11px;color:#c0c8d8;margin-top:1px">'+b.mgr+'</div>'
+        +subText
         +'</div>'
         +'<div style="flex-shrink:0">'+badgeHtml+'</div>'
         +'</div>'
-        // 하단: 도입집중 경고 (접수 0명일 때만)
         +extraHtml
         +'</div>'
         +'</button>';
@@ -6131,14 +6449,40 @@ function renderNext(){
         +'<div style="font-size:11px;margin-top:5px;color:var(--t2)">후보 <b style="color:#4fa8f5">'+hu+'</b>명 / 유치 <b style="color:#3ecf8e">'+yu+'</b>명 / 카드제출 <b style="color:var(--or)">'+cardCnt+'</b>명</div>'
         +'</div>';
       // 카드 체크리스트
-      html+='<div style="flex:1;min-width:180px;max-height:220px;overflow-y:auto">'
-        +'<div id="ncard_'+bi+'">'+_buildCardList(bi,entries,cards)+'</div>'
-        +'</div>';
+      // 우측: 누적 후보자 명단 (날짜별)
+      html+='<div style="flex:1;min-width:180px;max-height:260px;overflow-y:auto;border-left:1px solid rgba(30,48,85,.4);padding-left:12px">';
+      html+='<div style="font-size:10px;font-weight:700;color:var(--or2);margin-bottom:6px">📋 누적 후보자 명단</div>';
+      var allDds=Object.keys(ymData).sort();
+      var hasAnyCumul=false;
+      allDds.forEach(function(ddd){
+        var c2=(ymData[ddd]&&ymData[ddd][bi])||{};
+        var ens=_parseNames(c2.nameList);
+        if(!ens.length&&!c2.noEntry) return;
+        hasAnyCumul=true;
+        html+='<div style="margin-bottom:6px">';
+        html+='<div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:2px">'+dateLbl(ddd)+'</div>';
+        if(c2.noEntry&&!ens.length){
+          html+='<div style="font-size:11px;color:var(--t3);padding:2px 0">인원없음</div>';
+        } else {
+          ens.forEach(function(p){
+            html+='<div style="display:flex;align-items:center;gap:4px;padding:3px 0;border-bottom:1px solid rgba(30,48,85,.3)">'
+              +'<span style="font-size:12px;font-weight:700;color:var(--t)">'+p.name+'</span>'
+              +(p.recruiter?'<span style="font-size:10px;color:#3ecf8e">('+p.recruiter+')</span>':'')
+              +'</div>';
+          });
+        }
+        html+='</div>';
+      });
+      if(!hasAnyCumul){
+        html+='<div style="font-size:11px;color:var(--t3)">입력된 후보자가 없습니다.</div>';
+      }
+      html+='</div>';
       html+='</div></div>';
     }
   }
 
   wrap.innerHTML=html;
+  } catch(e) { console.error('renderNext error:',e); wrap.innerHTML='<div style="color:var(--rd);padding:12px">⚠️ 렌더링 오류: '+e.message+'</div>'; }
 }
 
 function printNext(){
@@ -6520,6 +6864,409 @@ function xlsAdminExamStat(){
   _xlsDownload(wb,'모의고사현황_'+_xlsDate()+'.xlsx');
 }
 
+// ══════════════════════════════════════════
+// 🎯 정시 응시 가능 여부 판정
+// ══════════════════════════════════════════
+var _eligData = {}; // {bi_personKey: {selfStudy, interview}}
+
+function loadEligData(){
+  if(!db||window._eligRef) return;
+  window._eligRef = db.ref('honam_elig');
+  window._eligRef.on('value', function(snap){
+    _eligData = snap.val()||{};
+    // 현재 선택된 수험자 패널만 갱신
+    var el = document.getElementById('exam-elig-panel');
+    if(el && el.innerHTML){try{renderExamEligPanel();}catch(e){console.warn("eligPanel:",e);}}
+  });
+}
+
+function renderExamEligPanel(){
+  var el = document.getElementById('exam-elig-panel');
+  if(!el) return;
+  var brEl = document.getElementById('exam-branch-sel');
+  var perEl = document.getElementById('exam-person-sel');
+  if(!brEl||!perEl||!perEl.value){ el.innerHTML=''; return; }
+  var bi = parseInt(brEl.value);
+  var personVal = perEl.value;
+  var personKey = personVal.replace(/[.#$\[\]]/g,'_');
+  var name = personVal.replace(/^(pass_|reg_)/,'');
+  var personData = (_examData[bi]||{})[personKey]||{};
+  var eligKey = bi+'__'+personKey;
+  var saved = _eligData[eligKey]||{};
+
+  // 점수 계산
+  var scoreList=[];
+  for(var r=1;r<=15;r++){
+    var rd=personData['round'+r]||{};
+    var bestAvg=-1;
+    Object.keys(rd).forEach(function(t){
+      var td=rd[t]||{};
+      var s=td.son==='kipass'?100:(typeof td.sonScore==='number'?td.sonScore:null);
+      var j=td.je3==='kipass'?100:(typeof td.je3Score==='number'?td.je3Score:null);
+      if(s!==null&&j!==null){var avg=(s+j)/2;if(avg>bestAvg)bestAvg=avg;}
+    });
+    if(bestAvg>=0) scoreList.push(bestAvg);
+  }
+  var avgScore=0,crit1=false;
+  if(scoreList.length>=5){
+    avgScore=scoreList.reduce(function(a,b){return a+b;},0)/scoreList.length;
+    crit1=avgScore>=60;
+  }
+
+  // 학습 유형: 'self'=자가학습, 'normal'=일반 (기본:일반)
+  var studyType = saved.studyType||'normal';
+  var selfStudy = (studyType==='self');
+  var interview = !!saved.interview;
+  var crit2 = selfStudy ? interview : true;
+  var forceEligible = !!saved.forceEligible;
+  var eligible = forceEligible || (crit1 && crit2);
+  var eligSaved = !!saved.eligSaved; // 저장 여부
+
+  var rc = eligible?'#3ecf8e':crit1||crit2?'#a78bfa':'#f5605a';
+  var rt = forceEligible?'✅ 응시 가능 (관리자 승인)':eligible?'✅ 응시 가능':crit1||crit2?'⚠️ 조건 미충족':'❌ 응시 불가';
+  var rb = eligible?'rgba(62,207,142,.15)':crit1||crit2?'rgba(167,139,250,.1)':'rgba(245,96,90,.1)';
+
+  var safeKey = eligKey.replace(/'/g,"\\'");
+  var h = '<div style="background:#0b1628;border:1.5px solid rgba(30,48,85,.8);border-radius:12px;padding:12px 14px">';
+  h += '<div style="font-size:12px;font-weight:900;color:#e8edf5;margin-bottom:10px">🎯 정시 응시 가능 여부</div>';
+  // 관리자 강제 승인 배너
+  if(forceEligible){
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;margin-bottom:10px;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.4)">'
+       + '<span style="font-size:13px">⚡</span>'
+       + '<span style="font-size:11px;font-weight:700;color:#a78bfa">관리자 강제 승인 처리됨</span>'
+       + '</div>';
+  }
+
+  // 결과 배지 + 저장 버튼
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'
+     + '<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:10px;background:'+rb+';border:2px solid '+rc+'">'
+     + '<span style="font-size:16px;font-weight:900;color:'+rc+'">'+rt+'</span></div>'
+     + '<button onclick="saveEligFinal(\''+safeKey+'\')" '
+     + 'style="padding:10px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:'+(eligSaved?'rgba(62,207,142,.2)':'rgba(79,168,245,.15)')+';color:'+(eligSaved?'#3ecf8e':'#4fa8f5')+';border:1.5px solid '+(eligSaved?'rgba(62,207,142,.5)':'rgba(79,168,245,.4)')+';white-space:nowrap;touch-action:manipulation">'
+     + (eligSaved?'✅ 저장됨':'💾 저장')+'</button>'
+     + '</div>';
+
+  // 기준1
+  h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:6px;background:rgba(30,48,85,.4)">'
+     + '<span style="font-size:14px">'+(crit1?'✅':'❌')+'</span>'
+     + '<div style="flex:1"><div style="font-size:11px;font-weight:700;color:#e8edf5">기준 1. 모의테스트 평균 60점 이상 (5회 이상)</div>'
+     + '<div style="font-size:11px;color:#8899bb">'
+     + (scoreList.length>=5?scoreList.length+'회차 / 평균 '+avgScore.toFixed(1)+'점':'현재 '+scoreList.length+'회차 — 5회 이상 필요')
+     + '</div></div>'
+     + '<span style="font-size:12px;font-weight:700;color:'+(crit1?'#3ecf8e':'#f5605a')+'">'+(crit1?'충족':'미충족')+'</span>'
+     + '</div>';
+
+  // 학습 유형 라디오
+  h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:6px;background:rgba(30,48,85,.4)">'
+     + '<span style="font-size:11px;font-weight:700;color:#4fa8f5;white-space:nowrap">학습 유형</span>'
+     + '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex:1">'
+     + '<input type="radio" name="study-type-'+eligKey.replace(/[^a-zA-Z0-9]/g,'-')+'" value="normal" '
+     + (studyType==='normal'?'checked':'')+' onchange="saveElig(\''+safeKey+'\',\'studyType\',\'normal\')" '
+     + 'style="cursor:pointer;accent-color:#4fa8f5;width:15px;height:15px">'
+     + '<span style="font-size:12px;font-weight:700;color:'+(studyType==='normal'?'#4fa8f5':'#8899bb')+'">일반</span>'
+     + '</label>'
+     + '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex:1">'
+     + '<input type="radio" name="study-type-'+eligKey.replace(/[^a-zA-Z0-9]/g,'-')+'" value="self" '
+     + (studyType==='self'?'checked':'')+' onchange="saveElig(\''+safeKey+'\',\'studyType\',\'self\')" '
+     + 'style="cursor:pointer;accent-color:#a78bfa;width:15px;height:15px">'
+     + '<span style="font-size:12px;font-weight:700;color:'+(studyType==='self'?'#a78bfa':'#8899bb')+'">자가학습</span>'
+     + '</label>'
+     + '</div>';
+
+  // 기준2 (자가학습자일 때만)
+  if(selfStudy){
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:8px;background:rgba(30,48,85,.4)">'
+       + '<span style="font-size:14px">'+(interview?'✅':'⬜')+'</span>'
+       + '<div style="flex:1"><div style="font-size:11px;font-weight:700;color:#e8edf5">기준 2. 센터장/파트장 면접 완료</div>'
+       + '<div style="font-size:11px;color:#8899bb">광주권: 파트장 면접</div></div>'
+       + '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;touch-action:manipulation">'
+       + '<input type="checkbox" '+(interview?'checked':'')+' '
+       + 'onchange="saveElig(\''+safeKey+'\',\'interview\',this.checked)" '
+       + 'style="width:16px;height:16px;cursor:pointer;accent-color:#FF6B2B">'
+       + '<span style="font-size:11px;font-weight:700;color:'+(interview?'#3ecf8e':'#8899bb')+'">'+(interview?'완료':'미완료')+'</span>'
+       + '</label></div>';
+  } else {
+    h += '<div style="padding:6px 10px;border-radius:8px;margin-bottom:8px;background:rgba(30,48,85,.25);font-size:11px;color:#8899bb">'
+       + '✓ 일반 학습자 — 면접 요건 해당없음</div>';
+  }
+
+  // 응시 불가 경고 (환수 안내)
+  if(!eligible){
+    h += '<div style="background:rgba(245,96,90,.1);border:1.5px solid rgba(245,96,90,.4);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
+       + '<div style="font-size:11px;font-weight:900;color:#f5605a;margin-bottom:4px">⚠️ 응시 불가 / 환수 안내</div>'
+       + '<div style="font-size:11px;color:#e8edf5;line-height:1.7">'
+       + '응시 기준 미충족 상태입니다.<br>'
+       + '정시 응시 후 <b style="color:#f5605a">불합격 시</b> 점포 운영비 환수가 발생합니다.<br>'
+       + '<b style="font-size:13px;color:#f5605a">인당 100,000원</b> 환수 예정'
+       + '</div></div>';
+  }
+
+  // 기준 안내
+  h += '<div style="background:rgba(255,140,85,.06);border:1px solid rgba(255,140,85,.2);border-radius:8px;padding:8px 10px">'
+     + '<div style="font-size:10px;font-weight:700;color:#FF8C55;margin-bottom:4px">&#128204; 정시 응시 기준</div>'
+     + '<div style="font-size:10px;color:#8899bb;line-height:1.6">'
+     + '&#9312; 모의테스트 60점 이상 (5회 이상 응시 평균)<br>'
+     + '&#9313; 자가 학습자: 센터장(파트장: 광주권) 면접 완료자<br>'
+     + '<span style="color:#a78bfa">&#8251; &#9312;&#9313; 모두 충족 시 응시 가능</span>'
+     + '</div></div>';
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+function saveElig(eligKey, field, val){
+  if(!_eligData[eligKey]) _eligData[eligKey]={};
+  _eligData[eligKey][field]=val;
+  if(window._eligRef){
+    window._eligRef.child(eligKey+'/'+field).set(val);
+  } else if(db){
+    window._eligRef=db.ref('honam_elig');
+    window._eligRef.child(eligKey+'/'+field).set(val);
+    window._eligRef.on('value',function(snap){_eligData=snap.val()||{};});
+  }
+  renderExamEligPanel();
+}
+
+function saveEligFinal(eligKey){
+  if(!_eligData[eligKey]) _eligData[eligKey]={};
+  _eligData[eligKey].eligSaved=true;
+  if(window._eligRef){
+    window._eligRef.child(eligKey+'/eligSaved').set(true);
+  } else if(db){
+    window._eligRef=db.ref('honam_elig');
+    window._eligRef.child(eligKey+'/eligSaved').set(true);
+  }
+  renderExamEligPanel();
+}
+
+// ── 정시응시 강제 승인 (관리자) ──
+function initForceEligSel(){
+  var sel=document.getElementById('force-branch-sel');
+  if(!sel) return;
+  var prev=sel.value;
+  sel.innerHTML='';
+  BR.forEach(function(b,i){
+    var o=document.createElement('option');
+    o.value=i; o.textContent=b.name;
+    sel.appendChild(o);
+  });
+  if(prev) sel.value=prev;
+  renderForceEligList();
+}
+
+function renderForceEligList(){
+  var sel=document.getElementById('force-branch-sel');
+  var el=document.getElementById('force-elig-list');
+  if(!sel||!el) return;
+  var bi=parseInt(sel.value)||0;
+  var seen={}, allPeople=[];
+  function addP(n){ if(n&&!seen[n]){seen[n]=true;allPeople.push(n);} }
+  var passList=(data[bi]&&data[bi].passList)||[];
+  var regList=(data[bi]&&data[bi].regList)||[];
+  var attList=(att[bi]&&att[bi].attendees)||[];
+  passList.forEach(addP); regList.forEach(addP); attList.forEach(addP);
+  var examBi=(window._examData&&window._examData[bi])||{};
+  var knownNames=passList.concat(regList).concat(attList);
+  Object.keys(examBi).forEach(function(pk){
+    var m=null;
+    for(var ki=0;ki<knownNames.length;ki++){
+      if(knownNames[ki].replace(/[.#$\[\]]/g,'_')===pk){m=knownNames[ki];break;}
+    }
+    addP(m||pk);
+  });
+  if(!allPeople.length){
+    el.innerHTML='<div style="padding:6px;font-size:11px;color:var(--t3)">등록된 수험자가 없습니다. 신인도입 명단 또는 입문출결에 먼저 등록하세요.</div>';
+    return;
+  }
+  // DOM 방식으로 생성 (따옴표 충돌 없음)
+  var wrap=document.createElement('div');
+  var hint=document.createElement('div');
+  hint.style.cssText='font-size:10px;color:var(--t3);margin-bottom:6px';
+  hint.textContent='체크 시 기준 미충족이어도 응시 가능 처리됩니다.';
+  wrap.appendChild(hint);
+  allPeople.forEach(function(name){
+    var pk=name.replace(/[.#$\[\]]/g,'_');
+    var eligKey=bi+'__'+pk;
+    var saved=_eligData[eligKey]||{};
+    var forced=!!saved.forceEligible;
+    var e2=_calcEligibility(bi,pk);
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;margin-bottom:4px;background:var(--bg3);border:1px solid '+(forced?'rgba(167,139,250,.5)':'rgba(30,48,85,.5)');
+    var nm=document.createElement('span');
+    nm.style.cssText='font-size:12px;font-weight:700;flex:1;color:'+(forced?'#a78bfa':'var(--t)');
+    nm.textContent=name;
+    row.appendChild(nm);
+    var st=document.createElement('span');
+    st.style.cssText='font-size:10px;color:'+(e2.eligible?'#3ecf8e':'#f5605a');
+    st.textContent=e2.eligible?'응시가능':'미충족';
+    row.appendChild(st);
+    if(forced){var ic=document.createElement('span');ic.style.cssText='font-size:9px;color:#a78bfa';ic.textContent='⚡';row.appendChild(ic);}
+    var lbl=document.createElement('label');
+    lbl.style.cssText='display:flex;align-items:center;gap:4px;cursor:pointer;touch-action:manipulation';
+    var chk=document.createElement('input');
+    chk.type='checkbox'; chk.checked=forced;
+    chk.style.cssText='width:15px;height:15px;cursor:pointer;accent-color:#a78bfa';
+    chk.dataset.ek=eligKey;
+    chk.addEventListener('change',function(){saveForceElig(this.dataset.ek,this.checked);});
+    lbl.appendChild(chk);
+    var lt=document.createElement('span');
+    lt.style.cssText='font-size:10px;font-weight:700;color:'+(forced?'#a78bfa':'var(--t3)');
+    lt.textContent=forced?'승인됨':'승인';
+    lbl.appendChild(lt);
+    row.appendChild(lbl);
+    wrap.appendChild(row);
+  });
+  el.innerHTML='';
+  el.appendChild(wrap);
+}
+
+function saveForceElig(eligKey,checked){
+  if(!_eligData[eligKey]) _eligData[eligKey]={};
+  _eligData[eligKey].forceEligible=checked;
+  if(window._eligRef){
+    window._eligRef.child(eligKey+'/forceEligible').set(checked);
+  } else if(db){
+    window._eligRef=db.ref('honam_elig');
+    window._eligRef.child(eligKey+'/forceEligible').set(checked);
+    window._eligRef.on('value',function(snap){_eligData=snap.val()||{};});
+  }
+  renderForceEligList();
+}
+
+function _calcEligibility(bi, personKey){
+  var personData = (_examData[bi]||{})[personKey]||{};
+  var eligKey = bi+'__'+personKey;
+  var saved = _eligData[eligKey]||{};
+  var scoreList=[];
+  for(var r=1;r<=15;r++){
+    var rd=personData['round'+r]||{};
+    var bestAvg=-1;
+    Object.keys(rd).forEach(function(t){
+      var td=rd[t]||{};
+      var s=td.son==='kipass'?100:(typeof td.sonScore==='number'?td.sonScore:null);
+      var j=td.je3==='kipass'?100:(typeof td.je3Score==='number'?td.je3Score:null);
+      if(s!==null&&j!==null){var avg=(s+j)/2;if(avg>bestAvg)bestAvg=avg;}
+    });
+    if(bestAvg>=0) scoreList.push(bestAvg);
+  }
+  var avgScore=0,crit1=false;
+  if(scoreList.length>=5){
+    avgScore=scoreList.reduce(function(a,b){return a+b;},0)/scoreList.length;
+    crit1=avgScore>=60;
+  }
+  var studyType=saved.studyType||'normal';
+  var selfStudy=(studyType==='self');
+  var interview=!!saved.interview;
+  var crit2=selfStudy?interview:true;
+  return {
+    crit1:crit1,crit2:crit2,eligible:crit1&&crit2,
+    avgScore:avgScore,rounds:scoreList.length,
+    studyType:studyType,interview:interview,eligSaved:!!saved.eligSaved
+  };
+}
+
+// ── 최종 응시명단 출력 ──
+function printFinalEligList(){
+  var rows=[]; var totalHwansu=0;
+  BR.forEach(function(b,bi){
+    var passList=(data[bi]&&data[bi].passList)||[];
+    var attList=(att[bi]&&att[bi].attendees)||[];
+    var allPeople=[].concat(passList).concat(attList.filter(function(n){return passList.indexOf(n)<0;}));
+    allPeople.forEach(function(name){
+      var pk=name.replace(/[.#$\[\]]/g,'_');
+      var e=_calcEligibility(bi,pk);
+      rows.push({bi:bi,brName:b.name,name:name,eligible:e.eligible,crit1:e.crit1,
+        avgScore:e.avgScore,rounds:e.rounds,studyType:e.studyType,interview:e.interview,eligSaved:e.eligSaved});
+      if(!e.eligible) totalHwansu+=100000;
+    });
+  });
+
+  var eligible=rows.filter(function(r){return r.eligible;});
+  var ineligible=rows.filter(function(r){return !r.eligible;});
+  var w=window.open('','_blank','width=1000,height=750');
+  if(!w){alert('팝업 차단됨');return;}
+  var today=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
+  var css='body{font-family:"맑은 고딕",sans-serif;padding:16px;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'h1{font-size:16px;color:#FF6B2B;margin:0 0 3px}.sub{font-size:10px;color:#666;margin-bottom:12px}'
+    +'h2{font-size:13px;margin:14px 0 6px}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:10px}'
+    +'th{background:#ffe0cc;color:#a83a00;padding:5px 6px;border:1px solid #f4a36a;text-align:center;font-weight:700}'
+    +'th.l{text-align:left}td{padding:4px 6px;border:1px solid #e0e0e0;text-align:center}'
+    +'td.l{text-align:left}.ok{color:#1a7a4a;font-weight:700}.ng{color:#c0392b;font-weight:700}'
+    +'.warn{background:#fff0f0}.sum{background:#fff3eb;font-weight:700}'
+    +'@media print{@page{size:A4;margin:10mm}body{padding:0}}';
+
+  function makeRow(r,idx){
+    var studyLbl=r.studyType==='self'?'자가학습':'일반';
+    var interviewLbl=r.studyType==='self'?(r.interview?'완료':'미완료'):'해당없음';
+    return '<tr class="'+(r.eligible?'':'warn')+'">'
+      +'<td>'+(idx+1)+'</td>'
+      +'<td class="l">'+r.brName+'</td>'
+      +'<td class="l">'+r.name+'</td>'
+      +'<td>'+studyLbl+'</td>'
+      +'<td>'+r.rounds+'회</td>'
+      +'<td>'+(r.rounds>=5?r.avgScore.toFixed(1)+'점':'-')+'</td>'
+      +'<td>'+(r.crit1?'<span class="ok">충족</span>':'<span class="ng">미충족</span>')+'</td>'
+      +'<td>'+interviewLbl+'</td>'
+      +'<td class="'+(r.eligible?'ok':'ng')+'">'+(r.eligible?'응시가능':'응시불가')+'</td>'
+      +'</tr>';
+  }
+  var thead='<thead><tr><th>#</th><th class="l">지점</th><th class="l">이름</th><th>학습</th><th>응시회차</th><th>평균점수</th><th>기준1</th><th>면접</th><th>응시가능</th></tr></thead>';
+
+  var body='<h1>📋 정시 응시 최종 명단</h1>'
+    +'<div class="sub">출력일: '+today+' | 전체 '+rows.length+'명 | 응시가능 '+eligible.length+'명 | 응시불가 '+ineligible.length+'명</div>'
+    +'<h2 style="color:#1a7a4a">✅ 응시 가능 ('+eligible.length+'명)</h2>'
+    +'<table>'+thead+'<tbody>'+eligible.map(makeRow).join('')+'</tbody></table>'
+    +'<h2 style="color:#c0392b">❌ 응시 불가 ('+ineligible.length+'명)</h2>'
+    +'<table>'+thead+'<tbody>'+ineligible.map(makeRow).join('')+'</tbody></table>';
+
+  if(ineligible.length>0){
+    body+='<div style="background:#fff0f0;border:1.5px solid #f4a36a;border-radius:8px;padding:10px 14px;margin-top:8px">'
+      +'<div style="font-size:12px;font-weight:700;color:#c0392b;margin-bottom:6px">⚠️ 점포 운영비 환수 예정 내역</div>'
+      +'<table style="margin-bottom:0"><thead><tr><th class="l">지점</th><th class="l">이름</th><th>사유</th><th>환수금액</th></tr></thead><tbody>'
+      +ineligible.map(function(r){
+        return '<tr><td class="l">'+r.brName+'</td><td class="l">'+r.name+'</td>'
+          +'<td>정시 응시기준 미충족 후 불합격</td><td style="font-weight:700;color:#c0392b">100,000원</td></tr>';
+      }).join('')
+      +'<tr class="sum"><td class="l" colspan="3">합계 ('+ineligible.length+'명)</td><td style="color:#c0392b">'+totalHwansu.toLocaleString()+'원</td></tr>'
+      +'</tbody></table></div>';
+  }
+
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>정시응시명단</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  w.document.close();setTimeout(function(){w.print();},600);
+}
+
+// ── 최종 응시명단 엑셀 ──
+function xlsFinalEligList(){
+  var rows=[];var totalH=0;
+  BR.forEach(function(b,bi){
+    var passList=(data[bi]&&data[bi].passList)||[];
+    var attList=(att[bi]&&att[bi].attendees)||[];
+    var allPeople=[].concat(passList).concat(attList.filter(function(n){return passList.indexOf(n)<0;}));
+    allPeople.forEach(function(name){
+      var pk=name.replace(/[.#$\[\]]/g,'_');
+      var e=_calcEligibility(bi,pk);
+      rows.push([b.name,name,e.studyType==='self'?'자가학습':'일반',
+        e.rounds+'회',e.rounds>=5?e.avgScore.toFixed(1):'미달',
+        e.crit1?'충족':'미충족',
+        e.studyType==='self'?(e.interview?'완료':'미완료'):'해당없음',
+        e.eligible?'응시가능':'응시불가',
+        e.eligible?'':100000]);
+      if(!e.eligible) totalH+=100000;
+    });
+  });
+  var hdr=['지점','이름','학습유형','응시회차','평균점수','기준1','면접','응시가능','환수금액(불합격시)'];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hdr].concat(rows)),'응시명단');
+  // 환수 시트
+  var hdr2=['지점','이름','환수사유','환수금액'];
+  var rows2=rows.filter(function(r){return r[7]==='응시불가';}).map(function(r){
+    return [r[0],r[1],'정시 응시기준 미충족 후 불합격',100000];
+  });
+  if(rows2.length) rows2.push(['합계','','',totalH]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hdr2].concat(rows2)),'환수내역');
+  _xlsDownload(wb,'정시응시명단_'+_xlsDate()+'.xlsx');
+}
+
 // ── 관리자 익월후보 관리 ──
 function renderAdminNextMonth(){
   var yEl=document.getElementById('anm-year');
@@ -6676,6 +7423,7 @@ function adminNextClearBranch(ym,bi){
       <button class="admin-tab" onclick="switchAdminTab('log',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📜 로그</button>
       <button class="admin-tab" onclick="switchAdminTab('examstat',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📝 모의고사</button>
       <button class="admin-tab" onclick="switchAdminTab('nextmonth',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📅 익월후보</button>
+      <button class="admin-tab" onclick="switchAdminTab('sms',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📱 문자발송</button>
     </div>
 
     <!-- 🎯 목표 -->
@@ -6707,6 +7455,13 @@ function adminNextClearBranch(ym,bi){
           <button onclick="saveNextStartDate()" style="padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or);color:#fff;border:none;touch-action:manipulation">💾 저장</button>
         </div>
         <div id="admin-next-startdate-cur" style="font-size:11px;color:var(--t3);margin-top:5px">현재 설정: 없음</div>
+      </div>
+
+      <!-- 지점장 연락처 관리 -->
+      <div style="margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:10px;border:1px solid var(--bd)">
+        <div style="font-size:11px;font-weight:700;color:var(--or2);margin-bottom:8px">📱 지점장 연락처 관리</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:8px">전화번호 저장 후 익월후보 탭에서 문자내용을 자동 생성합니다.</div>
+        <div id="admin-mgr-list" style="max-height:300px;overflow-y:auto"></div>
       </div>
 
       <!-- 익월후보 마감시간 설정 -->
@@ -6817,7 +7572,17 @@ function adminNextClearBranch(ym,bi){
         <button onclick="printAdminExamStat()" style="padding:6px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">🖨️</button>
         <button onclick="xlsAdminExamStat()" style="padding:6px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.1);color:#3ecf8e;border:1px dashed rgba(62,207,142,.4)">📥</button>
       </div>
-      <div id="admin-examstat-body" style="font-size:12px;max-height:400px;overflow-y:auto"></div>
+      <div id="admin-examstat-body" style="font-size:12px;max-height:260px;overflow-y:auto"></div>
+
+      <!-- 강제 승인 섹션 -->
+      <div style="margin-top:12px;padding:10px 12px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.3);border-radius:10px">
+        <div style="font-size:11px;font-weight:700;color:#a78bfa;margin-bottom:8px">⚡ 정시 응시 강제 승인 (관리자)</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:8px">기준 미충족자를 강제로 응시 가능 처리합니다.</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+          <select id="force-branch-sel" onchange="renderForceEligList()" style="flex:1;min-width:100px;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit"></select>
+        </div>
+        <div id="force-elig-list" style="max-height:200px;overflow-y:auto"></div>
+      </div>
     </div>
 
     <!-- 📅 익월후보 관리 -->
@@ -6828,6 +7593,51 @@ function adminNextClearBranch(ym,bi){
         <span style="font-size:11px;color:var(--t3)">후보자를 선택해 삭제하세요</span>
       </div>
       <div id="admin-nextmonth-body" style="max-height:420px;overflow-y:auto;font-size:12px"></div>
+    </div>
+
+    <!-- 📱 문자발송 -->
+    <div id="admin-sms" style="display:none">
+      <!-- 문자 유형 -->
+      <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">📝 문자 유형</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg3);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--t);border:1px solid var(--bd)">
+          <input type="radio" name="admin-sms-type" value="deadline" checked onchange="renderAdminSmsTab()" style="accent-color:var(--or)"> ⏰ 마감 알림
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg3);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--t);border:1px solid var(--bd)">
+          <input type="radio" name="admin-sms-type" value="all" onchange="renderAdminSmsTab()" style="accent-color:var(--or)"> 📊 전체 현황
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg3);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--t);border:1px solid var(--bd)">
+          <input type="radio" name="admin-sms-type" value="noentry" onchange="renderAdminSmsTab()" style="accent-color:var(--or)"> 🚨 도입집중
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg3);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--t);border:1px solid var(--bd)">
+          <input type="radio" name="admin-sms-type" value="custom" onchange="renderAdminSmsTab()" style="accent-color:var(--or)"> ✏️ 직접입력
+        </label>
+      </div>
+
+      <!-- 직접입력 텍스트 -->
+      <div id="admin-sms-custom-area" style="display:none;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--t2);margin-bottom:4px">추가 메시지 (자동 생성 내용 아래에 추가됩니다)</div>
+        <textarea id="admin-sms-custom-text" rows="3" oninput="renderAdminSmsTab()"
+          style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit;resize:vertical"
+          placeholder="예) 내일 오전 회의 참석 부탁드립니다."></textarea>
+      </div>
+
+      <!-- 지점별 체크박스 -->
+      <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">
+        수신 지점장 선택
+        <button onclick="adminSmsCheckAll(true)" style="margin-left:8px;padding:2px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">전체선택</button>
+        <button onclick="adminSmsCheckAll(false)" style="margin-left:4px;padding:2px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">전체해제</button>
+      </div>
+      <div id="admin-sms-chk" style="display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin-bottom:12px;max-height:160px;overflow-y:auto"></div>
+
+      <!-- 미리보기 -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:11px;font-weight:700;color:var(--t2)">문자 미리보기</span>
+        <button onclick="adminSmsCopy()" style="padding:5px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:#a78bfa;color:#fff;border:none;touch-action:manipulation">📋 복사</button>
+      </div>
+      <textarea id="admin-sms-preview" rows="11" readonly
+        style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg3);color:var(--t);font-size:13px;font-family:inherit;resize:vertical;line-height:1.7"></textarea>
+      <div style="font-size:10px;color:var(--t3);margin-top:4px">복사 후 문자앱 / 카카오톡에 붙여넣기 하세요.</div>
     </div>
 
   </div>
