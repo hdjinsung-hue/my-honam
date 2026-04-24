@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v75</title>
+<title>호남 지역단 신인도입 현황판 v77</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v75</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v77</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -5788,7 +5788,7 @@ function _parseNames(nl){
 function _getCellData(ym,dd,bi){
   if(!_nextData[ym])_nextData[ym]={};
   if(!_nextData[ym][dd])_nextData[ym][dd]={};
-  if(!_nextData[ym][dd][bi])_nextData[ym][dd][bi]={nameList:'',cards:{}};
+  if(!_nextData[ym][dd][bi])_nextData[ym][dd][bi]={nameList:'',cards:{},registered:{}};
   return _nextData[ym][dd][bi];
 }
 function _saveNext(ym){if(_nextRef)_nextRef.child(ym).set(_nextData[ym]||{});}
@@ -5899,7 +5899,7 @@ function adminSmsGenerate(){
     lines.push('📊 '+m+'월 익월 도입후보자 접수현황','');
     var tot=0;
     selBis.forEach(function(bi){
-      var biT=0;dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biT+=_parseNames(c.nameList).length;});
+      var biT=0;dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biT+=_countReg(c);});
       var hasAny=false;dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};if(c.nameList||c.noEntry)hasAny=true;});
       var mgr=_managers[bi]||{};var mgrName=mgr.name||BR[bi].mgr||'지점장';
       var status=!hasAny?'미입력':biT===0?'접수 0명':'접수 '+biT+'명';
@@ -5912,7 +5912,7 @@ function adminSmsGenerate(){
     var cnt2=0;
     selBis.forEach(function(bi){
       var biT=0;var hasNE=false;
-      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biT+=_parseNames(c.nameList).length;if(c.noEntry)hasNE=true;});
+      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biT+=_countReg(c);if(c.noEntry)hasNE=true;});
       if(biT===0&&hasNE){
         var mgr=_managers[bi]||{};var mgrName=mgr.name||BR[bi].mgr||'지점장';
         lines.push('▶ '+BR[bi].name+' '+mgrName+' 지점장님');
@@ -6013,7 +6013,7 @@ function generateSms(){
     var total=0;
     selBis.forEach(function(bi){
       var biTotal=0;
-      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biTotal+=_parseNames(c.nameList).length;});
+      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biTotal+=_countReg(c);});
       var mgr=_managers[bi]||{};var mgrName=mgr.name||BR[bi].mgr||'지점장';
       var hasAny=false;dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};if(c.nameList||c.noEntry)hasAny=true;});
       var status=!hasAny?'미입력':biTotal===0?'접수 0명':'접수 '+biTotal+'명';
@@ -6028,7 +6028,7 @@ function generateSms(){
     var count2=0;
     selBis.forEach(function(bi){
       var biTotal=0;var hasNoEntry=false;
-      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biTotal+=_parseNames(c.nameList).length;if(c.noEntry)hasNoEntry=true;});
+      dates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};biTotal+=_countReg(c);if(c.noEntry)hasNoEntry=true;});
       if(biTotal===0&&hasNoEntry){
         var mgr=_managers[bi]||{};var mgrName=mgr.name||BR[bi].mgr||'지점장';
         lines.push('▶ '+BR[bi].name+' '+mgrName+' 지점장님');
@@ -6243,6 +6243,7 @@ function nextSaveAndClose(bi){
   cell.noEntry=false;
   var names=_parseNames(ta.value).map(function(p){return p.name;});
   Object.keys(cell.cards||{}).forEach(function(k){if(names.indexOf(k)<0)delete cell.cards[k];});
+  Object.keys(cell.registered||{}).forEach(function(k){if(names.indexOf(k)<0)delete cell.registered[k];});
   _saveNext(ym);
   _nextOpenPanel=-1;
   renderNext();
@@ -6268,21 +6269,57 @@ function nextSaveCard(bi,pidx,checked){
   _saveNext(ym);
   // 카드 목록만 갱신
   var cardEl=document.getElementById('ncard_'+bi);
-  if(cardEl)cardEl.innerHTML=_buildCardList(bi,entries,cell.cards);
+  if(cardEl)cardEl.innerHTML=_buildCardList(bi,entries,cell.cards,cell.registered||{});
 }
-function _buildCardList(bi,entries,cards){
-  if(!entries.length)return '<div style="font-size:11px;color:var(--t3);padding:6px 0">명단 입력 후 ✅ 입력 버튼을 누르세요</div>';
+function _buildCardList(bi,entries,cards,registered){
+  registered=registered||{};
+  if(!entries.length) return '<div style="font-size:11px;color:var(--t3);padding:8px 0">명단 입력 후 ✅ 입력 버튼을 누르세요</div>';
   return entries.map(function(p,pi){
     var ck=!!cards[p.name];
-    return '<label style="display:flex;align-items:center;gap:7px;padding:6px 0;cursor:pointer;border-bottom:1px solid rgba(30,48,85,.3)">'
-      +'<input type="checkbox" '+(ck?'checked':'')+' '
-      +'onchange="nextSaveCard('+bi+','+pi+',this.checked)" '
-      +'style="width:16px;height:16px;cursor:pointer;accent-color:#FF6B2B;flex-shrink:0">'
-      +'<span style="font-size:13px;font-weight:700;color:var(--t)">'+p.name+'</span>'
-      +(p.recruiter?'<span style="font-size:11px;color:#3ecf8e">('+p.recruiter+')</span>':'')
-      +(ck?'':'<span style="font-size:10px;color:var(--or);margin-left:4px">배양등록후 후보자 카드 제출 바랍니다.</span>')
+    var reg=!!registered[p.name];
+    var nameSpan='<span style="font-size:13px;font-weight:700;color:'+(reg?'#3ecf8e':'var(--t)')+'">'+p.name+'</span>';
+    var recSpan=p.recruiter?'<span style="font-size:11px;color:#3ecf8e;margin-left:2px">('+p.recruiter+')</span>':'';
+    var regStatus=reg
+      ?'<span style="font-size:10px;background:rgba(62,207,142,.15);color:#3ecf8e;border-radius:6px;padding:1px 7px;font-weight:700;margin-left:4px">배양등록✓</span>'
+      :'<span style="font-size:10px;color:var(--rd);font-weight:700;margin-left:4px">배양등록 완료 체크하지 않으면 카운팅되지 않습니다.</span>';
+    var regRow='<label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin-bottom:'+(reg?'5':'0')+'px;touch-action:manipulation">'
+      +'<input type="checkbox" '+(reg?'checked':'')+' '
+      +'onchange="nextSaveReg('+bi+','+pi+',this.checked)" '
+      +'style="width:18px;height:18px;cursor:pointer;accent-color:#3ecf8e;flex-shrink:0">'
+      +nameSpan+recSpan+regStatus
       +'</label>';
+    var cardRow=reg
+      ?'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding-left:26px;touch-action:manipulation">'
+        +'<input type="checkbox" '+(ck?'checked':'')+' '
+        +'onchange="nextSaveCard('+bi+','+pi+',this.checked)" '
+        +'style="width:14px;height:14px;cursor:pointer;accent-color:#FF6B2B;flex-shrink:0">'
+        +'<span style="font-size:11px;color:'+(ck?'var(--or)':'var(--t3)')+'">'
+        +(ck?'카드제출 완료 ✓':'후보자 카드 제출 바랍니다.')
+        +'</span></label>'
+      :'';
+    return '<div style="padding:7px 0;border-bottom:1px solid rgba(30,48,85,.3)">'+regRow+cardRow+'</div>';
   }).join('');
+}
+
+function nextSaveReg(bi,pidx,checked){
+  var ym=_nextRenderYM,dd=_nextPanelDate;if(!ym||!dd)return;
+  var ta=document.getElementById('nta_'+bi);
+  var entries=_parseNames(ta?ta.value:'');
+  var p=entries[pidx];if(!p)return;
+  var cell=_getCellData(ym,dd,bi);
+  if(!cell.registered)cell.registered={};
+  cell.registered[p.name]=checked;
+  if(!checked&&cell.cards)cell.cards[p.name]=false;
+  _saveNext(ym);
+  var cardEl=document.getElementById('ncard_'+bi);
+  if(cardEl)cardEl.innerHTML=_buildCardList(bi,entries,cell.cards||{},cell.registered);
+  var cntEl=document.getElementById('ncnt_'+bi);
+  if(cntEl){
+    var hu=entries.length,yu=entries.filter(function(q){return q.recruiter;}).length;
+    var regCnt=Object.values(cell.registered||{}).filter(Boolean).length;
+    var cardCnt=Object.values(cell.cards||{}).filter(Boolean).length;
+    cntEl.innerHTML='후보 <b style="color:#4fa8f5">'+hu+'</b>명 / 유치 <b style="color:#3ecf8e">'+yu+'</b>명 / 배양등록 <b style="color:#3ecf8e">'+regCnt+'</b>명 / 카드제출 <b style="color:var(--or)">'+cardCnt+'</b>명';
+  }
 }
 
 // 날짜 이동
@@ -6309,6 +6346,12 @@ function nextTogglePanel(bi){
   renderNext();
 }
 
+// 배양등록 완료 인원 수 반환
+function _countReg(c){
+  if(!c||!c.registered) return 0;
+  return Object.values(c.registered).filter(Boolean).length;
+}
+
 function renderNext(){
   var ym=_nextYM();_nextRenderYM=ym;
   var ymData=_nextData[ym]||{};
@@ -6327,7 +6370,7 @@ function renderNext(){
   // 전체 합계
   var grandTotal=0;
   var allDates=Object.keys(ymData);
-  BR.forEach(function(_,bi){allDates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};grandTotal+=_parseNames(c.nameList).length;});});
+  BR.forEach(function(_,bi){allDates.forEach(function(dd){var c=(ymData[dd]&&ymData[dd][bi])||{};grandTotal+=_countReg(c);});});
 
   var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;padding:8px 12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'
     +'<span style="font-size:13px;font-weight:700;color:var(--or)">'+y+'년 '+m+'월 접수현황</span>'
@@ -6348,14 +6391,15 @@ function renderNext(){
       var biTotal=0;
       allStoredDates.forEach(function(dd){
         var c=(ymData[dd]&&ymData[dd][bi])||{};
-        biTotal+=_parseNames(c.nameList).length;
+        biTotal+=_countReg(c);
       });
       // ★ 상태 배지는 오늘 날짜 기준으로만 판단
       var todayDD=String(new Date().getDate()).padStart(2,'0');
       var todayCell=(ymData[todayDD]&&ymData[todayDD][bi])||{};
       var todayNoEntry=!!todayCell.noEntry;
-      var todayNames=_parseNames(todayCell.nameList).length;
-      var todayEntered=todayNoEntry||todayNames>0;
+      var todayNames=_countReg(todayCell);
+      var todayEntryCount=_parseNames(todayCell.nameList).length;
+      var todayEntered=todayNoEntry||todayEntryCount>0;
       var isOpen=(_nextOpenPanel===bi);
       var bn=(function(nm){var mt=nm.match(/^(.+?)(지점|TC지점)$/);return mt?{top:mt[1],bot:mt[2]}:{top:nm,bot:''};} )(b.name);
        // ── 상태 결정 (오늘 날짜 기준) ──
@@ -6385,7 +6429,7 @@ function renderNext(){
            +'<span style="font-size:10px;font-weight:900;color:#fca5a5">집중</span>'
            +'</div>';
        } else {
-         var cntTxt=todayNames>0?'<span style="font-size:8px;font-weight:700;color:#166534">'+todayNames+'명</span>':'';
+         var cntTxt=todayNames>0?'<span style="font-size:8px;font-weight:700;color:#166534">'+todayNames+'명(배양등록)</span>':'';
          var cumTxt=(biTotal>0&&(!todayNames||biTotal>todayNames))?'<span style="font-size:8px;color:#166534">누적'+biTotal+'명</span>':'';
          cardBg='linear-gradient(160deg,#052e16,#071e14)';
          cardBdr=isOpen?'2px solid #4ade80':'1.5px solid rgba(74,222,128,.4)';
@@ -6475,9 +6519,13 @@ function renderNext(){
         +'<button onclick="event.stopPropagation();nextNoEntry('+bi+')" '
         +'style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.15);color:var(--rd);border:1px solid rgba(245,96,90,.35);touch-action:manipulation">인원없음</button>'
         +'</div>'
-        +'<div style="font-size:11px;margin-top:5px;color:var(--t2)">후보 <b style="color:#4fa8f5">'+hu+'</b>명 / 유치 <b style="color:#3ecf8e">'+yu+'</b>명 / 카드제출 <b style="color:var(--or)">'+cardCnt+'</b>명</div>'
+        +'<div id="ncnt_'+bi+'" style="font-size:11px;margin-top:5px;color:var(--t2)">후보 <b style="color:#4fa8f5">'+hu+'</b>명 / 유치 <b style="color:#3ecf8e">'+yu+'</b>명 / 배양등록 <b style="color:#3ecf8e">'+_countReg(c)+'</b>명 / 카드제출 <b style="color:var(--or)">'+cardCnt+'</b>명</div>'
         +'</div>';
-      // 카드 체크리스트
+      // 배양등록 체크리스트 (중간)
+      html+='<div style="flex:1;min-width:200px;max-height:260px;overflow-y:auto">'
+        +'<div style="font-size:10px;font-weight:700;color:#3ecf8e;margin-bottom:6px">✅ 배양등록 확인</div>'
+        +'<div id="ncard_'+bi+'">'+_buildCardList(bi,entries,cards,c.registered||{})+'</div>'
+        +'</div>';
       // 우측: 누적 후보자 명단 (날짜별)
       html+='<div style="flex:1;min-width:180px;max-height:260px;overflow-y:auto;border-left:1px solid rgba(30,48,85,.4);padding-left:12px">';
       html+='<div style="font-size:10px;font-weight:700;color:var(--or2);margin-bottom:6px">📋 누적 후보자 명단</div>';
@@ -6555,7 +6603,7 @@ function printNext(){
     });
     totHu+=cHu;
     tbody+='<tr class="cr"><td class="l">▸ '+ckey+' 비전센터</td>'
-      +dates.map(function(dd){var h=0;brIdxs.forEach(function(bi){h+=_parseNames((ymData[dd]&&ymData[dd][bi]&&ymData[dd][bi].nameList)||'').length;});return '<td>'+(h||'-')+'</td>';}).join('')
+      +dates.map(function(dd){var h=0;brIdxs.forEach(function(bi){h+=_countReg((ymData[dd]&&ymData[dd][bi])||{});});return '<td>'+(h||'-')+'</td>';}).join('')
       +'<td>'+cHu+'</td></tr>'+brRows;
   });
   tbody+='<tr class="tot"><td class="l">전체 합계</td>'
