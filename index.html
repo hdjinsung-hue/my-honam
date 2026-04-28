@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="0">
-<meta name="version" content="1777005502">
+<meta http-equiv="Expires" content="1777353374">
+<meta name="version" content="1777353374">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v77</title>
+<title>호남 지역단 신인도입 현황판 v83</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v77</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v83</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -1883,6 +1883,8 @@ function initFirebaseApp(){
     startSync();
     // 정시응시 데이터 로드
     loadEligData();
+    // 합격통계 데이터 로드
+    loadFinalData();
   }catch(e){
     console.error('Firebase 초기화 오류:',e);
     setLive('','연결 실패 - 새로고침 하세요');
@@ -4491,7 +4493,7 @@ function closePwModal(){
   if(pwModal) pwModal.style.display='none';
 }
 function switchAdminTab(tab,el){
-  ['goal','branch','reset','dates','attend','log','examstat','nextmonth','sms'].forEach(function(t){var p=document.getElementById('admin-'+t);if(p)p.style.display=t===tab?'block':'none';});
+  ['goal','branch','reset','dates','attend','log','examstat','nextmonth','sms','finalstat'].forEach(function(t){var p=document.getElementById('admin-'+t);if(p)p.style.display=t===tab?'block':'none';});
   if(tab==='branch')renderAdminBranch();
   if(tab==='attend')renderAdminAttend();
   if(tab==='dates')initCalendar();
@@ -4500,6 +4502,7 @@ function switchAdminTab(tab,el){
   if(tab==='nextmonth')renderAdminNextMonth();
   if(tab==='sms'){renderAdminSmsTab();}
   if(tab==='reset'){renderAdminResetList();renderAdminAttNames();}
+  if(tab==='finalstat'){initFinalStat();}
   document.querySelectorAll('.admin-tab').forEach(function(b){b.style.background='var(--bg3)';b.style.color='var(--t2)';b.style.border='1px solid var(--bd)';});
   el.style.background='#7c3aed';el.style.color='#fff';el.style.border='none';
   if(tab==='log')loadLog();
@@ -5368,6 +5371,10 @@ function saveExamScore(){
   if(kpJe3){pay.je3='kipass';}
   else if(je3Val){var jj=parseInt(je3Val);if(!isNaN(jj)){pay.je3=jj>=60?'pass':'fail';pay.je3Score=jj;}}
   if(!Object.keys(pay).length){_reset();_show('입력 없음','245,96,90,.9');return;}
+  // 저장 시점 기록 (월별 통계용)
+  var _now=new Date();
+  pay.ts = _now.getTime();
+  pay.ym = String(_now.getFullYear()) + String(_now.getMonth()+1).padStart(2,'0');
 
   var done=false;
   var tmr=setTimeout(function(){
@@ -7325,6 +7332,631 @@ function xlsFinalEligList(){
 }
 
 // ── 관리자 익월후보 관리 ──
+// ══════════════════════════════════════════
+// 📊 합격통계 (월별 저장 + 일괄 붙여넣기)
+// ══════════════════════════════════════════
+// Firebase 구조: honam_final/{ym}/{bi}/{personKey}/{result, tookExam, name, examAvg}
+var _finalDataAll = {}; // {ym:{bi:{pk:{...}}}}
+var _finalRef = null;
+var _fsOpenBi = -1;
+var _fsCurYM = '';      // 현재 보고 있는 월
+
+function loadFinalData(){
+  if(!db||_finalRef) return;
+  _finalRef = db.ref('honam_final');
+  _finalRef.on('value', function(snap){
+    _finalDataAll = snap.val()||{};
+    var elPanel = document.getElementById('admin-finalstat');
+    if(elPanel && elPanel.style.display!=='none') renderFinalStat();
+  });
+}
+
+function _fsKey(name){ return (name||'').replace(/[.#$]/g,'_').replace(/\[/g,'_').replace(/\]/g,'_'); }
+
+function _fsCurData(){
+  if(!_fsCurYM) return {};
+  return _finalDataAll[_fsCurYM] || {};
+}
+
+function _fsAttRate(bi, name){
+  var a=att[bi]||{};
+  if(!DATES||!DATES.length) return null;
+  var ym=_fsCurYM;
+  var curMM = ym?ym.slice(4):'';   // '04' 형식
+  var t=0,p=0;
+  DATES.forEach(function(d){
+    // DATES key가 MMDD 형식이면 월 매칭
+    if(curMM && d.key && d.key.length===4){
+      if(d.key.slice(0,2)!==curMM) return;
+    }
+    var dl=(a.attendance&&a.attendance[d.key])||[];
+    t++; if(dl.indexOf(name)>=0) p++;
+  });
+  return t>0?Math.round(p/t*100):null;
+}
+
+function _fsExamAvg(bi, pk){
+  var pd=(_examData[bi]||{})[pk]||{};
+  var ym=_fsCurYM;
+  var scores=[];
+  for(var r=1;r<=15;r++){
+    var rd=pd['round'+r]||{};var best=-1;
+    Object.keys(rd).forEach(function(t){
+      var td=rd[t]||{};
+      // 해당 월 데이터만 필터 (ts 또는 ym 필드 확인 / 둘 다 없으면 모든 점수 포함)
+      if(td.ym && td.ym!==ym) return;
+      var sv=td.son==='kipass'?100:(typeof td.sonScore==='number'?td.sonScore:null);
+      var jv=td.je3==='kipass'?100:(typeof td.je3Score==='number'?td.je3Score:null);
+      if(sv!==null&&jv!==null){var avg=(sv+jv)/2;if(avg>best)best=avg;}
+    });
+    if(best>=0) scores.push(best);
+  }
+  return scores.length?(scores.reduce(function(a,b){return a+b;},0)/scores.length).toFixed(1):'-';
+}
+
+function _fsAllNames(bi){
+  var arr=[];var seen={};
+  // 기합격자
+  (data[bi]&&data[bi].passList||[]).forEach(function(n){if(!seen[n]){seen[n]=true;arr.push({name:n,type:'기합격'});}});
+  // 정시접수자
+  (data[bi]&&data[bi].regList||[]).forEach(function(n){if(!seen[n]){seen[n]=true;arr.push({name:n,type:'정시'});}});
+  // 입문출결
+  (att[bi]&&att[bi].attendees||[]).forEach(function(n){if(!seen[n]){seen[n]=true;arr.push({name:n,type:'교육생'});}});
+  // 직접 입력된 명단
+  var brData = (_fsCurData()[bi])||{};
+  Object.keys(brData).forEach(function(pk){
+    var fd=brData[pk]||{};
+    var nm=fd.name||pk;
+    if(!seen[nm]){seen[nm]=true;arr.push({name:nm,type:'직접입력',pk:pk});}
+  });
+  return arr;
+}
+
+function _fsBrStats(bi){
+  var names=_fsAllNames(bi);
+  var pass=0,fail=0,partial=0,exam=0,attSum=0,attCnt=0;
+  var brData=(_fsCurData()[bi])||{};
+  names.forEach(function(it){
+    var pk=it.pk||_fsKey(it.name);
+    var fd=brData[pk]||{};
+    if(it.type==='기합격'){pass++;exam++;}
+    else{
+      if(fd.result==='pass'){pass++;exam++;}
+      else if(fd.result==='fail'){fail++;exam++;}
+      else if(fd.result==='partial'){partial++;exam++;}
+      else if(fd.tookExam) exam++;
+    }
+    var ar=_fsAttRate(bi,it.name);
+    if(ar!==null){attSum+=ar;attCnt++;}
+  });
+  return {total:names.length,pass:pass,fail:fail,partial:partial,exam:exam,avgAtt:attCnt?Math.round(attSum/attCnt):0};
+}
+
+function initFinalStat(){
+  loadFinalData();
+  // 현재 월로 초기화
+  if(!_fsCurYM){
+    var now=new Date();
+    _fsCurYM = String(now.getFullYear()) + String(now.getMonth()+1).padStart(2,'0');
+  }
+  // 월 셀렉터 초기화
+  var ySel=document.getElementById('fs-year-sel');
+  var mSel=document.getElementById('fs-month-sel');
+  var now=new Date();
+  if(ySel && ySel.options.length===0){
+    for(var y=now.getFullYear()-1;y<=now.getFullYear()+1;y++){
+      var o=document.createElement('option');o.value=y;o.textContent=y+'년';ySel.appendChild(o);
+    }
+    ySel.value=parseInt(_fsCurYM.slice(0,4));
+  }
+  if(mSel && mSel.options.length===0){
+    for(var m=1;m<=12;m++){
+      var o2=document.createElement('option');o2.value=m;o2.textContent=m+'월';mSel.appendChild(o2);
+    }
+    mSel.value=parseInt(_fsCurYM.slice(4));
+  }
+  setTimeout(renderFinalStat, 200);
+}
+
+function fsChangeMonth(){
+  var ySel=document.getElementById('fs-year-sel');
+  var mSel=document.getElementById('fs-month-sel');
+  if(ySel&&mSel){
+    _fsCurYM = String(ySel.value) + String(mSel.value).padStart(2,'0');
+    _fsOpenBi = -1;
+    renderFinalStat();
+  }
+}
+
+function fsTogglePanel(bi){
+  _fsOpenBi = (_fsOpenBi===bi)?-1:bi;
+  renderFinalStat();
+}
+
+function saveFinalResult(bi, personKey, field, val){
+  var ym=_fsCurYM; if(!ym) return;
+  if(!_finalDataAll[ym]) _finalDataAll[ym]={};
+  if(!_finalDataAll[ym][bi]) _finalDataAll[ym][bi]={};
+  if(!_finalDataAll[ym][bi][personKey]) _finalDataAll[ym][bi][personKey]={};
+  _finalDataAll[ym][bi][personKey][field] = val;
+  if(_finalRef) _finalRef.child(ym+'/'+bi+'/'+personKey+'/'+field).set(val);
+}
+
+function renderFinalStat(){
+  var wrap=document.getElementById('fs-body'); if(!wrap) return;
+  var ym=_fsCurYM;
+  var y=ym.slice(0,4), m=parseInt(ym.slice(4));
+
+  // 전체 합계
+  var totT=0,totE=0,totP=0,totPart=0,totF=0;
+  var brStats=BR.map(function(b,i){return {bi:i,name:b.name,mgr:b.mgr,st:_fsBrStats(i)};});
+  brStats.forEach(function(b){
+    totT+=b.st.total;totE+=b.st.exam;totP+=b.st.pass;totPart+=b.st.partial;totF+=b.st.fail;
+  });
+  var totRate=totE?Math.round(totP/totE*100):0;
+
+  // 합격률 기준 정렬
+  var sortedBr=brStats.slice().sort(function(a,b){
+    var ra=a.st.exam?a.st.pass/a.st.exam:0;
+    var rb=b.st.exam?b.st.pass/b.st.exam:0;
+    if(rb!==ra) return rb-ra;
+    return b.st.pass-a.st.pass;
+  });
+
+  var html='';
+
+  // ── 월 선택 + 액션 버튼 ──
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">'
+    +'<span style="font-size:14px;font-weight:900;color:var(--or)">📊 '+y+'년 '+m+'월 합격통계</span>'
+    +'<select id="fs-year-sel" onchange="fsChangeMonth()" style="padding:6px 10px;border:1px solid var(--bd);border-radius:7px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit"></select>'
+    +'<select id="fs-month-sel" onchange="fsChangeMonth()" style="padding:6px 10px;border:1px solid var(--bd);border-radius:7px;background:var(--bg3);color:var(--t);font-size:12px;font-family:inherit"></select>'
+    +'<div style="margin-left:auto;display:flex;gap:6px">'
+    +'<button onclick="finalPasteAll()" style="padding:7px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.4)">📋 전체 붙여넣기</button>'
+    +'<button onclick="finalPreview()" style="padding:7px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(79,168,245,.15);color:#4fa8f5;border:1px solid rgba(79,168,245,.4)">👁️ 미리보기</button>'
+    +'<button onclick="finalPrint()" style="padding:7px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,107,43,.15);color:var(--or);border:1px solid rgba(255,107,43,.4)">🖨️ 출력</button>'
+    +'</div>'
+    +'</div>';
+
+  // 셀렉터 값 복원
+  setTimeout(function(){
+    var ySel=document.getElementById('fs-year-sel');
+    var mSel=document.getElementById('fs-month-sel');
+    var now=new Date();
+    if(ySel && ySel.options.length===0){
+      for(var y=now.getFullYear()-1;y<=now.getFullYear()+1;y++){
+        var o=document.createElement('option');o.value=y;o.textContent=y+'년';ySel.appendChild(o);
+      }
+      ySel.value=parseInt(_fsCurYM.slice(0,4));
+    } else if(ySel) ySel.value=parseInt(_fsCurYM.slice(0,4));
+    if(mSel && mSel.options.length===0){
+      for(var mm=1;mm<=12;mm++){
+        var o2=document.createElement('option');o2.value=mm;o2.textContent=mm+'월';mSel.appendChild(o2);
+      }
+      mSel.value=parseInt(_fsCurYM.slice(4));
+    } else if(mSel) mSel.value=parseInt(_fsCurYM.slice(4));
+  }, 50);
+
+  // ── 상단 카드: 전체 + TOP3 ──
+  html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">';
+  html+='<div style="background:linear-gradient(160deg,#2a1400,#1e1000);border:1.5px solid var(--or);border-radius:14px;padding:12px 10px;text-align:center">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--or2);margin-bottom:4px">📊 전체 합격률</div>'
+    +'<div style="font-size:22px;font-weight:900;color:var(--or);line-height:1.2">'+totRate+'%</div>'
+    +'<div style="font-size:10px;color:var(--t2);margin-top:4px">합격 '+totP+' / 응시 '+totE+'</div>'
+    +'</div>';
+  for(var ri=0;ri<3;ri++){
+    var b=sortedBr[ri];
+    if(!b||b.st.exam===0){
+      html+='<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:14px;padding:12px 10px;text-align:center">'
+        +'<div style="font-size:10px;color:var(--t3)">'+(ri+1)+'위</div>'
+        +'<div style="font-size:13px;color:var(--t3);margin-top:8px">데이터 없음</div>'
+        +'</div>';
+      continue;
+    }
+    var br=b.st.exam?Math.round(b.st.pass/b.st.exam*100):0;
+    var rankColors=['#FFD700','#C0C0C0','#CD7F32'];
+    var rc=rankColors[ri];
+    html+='<div style="background:linear-gradient(160deg,#0a1a2e,#071222);border:1.5px solid '+rc+';border-radius:14px;padding:12px 10px;text-align:center">'
+      +'<div style="font-size:10px;font-weight:700;color:'+rc+';margin-bottom:2px">🏆 '+(ri+1)+'위</div>'
+      +'<div style="font-size:13px;font-weight:900;color:#e8edf5">'+b.name+'</div>'
+      +'<div style="font-size:18px;font-weight:900;color:'+rc+';margin-top:4px">'+br+'%</div>'
+      +'<div style="font-size:9px;color:var(--t2);margin-top:2px">합격 '+b.st.pass+' / '+b.st.exam+'</div>'
+      +'</div>';
+  }
+  html+='</div>';
+
+  // ── 지점 현황 테이블 ──
+  html+='<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:12px;overflow:hidden">';
+  html+='<div style="padding:10px 14px;background:rgba(255,107,43,.08);display:flex;align-items:center;justify-content:space-between">'
+    +'<span style="font-size:13px;font-weight:900;color:var(--or)">전체 지점 합격 현황</span>'
+    +'<span style="font-size:10px;color:var(--t3)">📋 행 클릭 → 세부 명단</span>'
+    +'</div>';
+  html+='<div style="display:grid;grid-template-columns:48px 1.4fr 0.9fr 60px 60px 60px 60px 1.2fr;gap:0;padding:10px 14px;font-size:11px;font-weight:700;color:var(--or);background:var(--bg3);border-bottom:1px solid var(--bd)">'
+    +'<div>순위</div><div>지점명</div><div>지점장</div>'
+    +'<div style="text-align:center">교육생</div>'
+    +'<div style="text-align:center;color:#a78bfa">응시</div>'
+    +'<div style="text-align:center;color:#3ecf8e">합격</div>'
+    +'<div style="text-align:center;color:#f87171">불합격</div>'
+    +'<div style="text-align:center">합격률</div>'
+    +'</div>';
+
+  // 호남지역단 합계행
+  var totBarColor=totRate>=70?'#3ecf8e':totRate>=50?'#f59e0b':'#f87171';
+  html+='<div style="display:grid;grid-template-columns:48px 1.4fr 0.9fr 60px 60px 60px 60px 1.2fr;gap:0;padding:14px;background:linear-gradient(90deg,rgba(255,107,43,.15),rgba(255,107,43,.05));border-bottom:1px solid rgba(255,107,43,.3);align-items:center">'
+    +'<div><span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:var(--or);color:#fff;font-size:11px;font-weight:900;text-align:center;line-height:28px">계</span></div>'
+    +'<div><div style="font-size:14px;font-weight:900;color:var(--or)">호남지역단</div><div style="font-size:10px;color:var(--t3)">팀 합계</div></div>'
+    +'<div style="font-size:11px;color:var(--t3)">-</div>'
+    +'<div style="text-align:center;font-size:14px;font-weight:900;color:#e8edf5">'+totT+'</div>'
+    +'<div style="text-align:center;font-size:14px;font-weight:900;color:#a78bfa">'+totE+'</div>'
+    +'<div style="text-align:center;font-size:14px;font-weight:900;color:#3ecf8e">'+totP+'</div>'
+    +'<div style="text-align:center;font-size:14px;font-weight:900;color:#f87171">'+totF+'</div>'
+    +'<div><div style="position:relative;height:24px;background:rgba(30,48,85,.5);border-radius:6px;overflow:hidden">'
+    +'<div style="position:absolute;left:0;top:0;height:100%;width:'+Math.min(totRate,100)+'%;background:linear-gradient(90deg,'+totBarColor+',var(--or))"></div>'
+    +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff">'+totRate+'%</div>'
+    +'</div></div>'
+    +'</div>';
+
+  sortedBr.forEach(function(b, idx){
+    var st=b.st;
+    var rate=st.exam?Math.round(st.pass/st.exam*100):0;
+    var bi=b.bi;
+    var isOpen=(_fsOpenBi===bi);
+    var rankColors=['#FFD700','#C0C0C0','#CD7F32'];
+    var rankBg=idx<3?rankColors[idx]:'var(--bg3)';
+    var rankFg=idx<3?'#000':'var(--t)';
+    var barColor=rate>=70?'#3ecf8e':rate>=50?'#f59e0b':st.exam?'#f87171':'rgba(255,255,255,.15)';
+
+    html+='<div onclick="fsTogglePanel('+bi+')" style="display:grid;grid-template-columns:48px 1.4fr 0.9fr 60px 60px 60px 60px 1.2fr;gap:0;padding:12px 14px;border-bottom:1px solid var(--bd);cursor:pointer;align-items:center;background:'+(isOpen?'rgba(255,107,43,.08)':'transparent')+';transition:background .15s">'
+      +'<div><span style="display:inline-block;width:26px;height:26px;border-radius:50%;background:'+rankBg+';color:'+rankFg+';font-size:11px;font-weight:900;text-align:center;line-height:26px">'+(idx+1)+'</span></div>'
+      +'<div><div style="font-size:13px;font-weight:900;color:#e8edf5">'+b.name+'</div><div style="font-size:10px;color:var(--t3)">지점</div></div>'
+      +'<div style="font-size:12px;color:var(--t2)">'+(b.mgr||'-')+'</div>'
+      +'<div style="text-align:center;font-size:13px;font-weight:700;color:#e8edf5">'+st.total+'</div>'
+      +'<div style="text-align:center;font-size:13px;font-weight:700;color:#a78bfa">'+(st.exam||'-')+'</div>'
+      +'<div style="text-align:center;font-size:13px;font-weight:700;color:#3ecf8e">'+(st.pass||'-')+'</div>'
+      +'<div style="text-align:center;font-size:13px;font-weight:700;color:#f87171">'+(st.fail||'-')+'</div>'
+      +'<div>'
+        +'<div style="position:relative;height:22px;background:rgba(30,48,85,.5);border-radius:6px;overflow:hidden">'
+        +'<div style="position:absolute;left:0;top:0;height:100%;width:'+Math.min(rate,100)+'%;background:'+barColor+'"></div>'
+        +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff">'+rate+'%</div>'
+        +'</div>'
+        +(st.partial?'<div style="font-size:9px;color:#f59e0b;margin-top:2px;text-align:center">부분합격 '+st.partial+'명</div>':'')
+      +'</div>'
+      +'</div>';
+
+    if(isOpen) html+=_fsRenderDetailPanel(bi);
+  });
+
+  html+='</div>';
+
+  // ── 일괄 붙여넣기 (전체) ──
+  html+='<div id="fs-paste-all-area" style="display:none;background:var(--bg2);border:1.5px solid #a78bfa;border-radius:12px;padding:14px 16px;margin-top:14px">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+    +'<span style="font-size:13px;font-weight:900;color:#a78bfa">📋 전체 일괄 붙여넣기</span>'
+    +'<button onclick="document.getElementById(\'fs-paste-all-area\').style.display=\'none\'" style="background:none;border:none;color:var(--t2);font-size:18px;cursor:pointer">✕</button>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--t2);margin-bottom:6px;line-height:1.6">'
+    +'<b>형식</b>: 첫 줄에 [지점명], 다음 줄부터 명단 (이름 합격/불합격/부분합격, 이름만 입력 시 응시 처리)'
+    +'</div>'
+    +'<div style="font-size:10px;color:var(--t3);margin-bottom:6px;background:rgba(167,139,250,.08);padding:6px 8px;border-radius:6px">'
+    +'예시:<br>'
+    +'[광주제일지점]<br>홍길동 합격<br>박철수 불합격<br>김영희 부분합격<br><br>'
+    +'[새광주지점]<br>이순신<br>강감찬 합격'
+    +'</div>'
+    +'<textarea id="fs-paste-all" rows="10" placeholder="[광주제일지점]&#10;홍길동 합격&#10;박철수 불합격&#10;&#10;[새광주지점]&#10;이순신 합격" '
+    +'style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:13px;font-family:inherit;resize:vertical;line-height:1.6"></textarea>'
+    +'<div style="display:flex;gap:6px;margin-top:8px">'
+    +'<button onclick="finalPasteAllApply()" style="flex:1;padding:9px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#a78bfa;color:#fff;border:none">✅ 전체 적용</button>'
+    +'<button onclick="document.getElementById(\'fs-paste-all\').value=\'\'" style="padding:9px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">지우기</button>'
+    +'</div>'
+    +'</div>';
+
+  // 안내
+  html+='<div style="font-size:10px;color:var(--t3);margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;line-height:1.6">'
+    +'💡 월 선택 시 해당 월 데이터만 표시 · 모든 데이터는 월별로 자동 저장됩니다 (12월 말까지 누적)<br>'
+    +'💡 출결률·모의평균은 자동 연동 · 결과는 행 클릭 후 입력하거나 일괄 붙여넣기로 적용'
+    +'</div>';
+
+  wrap.innerHTML = html;
+}
+
+// 지점 세부 명단 패널
+function _fsRenderDetailPanel(bi){
+  var b=BR[bi];
+  var names=_fsAllNames(bi);
+  var brData=(_fsCurData()[bi])||{};
+
+  var html='<div onclick="event.stopPropagation()" style="background:rgba(11,22,40,.95);padding:14px 18px;border-bottom:2px solid var(--or);border-top:1px solid var(--or)">';
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+    +'<span style="font-size:14px;font-weight:900;color:var(--or)">📋 '+b.name+' 세부 명단</span>'
+    +'<button onclick="event.stopPropagation();fsTogglePanel('+bi+')" style="background:none;border:none;color:var(--t2);font-size:18px;cursor:pointer">✕</button>'
+    +'</div>';
+
+  // 지점별 붙여넣기
+  html+='<div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:10px;border:1px dashed rgba(255,107,43,.4)">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--or2);margin-bottom:4px">📋 '+b.name+' 붙여넣기</div>'
+    +'<div style="font-size:10px;color:var(--t3);margin-bottom:6px">한 줄에 한 명. 형식: <b style="color:var(--t2)">이름 합격/불합격/부분합격</b> 또는 이름만</div>'
+    +'<textarea id="fs-paste-'+bi+'" rows="4" placeholder="홍길동 합격&#10;박철수 불합격&#10;이순신 부분합격" '
+    +'style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:13px;font-family:inherit;resize:vertical;line-height:1.6"></textarea>'
+    +'<div style="display:flex;gap:6px;margin-top:6px">'
+    +'<button onclick="event.stopPropagation();finalPasteApply('+bi+')" style="flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or);color:#fff;border:none">✅ 적용</button>'
+    +'<button onclick="event.stopPropagation();finalClearPaste('+bi+')" style="padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd)">지우기</button>'
+    +'</div>'
+    +'</div>';
+
+  if(!names.length){
+    html+='<div style="padding:20px;text-align:center;color:var(--t3);background:var(--bg3);border-radius:8px">명단이 없습니다.</div>';
+  } else {
+    html+='<div style="background:var(--bg3);border-radius:8px;overflow:hidden;border:1px solid var(--bd)">';
+    html+='<div style="display:grid;grid-template-columns:1.5fr 0.7fr 0.7fr 0.7fr 0.6fr 1fr 0.5fr;gap:0;padding:8px 10px;background:rgba(255,107,43,.1);font-size:10px;font-weight:700;color:var(--or)">'
+      +'<div>이름</div><div style="text-align:center">유형</div>'
+      +'<div style="text-align:center">출결률</div><div style="text-align:center">모의평균</div>'
+      +'<div style="text-align:center;color:#a78bfa">응시</div>'
+      +'<div style="text-align:center;color:#3ecf8e">결과</div>'
+      +'<div style="text-align:center">삭제</div>'
+      +'</div>';
+
+    names.forEach(function(it){
+      var pk=it.pk||_fsKey(it.name);
+      var fd=brData[pk]||{};
+      var isPassed=it.type==='기합격';
+      var attR=_fsAttRate(bi,it.name);
+      var examA=_fsExamAvg(bi,pk);
+      var attCol=attR===null?'var(--t3)':attR>=80?'#3ecf8e':attR>=60?'#f59e0b':'#f87171';
+      var result=fd.result||'';
+
+      var resultSel='';
+      if(isPassed){
+        resultSel='<span style="font-size:11px;font-weight:700;color:#3ecf8e;background:rgba(62,207,142,.15);border-radius:5px;padding:2px 8px">기합격</span>';
+      } else {
+        resultSel='<select onchange="event.stopPropagation();saveFinalResult('+bi+',\''+pk+'\',\'result\',this.value);renderFinalStat()" '
+          +'onclick="event.stopPropagation()" '
+          +'style="padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t);font-size:11px;font-family:inherit;cursor:pointer;width:100%">'
+          +'<option value="">—</option>'
+          +'<option value="pass" '+(result==='pass'?'selected':'')+'>합격</option>'
+          +'<option value="partial" '+(result==='partial'?'selected':'')+'>부분합격</option>'
+          +'<option value="fail" '+(result==='fail'?'selected':'')+'>불합격</option>'
+          +'</select>';
+      }
+
+      var examChk=isPassed
+        ?'<span style="color:#3ecf8e;font-size:13px">✓</span>'
+        :'<input type="checkbox" '+(fd.tookExam||result?'checked':'')+' '
+          +'onchange="event.stopPropagation();saveFinalResult('+bi+',\''+pk+'\',\'tookExam\',this.checked);renderFinalStat()" '
+          +'onclick="event.stopPropagation()" '
+          +'style="width:15px;height:15px;cursor:pointer;accent-color:#a78bfa">';
+
+      var delBtn=it.type==='직접입력'
+        ?'<button onclick="event.stopPropagation();finalDelPerson('+bi+',\''+pk+'\')" style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3)">✕</button>'
+        :'<span style="color:var(--t3);font-size:10px">—</span>';
+
+      html+='<div style="display:grid;grid-template-columns:1.5fr 0.7fr 0.7fr 0.7fr 0.6fr 1fr 0.5fr;gap:0;padding:8px 10px;border-top:1px solid rgba(30,48,85,.3);align-items:center;font-size:11px">'
+        +'<div style="font-weight:700;color:var(--t)">'+it.name+'</div>'
+        +'<div style="text-align:center;color:var(--t2);font-size:10px">'+it.type+'</div>'
+        +'<div style="text-align:center;font-weight:700;color:'+attCol+'">'+(attR!==null?attR+'%':'-')+'</div>'
+        +'<div style="text-align:center;color:'+(examA!=='-'&&parseFloat(examA)>=60?'#3ecf8e':examA!=='-'?'#f87171':'var(--t3)')+'">'+examA+'</div>'
+        +'<div style="text-align:center">'+examChk+'</div>'
+        +'<div style="text-align:center">'+resultSel+'</div>'
+        +'<div style="text-align:center">'+delBtn+'</div>'
+        +'</div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+// 전체 붙여넣기 영역 토글
+function finalPasteAll(){
+  var el=document.getElementById('fs-paste-all-area');
+  if(el){
+    el.style.display = el.style.display==='none'?'block':'none';
+    if(el.style.display==='block') el.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+}
+
+// 전체 일괄 붙여넣기 적용
+function finalPasteAllApply(){
+  var ta=document.getElementById('fs-paste-all');
+  if(!ta||!ta.value.trim()){alert('내용을 입력하세요.');return;}
+  var lines=ta.value.split('\n');
+  var curBi=-1;
+  var totalApplied=0;
+  lines.forEach(function(line){
+    line=line.trim(); if(!line) return;
+    // 지점명 헤더 감지: [지점명] 또는 [지점명지점]
+    var bm=line.match(/^\[(.+?)\]\s*$/);
+    if(bm){
+      var nm=bm[1].trim();
+      // 매칭 (정확/부분)
+      curBi=-1;
+      BR.forEach(function(b,i){
+        if(b.name===nm) curBi=i;
+        else if(curBi<0 && b.name.indexOf(nm)>=0) curBi=i;
+        else if(curBi<0 && nm.indexOf(b.name.replace(/지점|TC지점/g,''))>=0) curBi=i;
+      });
+      return;
+    }
+    if(curBi<0) return;
+    // 명단 파싱
+    var result='';
+    var name='';
+    var m=line.match(/^(.+?)\s+(부분합격|불합격|합격)\s*$/);
+    if(m){
+      name=m[1].trim();
+      var kw=m[2];
+      if(kw==='합격') result='pass';
+      else if(kw==='불합격') result='fail';
+      else if(kw==='부분합격') result='partial';
+    } else {
+      name=line; result='';
+    }
+    if(!name) return;
+    var pk=_fsKey(name);
+    var ym=_fsCurYM;
+    if(!_finalDataAll[ym]) _finalDataAll[ym]={};
+    if(!_finalDataAll[ym][curBi]) _finalDataAll[ym][curBi]={};
+    if(!_finalDataAll[ym][curBi][pk]) _finalDataAll[ym][curBi][pk]={};
+    _finalDataAll[ym][curBi][pk].name=name;
+    _finalDataAll[ym][curBi][pk].tookExam=true;
+    if(result) _finalDataAll[ym][curBi][pk].result=result;
+    if(_finalRef) _finalRef.child(ym+'/'+curBi+'/'+pk).set(_finalDataAll[ym][curBi][pk]);
+    totalApplied++;
+  });
+  ta.value='';
+  document.getElementById('fs-paste-all-area').style.display='none';
+  alert(totalApplied+'명 적용되었습니다.');
+  renderFinalStat();
+}
+
+// 지점별 붙여넣기 적용
+function finalPasteApply(bi){
+  var ta=document.getElementById('fs-paste-'+bi);
+  if(!ta||!ta.value.trim()){alert('내용을 입력하세요.');return;}
+  var lines=ta.value.split('\n');
+  var applied=0;
+  var ym=_fsCurYM;
+  lines.forEach(function(line){
+    line=line.trim(); if(!line) return;
+    var result=''; var name='';
+    var m=line.match(/^(.+?)\s+(부분합격|불합격|합격)\s*$/);
+    if(m){
+      name=m[1].trim();
+      var kw=m[2];
+      if(kw==='합격') result='pass';
+      else if(kw==='불합격') result='fail';
+      else if(kw==='부분합격') result='partial';
+    } else {
+      name=line; result='';
+    }
+    if(!name) return;
+    var pk=_fsKey(name);
+    if(!_finalDataAll[ym]) _finalDataAll[ym]={};
+    if(!_finalDataAll[ym][bi]) _finalDataAll[ym][bi]={};
+    if(!_finalDataAll[ym][bi][pk]) _finalDataAll[ym][bi][pk]={};
+    _finalDataAll[ym][bi][pk].name=name;
+    _finalDataAll[ym][bi][pk].tookExam=true;
+    if(result) _finalDataAll[ym][bi][pk].result=result;
+    if(_finalRef) _finalRef.child(ym+'/'+bi+'/'+pk).set(_finalDataAll[ym][bi][pk]);
+    applied++;
+  });
+  ta.value='';
+  alert(applied+'명 적용되었습니다.');
+  renderFinalStat();
+}
+
+function finalClearPaste(bi){
+  var ta=document.getElementById('fs-paste-'+bi);
+  if(ta) ta.value='';
+}
+
+function finalDelPerson(bi, pk){
+  if(!confirm('삭제하시겠습니까?')) return;
+  var ym=_fsCurYM;
+  if(_finalDataAll[ym]&&_finalDataAll[ym][bi]) delete _finalDataAll[ym][bi][pk];
+  if(_finalRef) _finalRef.child(ym+'/'+bi+'/'+pk).remove();
+  renderFinalStat();
+}
+
+// 미리보기
+function finalPreview(){
+  finalPrint(true);
+}
+
+// 출력
+function finalPrint(previewOnly){
+  var ym=_fsCurYM; var y=ym.slice(0,4), m=parseInt(ym.slice(4));
+  var totT=0,totE=0,totP=0,totPart=0,totF=0;
+  var brStats=BR.map(function(b,i){return {bi:i,name:b.name,mgr:b.mgr,st:_fsBrStats(i)};});
+  brStats.forEach(function(b){totT+=b.st.total;totE+=b.st.exam;totP+=b.st.pass;totPart+=b.st.partial;totF+=b.st.fail;});
+  var totRate=totE?Math.round(totP/totE*100):0;
+  var sortedBr=brStats.slice().sort(function(a,b){
+    var ra=a.st.exam?a.st.pass/a.st.exam:0;
+    var rb=b.st.exam?b.st.pass/b.st.exam:0;
+    if(rb!==ra) return rb-ra;
+    return b.st.pass-a.st.pass;
+  });
+
+  var w=window.open('','_blank','width=1100,height=850');
+  if(!w){alert('팝업 차단됨');return;}
+  var today=new Date().toLocaleDateString('ko-KR');
+  var css='body{font-family:"맑은 고딕",sans-serif;padding:20px;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#222}'
+    +'h1{font-size:18px;color:#FF6B2B;margin:0 0 4px}.sub{font-size:10px;color:#666;margin-bottom:16px}'
+    +'.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}'
+    +'.sumC{padding:10px;border-radius:8px;text-align:center;border:1.5px solid #FF6B2B}'
+    +'.sumC.t{background:#FFF3EB}.sumC h3{font-size:10px;color:#FF6B2B;margin:0 0 4px}'
+    +'.sumC .v{font-size:20px;font-weight:900;color:#FF6B2B}.sumC .s{font-size:9px;color:#666;margin-top:3px}'
+    +'.rank1{border-color:#DAA520;background:#FFFAEC}.rank2{border-color:#888;background:#F8F8F8}.rank3{border-color:#A0522D;background:#FFF4ED}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:10px}'
+    +'th{background:#FF6B2B;color:#fff;padding:6px 4px;border:1px solid #ddd;text-align:center}'
+    +'td{padding:5px 6px;border:1px solid #ddd;text-align:center}'
+    +'td.l{text-align:left;padding-left:8px}.tot{background:#FFF3EB;font-weight:700}'
+    +'.bar{background:#eee;border-radius:4px;height:18px;position:relative;overflow:hidden}'
+    +'.bar div{position:absolute;left:0;top:0;height:100%}'
+    +'.bar span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#000}'
+    +'h2{font-size:13px;color:#FF6B2B;margin:14px 0 6px;border-left:4px solid #FF6B2B;padding-left:8px}'
+    +'.det th{background:#1A2F50;color:#fff}'
+    +'@media print{@page{size:A4;margin:8mm}body{padding:0}}';
+
+  var body='<h1>📊 '+y+'년 '+m+'월 신인도입 결과</h1>'
+    +'<div class="sub">현대해상 호남지역단 · 출력일: '+today+'</div>';
+
+  // 요약 카드
+  body+='<div class="summary">';
+  body+='<div class="sumC t"><h3>전체 합격률</h3><div class="v">'+totRate+'%</div><div class="s">합격 '+totP+' / 응시 '+totE+'</div></div>';
+  for(var ri=0;ri<3;ri++){
+    var b=sortedBr[ri];
+    if(!b||b.st.exam===0){
+      body+='<div class="sumC"><h3>'+(ri+1)+'위</h3><div class="v" style="color:#aaa;font-size:14px">데이터 없음</div></div>';
+      continue;
+    }
+    var br=Math.round(b.st.pass/b.st.exam*100);
+    body+='<div class="sumC rank'+(ri+1)+'"><h3>🏆 '+(ri+1)+'위 '+b.name+'</h3><div class="v">'+br+'%</div><div class="s">합격 '+b.st.pass+' / '+b.st.exam+'</div></div>';
+  }
+  body+='</div>';
+
+  // 지점 현황
+  body+='<table><thead><tr>'
+    +'<th>순위</th><th>지점명</th><th>지점장</th><th>교육생</th><th>응시</th><th>합격</th><th>부분합격</th><th>불합격</th><th>합격률</th>'
+    +'</tr></thead><tbody>';
+  body+='<tr class="tot"><td>계</td><td class="l">호남지역단</td><td>-</td><td>'+totT+'</td><td>'+totE+'</td><td>'+totP+'</td><td>'+totPart+'</td><td>'+totF+'</td>'
+    +'<td><div class="bar"><div style="width:'+Math.min(totRate,100)+'%;background:#FF6B2B"></div><span>'+totRate+'%</span></div></td></tr>';
+  sortedBr.forEach(function(b, idx){
+    var st=b.st;
+    var rate=st.exam?Math.round(st.pass/st.exam*100):0;
+    var bc=rate>=70?'#3ecf8e':rate>=50?'#f59e0b':'#f87171';
+    body+='<tr><td>'+(idx+1)+'</td><td class="l">'+b.name+'</td><td>'+(b.mgr||'-')+'</td>'
+      +'<td>'+st.total+'</td><td>'+(st.exam||'-')+'</td><td>'+(st.pass||'-')+'</td><td>'+(st.partial||'-')+'</td><td>'+(st.fail||'-')+'</td>'
+      +'<td><div class="bar"><div style="width:'+Math.min(rate,100)+'%;background:'+bc+'"></div><span>'+rate+'%</span></div></td></tr>';
+  });
+  body+='</tbody></table>';
+
+  // 지점별 세부 명단
+  brStats.forEach(function(b){
+    var names=_fsAllNames(b.bi);
+    if(!names.length) return;
+    var brData=(_fsCurData()[b.bi])||{};
+    body+='<h2>'+b.name+' 세부 명단 ('+names.length+'명)</h2>';
+    body+='<table class="det"><thead><tr><th>이름</th><th>유형</th><th>출결률</th><th>모의평균</th><th>응시</th><th>결과</th></tr></thead><tbody>';
+    names.forEach(function(it){
+      var pk=it.pk||_fsKey(it.name);
+      var fd=brData[pk]||{};
+      var isPassed=it.type==='기합격';
+      var attR=_fsAttRate(b.bi,it.name);
+      var examA=_fsExamAvg(b.bi,pk);
+      var resTxt=isPassed?'기합격':fd.result==='pass'?'합격':fd.result==='partial'?'부분합격':fd.result==='fail'?'불합격':fd.tookExam?'응시(미입력)':'미응시';
+      var resColor=isPassed||fd.result==='pass'?'#3ecf8e':fd.result==='partial'?'#f59e0b':fd.result==='fail'?'#f87171':'#666';
+      body+='<tr><td class="l">'+it.name+'</td><td>'+it.type+'</td>'
+        +'<td>'+(attR!==null?attR+'%':'-')+'</td><td>'+examA+'</td>'
+        +'<td>'+(isPassed||fd.tookExam?'✓':'-')+'</td>'
+        +'<td style="color:'+resColor+';font-weight:700">'+resTxt+'</td></tr>';
+    });
+    body+='</tbody></table>';
+  });
+
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+y+'년 '+m+'월 신인도입 결과</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  w.document.close();
+  if(!previewOnly) setTimeout(function(){w.print();},600);
+}
+
 function renderAdminNextMonth(){
   var yEl=document.getElementById('anm-year');
   var mEl=document.getElementById('anm-month');
@@ -7481,6 +8113,7 @@ function adminNextClearBranch(ym,bi){
       <button class="admin-tab" onclick="switchAdminTab('examstat',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📝 모의고사</button>
       <button class="admin-tab" onclick="switchAdminTab('nextmonth',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📅 익월후보</button>
       <button class="admin-tab" onclick="switchAdminTab('sms',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📱 문자발송</button>
+      <button class="admin-tab" onclick="switchAdminTab('finalstat',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📊 합격통계</button>
     </div>
 
     <!-- 🎯 목표 -->
@@ -7695,6 +8328,11 @@ function adminNextClearBranch(ym,bi){
       <textarea id="admin-sms-preview" rows="11" readonly
         style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg3);color:var(--t);font-size:13px;font-family:inherit;resize:vertical;line-height:1.7"></textarea>
       <div style="font-size:10px;color:var(--t3);margin-top:4px">복사 후 문자앱 / 카카오톡에 붙여넣기 하세요.</div>
+    </div>
+
+    <!-- 📊 합격통계 -->
+    <div id="admin-finalstat" style="display:none">
+      <div id="fs-body"></div>
     </div>
 
   </div>
