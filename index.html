@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1777355801">
-<meta name="version" content="1777355801">
+<meta http-equiv="Expires" content="1777357105">
+<meta name="version" content="1777357105">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v85</title>
+<title>호남 지역단 신인도입 현황판 v87</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v85</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v87</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -6251,6 +6251,9 @@ function nextSaveAndClose(bi){
   var names=_parseNames(ta.value).map(function(p){return p.name;});
   Object.keys(cell.cards||{}).forEach(function(k){if(names.indexOf(k)<0)delete cell.cards[k];});
   Object.keys(cell.registered||{}).forEach(function(k){if(names.indexOf(k)<0)delete cell.registered[k];});
+  // ★ 기존/신규 명단 모두 배양등록 자동 체크
+  if(!cell.registered) cell.registered={};
+  names.forEach(function(n){ cell.registered[n]=true; });
   _saveNext(ym);
   _nextOpenPanel=-1;
   renderNext();
@@ -6288,7 +6291,7 @@ function _buildCardList(bi,entries,cards,registered){
     var recSpan=p.recruiter?'<span style="font-size:11px;color:#3ecf8e;margin-left:2px">('+p.recruiter+')</span>':'';
     var regStatus=reg
       ?'<span style="font-size:10px;background:rgba(62,207,142,.15);color:#3ecf8e;border-radius:6px;padding:1px 7px;font-weight:700;margin-left:4px">배양등록✓</span>'
-      :'<span style="font-size:10px;color:var(--rd);font-weight:700;margin-left:4px">배양등록 완료 체크하지 않으면 카운팅되지 않습니다.</span>';
+      :'<span style="font-size:10px;color:var(--rd);font-weight:700;margin-left:6px">⚠ 배양등록 후 입력바랍니다.</span>';
     var regRow='<label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin-bottom:'+(reg?'5':'0')+'px;touch-action:manipulation">'
       +'<input type="checkbox" '+(reg?'checked':'')+' '
       +'onchange="nextSaveReg('+bi+','+pi+',this.checked)" '
@@ -6459,9 +6462,10 @@ function renderNext(){
          // 컬러바
          +'<div style="height:3px;background:'+barColor+'"></div>'
          +'<div style="padding:10px 10px 10px;position:relative;min-height:80px">'
-           // 지점명 (전체, 잘림 없음)
-           +'<div style="font-size:14px;font-weight:900;color:#e8edf5;line-height:1.3;word-break:keep-all;padding-right:54px">'
-             +b.name
+           // 지점명 + 접수 배지
+           +'<div style="display:flex;align-items:flex-start;gap:6px;padding-right:54px;flex-wrap:wrap">'
+             +'<span style="font-size:14px;font-weight:900;color:#e8edf5;line-height:1.3;word-break:keep-all">'+b.name+'</span>'
+             +(biTotal>0?'<span style="font-size:10px;font-weight:900;color:#4fa8f5;background:rgba(79,168,245,.15);border:1px solid rgba(79,168,245,.35);border-radius:10px;padding:2px 7px;white-space:nowrap;margin-top:2px">접수 '+biTotal+'명</span>':'')
            +'</div>'
            // 지점장
            +'<div style="font-size:12px;color:#94a3b8;margin-top:3px">'
@@ -6529,6 +6533,9 @@ function renderNext(){
         +'<div id="ncnt_'+bi+'" style="font-size:11px;margin-top:5px;color:var(--t2)">후보 <b style="color:#4fa8f5">'+hu+'</b>명 / 유치 <b style="color:#3ecf8e">'+yu+'</b>명 / 배양등록 <b style="color:#3ecf8e">'+_countReg(c)+'</b>명 / 카드제출 <b style="color:var(--or)">'+cardCnt+'</b>명</div>'
         +'</div>';
       // 배양등록 체크리스트 (중간)
+      // ★ 기존 명단(registered 미설정)은 자동 체크
+      if(!c.registered) c.registered={};
+      entries.forEach(function(p){ if(c.registered[p.name]===undefined) c.registered[p.name]=true; });
       html+='<div style="flex:1;min-width:200px;max-height:260px;overflow-y:auto">'
         +'<div style="font-size:10px;font-weight:700;color:#3ecf8e;margin-bottom:6px">✅ 배양등록 확인</div>'
         +'<div id="ncard_'+bi+'">'+_buildCardList(bi,entries,cards,c.registered||{})+'</div>'
