@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1777851134">
-<meta name="version" content="1777851134">
+<meta http-equiv="Expires" content="1777851577">
+<meta name="version" content="1777851577">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v1.00</title>
+<title>호남 지역단 신인도입 현황판 v1.01</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.00</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.01</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -4643,14 +4643,70 @@ function _ymKey(y, m){
 
 // 출결 데이터 중 해당 월 날짜만 초기화
 function _resetAttMonth(bi, ym){
-  var mm=ym.slice(4); // '04'
-  if(!att[bi]) att[bi]={attendees:[],attendance:{},eliminated:{},completed:{}};
-  // attendance에서 해당 월 키만 삭제
+  var mm=ym.slice(4); // '04' 형식
+  if(!att[bi]) att[bi]={attendees:[],attendance:{},eliminated:{},absenceReason:{},completed:{},completedAt:{}};
+
+  // 1. 해당 월의 attendance(출석 기록) 키 삭제
+  var monthKeys = []; // 해당 월의 날짜 키들
   if(att[bi].attendance){
     Object.keys(att[bi].attendance).forEach(function(k){
-      if(k.length===4 && k.slice(0,2)===mm) delete att[bi].attendance[k];
+      if(k.length===4 && k.slice(0,2)===mm){
+        monthKeys.push(k);
+        delete att[bi].attendance[k];
+      }
     });
   }
+
+  // 2. 해당 월에만 등장하고 다른 월에는 출석 기록이 없는 attendees 제거
+  // (다른 월에도 출석 기록 있는 사람은 유지)
+  var namesInOtherMonths = {};
+  if(att[bi].attendance){
+    Object.keys(att[bi].attendance).forEach(function(k){
+      (att[bi].attendance[k]||[]).forEach(function(nm){
+        namesInOtherMonths[nm] = true;
+      });
+    });
+  }
+
+  // attendees 필터: 다른 월에 출석 기록이 있는 사람만 유지
+  // 단, 신인도입 명단(passList/regList)에 있는 사람은 항상 유지
+  var protectedNames = {};
+  if(data[bi]){
+    (data[bi].passList||[]).forEach(function(n){ protectedNames[n] = true; });
+    (data[bi].regList||[]).forEach(function(n){ protectedNames[n] = true; });
+  }
+
+  if(att[bi].attendees){
+    att[bi].attendees = att[bi].attendees.filter(function(nm){
+      // 다른 월에 출석 기록이 있거나, 신인도입 명단에 있으면 유지
+      return namesInOtherMonths[nm] || protectedNames[nm];
+    });
+  }
+
+  // 3. 해당 월 관련 eliminated / completed / completedAt / absenceReason 정리
+  // (해당 월 날짜와 연관된 데이터만 제거)
+  ['eliminated','completed','completedAt','absenceReason'].forEach(function(field){
+    if(!att[bi][field]) return;
+    Object.keys(att[bi][field]).forEach(function(k){
+      // 키가 날짜 형식(MMDD)인 경우 해당 월만 삭제
+      if(k.length===4 && /^\d{4}$/.test(k) && k.slice(0,2)===mm){
+        delete att[bi][field][k];
+      }
+    });
+  });
+
+  // 4. attendees에서 제거된 사람의 모든 보조 데이터 정리
+  var keepSet = {};
+  (att[bi].attendees||[]).forEach(function(n){ keepSet[n] = true; });
+  ['eliminated','completed','completedAt','absenceReason'].forEach(function(field){
+    if(!att[bi][field]) return;
+    Object.keys(att[bi][field]).forEach(function(k){
+      // 키가 사람 이름인 경우 attendees에 없으면 삭제
+      if(!(k.length===4 && /^\d{4}$/.test(k))){
+        if(!keepSet[k]) delete att[bi][field][k];
+      }
+    });
+  });
 }
 
 function adminResetMonth(type){
