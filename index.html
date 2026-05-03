@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1777851577">
-<meta name="version" content="1777851577">
+<meta http-equiv="Expires" content="1777852027">
+<meta name="version" content="1777852027">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v1.01</title>
+<title>호남 지역단 신인도입 현황판 v1.02</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.01</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.02</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -434,6 +434,14 @@ input[type=file].xf{display:none}
 <!-- 입문 출결 탭 -->
 <div class="tab-pane" id="tab-att">
 <div class="wrap">
+  <!-- 입문 출결 타이틀 + 전월 명단 초기화 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;gap:8px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:8px">
+      <h2 id="att-title" style="font-size:18px;font-weight:900;color:var(--or);margin:0;letter-spacing:-.3px">📋 입문 출결</h2>
+      <span id="att-title-sub" style="font-size:11px;color:var(--t3)">현재 월 기준</span>
+    </div>
+    <button onclick="resetPrevMonthAttList()" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3);touch-action:manipulation">🗑️ 전월 명단 초기화</button>
+  </div>
   <div class="att-sum" id="att-sum"></div>
   <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:.625rem;flex-wrap:wrap">
     <button onclick="checkSyncMismatch()" style="padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.3)">🔄 명단 불일치 확인</button>
@@ -1614,6 +1622,112 @@ document.getElementById('rhdt').textContent=dstr+' 기준';
 // 신인도입 현황 타이틀 — 월별 표시
 var _rcardTitle = document.getElementById('rcard-title');
 if(_rcardTitle){ _rcardTitle.textContent = '📊 '+(now.getMonth()+1)+'월 신인도입 현황'; }
+// 입문 출결 타이틀 — 월별 표시
+var _attTitle = document.getElementById('att-title');
+if(_attTitle){ _attTitle.textContent = '📋 '+(now.getMonth()+1)+'월 입문 출결'; }
+var _attTitleSub = document.getElementById('att-title-sub');
+if(_attTitleSub){ _attTitleSub.textContent = (now.getFullYear())+'년 '+(now.getMonth()+1)+'월 기준'; }
+
+// ── 전월 입문출결 명단 초기화 (현재 월 attendance 기록이 없는 사람 모두 제거) ──
+function resetPrevMonthAttList(){
+  var prevD = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  var prevYM = String(prevD.getFullYear())+String(prevD.getMonth()+1).padStart(2,'0');
+  var py = prevD.getFullYear(), pm = prevD.getMonth()+1;
+
+  var msg = py+'년 '+pm+'월(전월) 입문 출결 명단을 초기화하시겠습니까?\n\n';
+  msg += '※ 전월에만 출석 기록이 있고 이번 달에 출석 기록이 없는\n';
+  msg += '   교육생 명단이 모두 삭제됩니다.\n';
+  msg += '※ 신인도입(기합격·정시접수) 명단에 있는 사람은 보호됩니다.\n\n';
+  msg += '계속하시겠습니까?';
+  if(!confirm(msg)) return;
+
+  // 비밀번호 확인 (관리자 권한)
+  var pw = prompt('관리자 비밀번호를 입력하세요:');
+  if(pw !== '2080'){
+    alert('비밀번호가 올바르지 않습니다.');
+    return;
+  }
+
+  var curMM = String(now.getMonth()+1).padStart(2,'0');
+  var totalRemoved = 0;
+  var summary = [];
+
+  BR.forEach(function(b, bi){
+    if(!att[bi]) return;
+    var attendance = att[bi].attendance || {};
+
+    // 1단계: 전월(prevMM) attendance 키 삭제
+    var prevMM = String(pm).padStart(2,'0');
+    Object.keys(attendance).forEach(function(k){
+      if(k.length===4 && k.slice(0,2)===prevMM){
+        delete attendance[k];
+      }
+    });
+
+    // 2단계: 현재 월에 출석 기록이 있는 이름만 추출
+    var currentMonthNames = {};
+    Object.keys(attendance).forEach(function(k){
+      if(k.length===4 && k.slice(0,2)===curMM){
+        (attendance[k]||[]).forEach(function(nm){
+          currentMonthNames[nm] = true;
+        });
+      }
+    });
+
+    // 3단계: 신인도입 명단에 있는 사람 보호
+    var protectedNames = {};
+    if(data[bi]){
+      (data[bi].passList||[]).forEach(function(n){ protectedNames[n] = true; });
+      (data[bi].regList||[]).forEach(function(n){ protectedNames[n] = true; });
+    }
+
+    // 4단계: attendees 필터링 (현재 월 출석 + 신인도입 명단만 유지)
+    var oldAttendees = (att[bi].attendees||[]).slice();
+    var newAttendees = oldAttendees.filter(function(nm){
+      return currentMonthNames[nm] || protectedNames[nm];
+    });
+    var removed = oldAttendees.length - newAttendees.length;
+    if(removed > 0){
+      att[bi].attendees = newAttendees;
+      totalRemoved += removed;
+      summary.push(b.name+': '+removed+'명 삭제');
+    }
+
+    // 5단계: 보조 데이터 정리 (이름 키 + 전월 날짜 키)
+    var keepSet = {};
+    newAttendees.forEach(function(n){ keepSet[n] = true; });
+    ['eliminated','completed','completedAt','absenceReason'].forEach(function(field){
+      if(!att[bi][field]) return;
+      Object.keys(att[bi][field]).forEach(function(k){
+        // 전월 날짜 키 삭제
+        if(k.length===4 && /^\d{4}$/.test(k) && k.slice(0,2)===prevMM){
+          delete att[bi][field][k];
+          return;
+        }
+        // 이름 키인데 attendees에 없으면 삭제
+        if(!(k.length===4 && /^\d{4}$/.test(k))){
+          if(!keepSet[k]) delete att[bi][field][k];
+        }
+      });
+    });
+  });
+
+  // Firebase 저장
+  if(typeof attRef !== 'undefined' && attRef){
+    if(typeof saveAtt === 'function') saveAtt();
+  }
+
+  // 화면 갱신
+  if(typeof renderAtt === 'function') renderAtt();
+
+  var resultMsg = '✅ '+py+'년 '+pm+'월 명단 초기화 완료\n\n';
+  resultMsg += '제거된 인원: '+totalRemoved+'명\n';
+  if(summary.length > 0){
+    resultMsg += '\n[지점별 제거 현황]\n'+summary.slice(0,15).join('\n');
+    if(summary.length > 15) resultMsg += '\n...외 '+(summary.length-15)+'개 지점';
+  }
+  alert(resultMsg);
+}
 
 
 
