@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1777357105">
-<meta name="version" content="1777357105">
+<meta http-equiv="Expires" content="1777849997">
+<meta name="version" content="1777849997">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v87</title>
+<title>호남 지역단 신인도입 현황판 v88</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v87</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v88</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -4516,8 +4516,174 @@ function saveGoals(){
   if(dbRef)dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
   render(-1,false); alert('목표 저장 완료'+(changed.length?(' ('+changed.join(', ')+')'):'')); 
 }
+// ── 관리자 월별 초기화 ──
+function _resetCurYM(){
+  var ySel=document.getElementById('reset-year-sel');
+  var mSel=document.getElementById('reset-month-sel');
+  if(!ySel||!mSel) return null;
+  // 셀렉터 초기화
+  if(ySel.options.length===0){
+    var now=new Date();
+    for(var y=now.getFullYear()-1;y<=now.getFullYear()+1;y++){
+      var o=document.createElement('option');o.value=y;o.textContent=y+'년';ySel.appendChild(o);
+    }
+    ySel.value=now.getFullYear();
+  }
+  if(mSel.options.length===0){
+    var now2=new Date();
+    for(var m=1;m<=12;m++){
+      var o2=document.createElement('option');o2.value=m;o2.textContent=m+'월';mSel.appendChild(o2);
+    }
+    mSel.value=now2.getMonth()+1;
+  }
+  return String(ySel.value)+String(mSel.value).padStart(2,'0');
+}
+
+function _ymKey(y, m){
+  return String(y)+String(m).padStart(2,'0');
+}
+
+// 출결 데이터 중 해당 월 날짜만 초기화
+function _resetAttMonth(bi, ym){
+  var mm=ym.slice(4); // '04'
+  if(!att[bi]) att[bi]={attendees:[],attendance:{},eliminated:{},completed:{}};
+  // attendance에서 해당 월 키만 삭제
+  if(att[bi].attendance){
+    Object.keys(att[bi].attendance).forEach(function(k){
+      if(k.length===4 && k.slice(0,2)===mm) delete att[bi].attendance[k];
+    });
+  }
+}
+
+function adminResetMonth(type){
+  var ym=_resetCurYM();
+  if(!ym){alert('월을 선택하세요');return;}
+  var y=ym.slice(0,4), m=parseInt(ym.slice(4));
+  var typeName={att:'출결',data:'신인도입',next:'익월후보',final:'합격통계'}[type]||'';
+  if(!confirm(y+'년 '+m+'월 '+typeName+' 데이터를 초기화하시겠습니까?\n(다른 월 데이터는 그대로 유지됩니다)')) return;
+
+  if(type==='att'){
+    // 모든 지점의 해당 월 출결 삭제
+    BR.forEach(function(_,bi){ _resetAttMonth(bi, ym); });
+    if(attRef) saveAtt();
+    renderAtt();
+  }
+  else if(type==='data'){
+    // 신인도입은 월별 분리가 없는 구조 → 안내
+    if(!confirm('신인도입(기합격·정시접수) 명단은 월별 분리가 되어있지 않아\n전체 데이터가 초기화됩니다. 계속하시겠습니까?')) return;
+    data=BR.map(function(b,i){return Object.assign({},b,{id:i,passList:[],regList:[],goal:b.goal});});
+    if(dbRef) dbRef.set(data.map(function(d){return {passList:[],regList:[],goal:d.goal};}));
+    render(-1,false);
+  }
+  else if(type==='next'){
+    // 익월후보 (_nextData) 해당 월 삭제
+    if(typeof _nextData!=='undefined' && _nextData[ym]){
+      delete _nextData[ym];
+      if(typeof _nextRef!=='undefined' && _nextRef){
+        _nextRef.child(ym).remove();
+      }
+    }
+    if(typeof renderNext==='function') renderNext();
+  }
+  else if(type==='final'){
+    // 합격통계 (_finalDataAll) 해당 월 삭제
+    if(typeof _finalDataAll!=='undefined' && _finalDataAll[ym]){
+      delete _finalDataAll[ym];
+    }
+    if(typeof _finalRef!=='undefined' && _finalRef){
+      _finalRef.child(ym).remove();
+    }
+    if(typeof renderFinalStat==='function') renderFinalStat();
+  }
+  renderAdminResetList();
+  alert(y+'년 '+m+'월 '+typeName+' 초기화 완료');
+}
+
+// 지점별 월 초기화
+function adminResetBranchMonth(bi, type){
+  var ym=_resetCurYM();
+  if(!ym) return;
+  var b=BR[bi];
+  var y=ym.slice(0,4), m=parseInt(ym.slice(4));
+  var typeName={att:'출결',data:'신인도입',next:'익월후보',final:'합격통계'}[type]||'';
+  if(!confirm(y+'년 '+m+'월 '+b.name+' '+typeName+' 초기화?')) return;
+
+  if(type==='att'){
+    _resetAttMonth(bi, ym);
+    if(attRef) saveAtt();
+    renderAtt();
+  }
+  else if(type==='data'){
+    if(!confirm('신인도입(기합격·정시접수) 명단은 월별 분리가 되어있지 않아\n해당 지점 전체 데이터가 초기화됩니다. 계속하시겠습니까?')) return;
+    data[bi].passList=[]; data[bi].regList=[];
+    if(dbRef) dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
+    render(-1,false);
+  }
+  else if(type==='next'){
+    if(typeof _nextData!=='undefined' && _nextData[ym]){
+      Object.keys(_nextData[ym]||{}).forEach(function(dd){
+        if(_nextData[ym][dd] && _nextData[ym][dd][bi]){
+          delete _nextData[ym][dd][bi];
+          if(typeof _nextRef!=='undefined' && _nextRef){
+            _nextRef.child(ym+'/'+dd+'/'+bi).remove();
+          }
+        }
+      });
+    }
+    if(typeof renderNext==='function') renderNext();
+  }
+  else if(type==='final'){
+    if(typeof _finalDataAll!=='undefined' && _finalDataAll[ym] && _finalDataAll[ym][bi]){
+      delete _finalDataAll[ym][bi];
+    }
+    if(typeof _finalRef!=='undefined' && _finalRef){
+      _finalRef.child(ym+'/'+bi).remove();
+    }
+    if(typeof renderFinalStat==='function') renderFinalStat();
+  }
+  renderAdminResetList();
+  alert(b.name+' '+m+'월 '+typeName+' 초기화 완료');
+}
+
 function renderAdminResetList(){
-  var html=''; BR.forEach(function(b,i){var bn=sn(b.name),attCnt=att[i].attendees.length,recCnt=(data[i].passList||[]).length+(data[i].regList||[]).length;html+='<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(30,48,85,.3)"><span style="flex:1;font-size:12px;color:var(--text)">'+bn.top+bn.bot+'</span><span style="font-size:10px;color:var(--text3)">출결'+attCnt+'/도입'+recCnt+'</span><button onclick="adminResetBranch('+i+',0)" style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:var(--rd);border:1px solid rgba(245,96,90,.3)">출결초기화</button><button onclick="adminResetBranch('+i+',1)" style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:var(--rd);border:1px solid rgba(245,96,90,.3)">도입초기화</button></div>';});
+  var ym=_resetCurYM();
+  var html='';
+  BR.forEach(function(b,i){
+    var bn=sn(b.name);
+    // 해당 월 카운트
+    var attCnt=0;
+    if(ym && att[i] && att[i].attendance){
+      var mm=ym.slice(4);
+      Object.keys(att[i].attendance).forEach(function(k){
+        if(k.length===4 && k.slice(0,2)===mm){
+          attCnt += (att[i].attendance[k]||[]).length;
+        }
+      });
+    }
+    var nextCnt=0;
+    if(ym && typeof _nextData!=='undefined' && _nextData[ym]){
+      Object.keys(_nextData[ym]||{}).forEach(function(dd){
+        var c=(_nextData[ym][dd]||{})[i]||{};
+        if(c.registered) nextCnt += Object.values(c.registered).filter(Boolean).length;
+      });
+    }
+    var finalCnt=0;
+    if(ym && typeof _finalDataAll!=='undefined' && _finalDataAll[ym] && _finalDataAll[ym][i]){
+      finalCnt = Object.keys(_finalDataAll[ym][i]).length;
+    }
+    html+='<div style="padding:6px 8px;border-bottom:1px solid rgba(30,48,85,.3);background:'+(i%2===0?'rgba(17,31,56,.3)':'transparent')+'">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'
+      +'<span style="flex:1;font-size:12px;color:var(--t);font-weight:700">'+bn.top+bn.bot+'</span>'
+      +'<span style="font-size:10px;color:var(--t3)">출결 '+attCnt+' · 익월 '+nextCnt+' · 합격 '+finalCnt+'</span>'
+      +'</div>'
+      +'<div style="display:flex;gap:4px;flex-wrap:wrap">'
+      +'<button onclick="adminResetBranchMonth('+i+',\'att\')" style="padding:3px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:var(--rd);border:1px solid rgba(245,96,90,.3)">출결</button>'
+      +'<button onclick="adminResetBranchMonth('+i+',\'next\')" style="padding:3px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:var(--rd);border:1px solid rgba(245,96,90,.3)">익월후보</button>'
+      +'<button onclick="adminResetBranchMonth('+i+',\'final\')" style="padding:3px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:var(--rd);border:1px solid rgba(245,96,90,.3)">합격통계</button>'
+      +'<button onclick="adminResetBranchMonth('+i+',\'data\')" style="padding:3px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.1);color:var(--rd);border:1px solid rgba(245,96,90,.3)">도입</button>'
+      +'</div>'
+      +'</div>';
+  });
   var el=document.getElementById('admin-reset-list'); if(el)el.innerHTML=html;
 }
 function adminReset(type){
@@ -8338,11 +8504,28 @@ function adminNextClearBranch(ym,bi){
     <!-- 🗑️ 초기화 -->
     <div id="admin-reset" style="display:none">
       <div style="font-size:12px;color:var(--rd);margin-bottom:10px;font-weight:700">⚠️ 초기화는 되돌릴 수 없습니다.</div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button onclick="adminReset('att')" style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">전체 출결 초기화</button>
-        <button onclick="adminReset('data')" style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">전체 도입 초기화</button>
+
+      <!-- 월 선택 -->
+      <div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:14px;border:1px solid var(--bd)">
+        <div style="font-size:11px;font-weight:700;color:var(--or2);margin-bottom:6px">📅 초기화 대상 월 선택</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="reset-year-sel" onchange="renderAdminResetList()" style="flex:1;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:12px;font-family:inherit"></select>
+          <select id="reset-month-sel" onchange="renderAdminResetList()" style="flex:1;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:12px;font-family:inherit"></select>
+        </div>
+        <div style="font-size:10px;color:var(--t3);margin-top:6px">선택된 월의 데이터만 초기화됩니다 (다른 월은 보존)</div>
       </div>
-      <div style="font-size:11px;color:var(--t2);margin-bottom:8px;font-weight:700">지점별 초기화</div>
+
+      <!-- 전체 월별 초기화 -->
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <button onclick="adminResetMonth('att')" style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">선택월 출결 초기화</button>
+        <button onclick="adminResetMonth('data')" style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">선택월 도입 초기화</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button onclick="adminResetMonth('next')" style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">선택월 익월후보 초기화</button>
+        <button onclick="adminResetMonth('final')" style="flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.12);color:var(--rd);border:1px solid rgba(245,96,90,.3)">선택월 합격통계 초기화</button>
+      </div>
+
+      <div style="font-size:11px;color:var(--t2);margin-bottom:8px;font-weight:700">지점별 초기화 (선택월)</div>
       <div id="admin-reset-list"></div>
 
       <!-- 교육생 명단 삭제 -->
@@ -8364,7 +8547,7 @@ function adminNextClearBranch(ym,bi){
       <div id="cal-grid" style="margin-bottom:10px"></div>
       <div style="font-size:11px;color:var(--t2);margin-bottom:4px">선택된 날짜: <span id="cal-sel-cnt" style="font-weight:700;color:var(--or)">0</span>일</div>
       <div id="cal-sel-list" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;min-height:24px"></div>
-      <button onclick="saveCalendar()" style="width:100%;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or);color:#fff;border:none">💾 날짜 저장</button>
+      <button onclick="saveDates()" style="width:100%;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--or);color:#fff;border:none">💾 날짜 저장</button>
     </div>
 
     <!-- 📋 출결현황 -->
