@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1777849997">
-<meta name="version" content="1777849997">
+<meta http-equiv="Expires" content="1777850302">
+<meta name="version" content="1777850302">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v88</title>
+<title>호남 지역단 신인도입 현황판 v89</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v88</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v89</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -407,9 +407,12 @@ input[type=file].xf{display:none}
           <button onclick="applyTeamPaste('pass')" style="width:100%;margin-top:5px;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.2);color:#3ecf8e;border:1px solid rgba(62,207,142,.35)">✅ 기합격 반영</button>
         </div>
         <div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px">
             <span style="font-size:12px;font-weight:700;color:#FF6B2B">📝 정시접수자</span>
-            <button onclick="openBulkRecruit('paste','reg')" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:8px;cursor:pointer;font-family:inherit;background:rgba(255,107,43,.15);color:#FF6B2B;border:1px solid rgba(255,107,43,.3)">일괄 붙여넣기</button>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <button onclick="loadFromPrevNextMonth()" title="전월 익월후보(배양등록 완료자)를 정시접수자로 불러옵니다" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:8px;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3)">📅 전월후보 불러오기</button>
+              <button onclick="openBulkRecruit('paste','reg')" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:8px;cursor:pointer;font-family:inherit;background:rgba(255,107,43,.15);color:#FF6B2B;border:1px solid rgba(255,107,43,.3)">일괄 붙여넣기</button>
+            </div>
           </div>
           <div style="font-size:10px;color:#5a6e8c;margin-bottom:5px">지점명 + 이름 형식 (자유롭게)</div>
           <textarea id="team-reg-inp" placeholder="광주제일 홍길동 김철수&#10;새광주: 박민수, 정수진&#10;상무중앙 / 최지훈 오세연" style="width:100%;height:90px;font-size:12px;padding:8px;border:1px solid rgba(255,107,43,.25);border-radius:8px;background:#0b1628;color:#e8edf5;font-family:inherit;resize:none;line-height:1.6"></textarea>
@@ -2623,6 +2626,96 @@ function doneAttPanel(i){
       setTimeout(function(){toast.style.display='none';},2200);
     }
   }
+}
+
+// ── 전월 익월후보 → 정시접수 자동 가져오기 ──
+function loadFromPrevNextMonth(){
+  if(typeof _nextData==='undefined' || !_nextData){
+    alert('익월후보 데이터를 찾을 수 없습니다.');
+    return;
+  }
+  // 전월 ym 계산 (오늘 기준 한 달 전)
+  var now=new Date();
+  var prevDate=new Date(now.getFullYear(), now.getMonth()-1, 1);
+  var prevYM = String(prevDate.getFullYear())+String(prevDate.getMonth()+1).padStart(2,'0');
+  var py = prevDate.getFullYear(), pm = prevDate.getMonth()+1;
+
+  // 사용자 확인
+  var msg = py+'년 '+pm+'월 익월후보 명단(배양등록 완료자)을\n정시접수자로 불러옵니다.\n\n';
+  msg += '※ 신인도입 명단은 월별 분리가 없으므로\n   기존 정시접수자 명단에 누적 추가됩니다.\n\n계속하시겠습니까?';
+  if(!confirm(msg)) return;
+
+  var prevData = _nextData[prevYM] || {};
+  if(!Object.keys(prevData).length){
+    alert(py+'년 '+pm+'월 익월후보 데이터가 없습니다.');
+    return;
+  }
+
+  // 지점별로 배양등록 완료된 후보자 수집
+  var addedByBranch = {}; // {bi: [name1, name2, ...]}
+  var totalAdded = 0;
+  var totalSkipped = 0;
+
+  Object.keys(prevData).forEach(function(dd){
+    var dayData = prevData[dd] || {};
+    Object.keys(dayData).forEach(function(biStr){
+      var bi = parseInt(biStr);
+      if(isNaN(bi) || !BR[bi]) return;
+      var cell = dayData[bi] || {};
+      var registered = cell.registered || {};
+      // 배양등록된 이름만 추출
+      Object.keys(registered).forEach(function(name){
+        if(!registered[name]) return;
+        if(!addedByBranch[bi]) addedByBranch[bi] = [];
+        if(addedByBranch[bi].indexOf(name)<0) addedByBranch[bi].push(name);
+      });
+    });
+  });
+
+  if(!Object.keys(addedByBranch).length){
+    alert(py+'년 '+pm+'월에 배양등록 완료된 후보자가 없습니다.');
+    return;
+  }
+
+  // 각 지점의 regList에 추가 (중복 제외)
+  var summary = [];
+  Object.keys(addedByBranch).forEach(function(biStr){
+    var bi = parseInt(biStr);
+    if(!data[bi]) return;
+    if(!data[bi].regList) data[bi].regList = [];
+    if(!data[bi].passList) data[bi].passList = [];
+    var addedList = [];
+    addedByBranch[bi].forEach(function(name){
+      // 이미 정시접수자 또는 기합격자에 있으면 skip
+      if(data[bi].regList.indexOf(name)>=0 || data[bi].passList.indexOf(name)>=0){
+        totalSkipped++;
+      } else {
+        data[bi].regList.push(name);
+        addedList.push(name);
+        totalAdded++;
+      }
+    });
+    if(addedList.length>0){
+      summary.push(BR[bi].name+': '+addedList.length+'명 ('+addedList.join(', ')+')');
+    }
+  });
+
+  // Firebase 저장
+  if(dbRef){
+    dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
+  }
+  // 화면 갱신
+  render(-1, false);
+
+  // 결과 표시
+  var resultMsg = '✅ '+py+'년 '+pm+'월 익월후보 불러오기 완료\n\n';
+  resultMsg += '추가됨: '+totalAdded+'명\n';
+  if(totalSkipped>0) resultMsg += '중복으로 제외: '+totalSkipped+'명\n';
+  if(summary.length>0){
+    resultMsg += '\n[지점별 추가 명단]\n'+summary.slice(0,10).join('\n');
+    if(summary.length>10) resultMsg += '\n...외 '+(summary.length-10)+'개 지점';
+  }
+  alert(resultMsg);
 }
 
 // ── 팀 현황 붙여넣기 반영 ──
