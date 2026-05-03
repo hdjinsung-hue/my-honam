@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1777850602">
-<meta name="version" content="1777850602">
+<meta http-equiv="Expires" content="1777851134">
+<meta name="version" content="1777851134">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v90</title>
+<title>호남 지역단 신인도입 현황판 v1.00</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -344,7 +344,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v90</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.00</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -1969,6 +1969,8 @@ function startSync(){
     data=BR.map((b,i)=>({...b,id:i,passList:arr[i]?.passList||[],regList:arr[i]?.regList||[]}));
     // syncAttNames로 regList → att.attendees 추가 (삭제 없음)
     syncAttNames();
+    // 익월후보 → 신인도입 동기화 (이전 월 데이터 정리 포함)
+    try{ syncNextToRecruit(); }catch(e){}
     if(isFirst){isFirst=false;render(-1,false);}
     else if(ci>=0&&ci!==lastOi){showBanner(data[ci].name);render(ci,true);}
     else{render(-1,false);}
@@ -6032,10 +6034,12 @@ function initNext(){
       _nextData=snap.val()||{};
       renderNext();
       checkNextDeadlineWarning();
-      // 익월후보 데이터 변경 시 → 현재 월 신인도입에 자동 반영
+      // 익월후보 데이터 변경 시 → 다음 달 신인도입에 자동 반영
+      // (예: 4월에 입력한 익월후보 → 5월 신인도입)
       try{
-        var curYM = String(now.getFullYear())+String(now.getMonth()+1).padStart(2,'0');
-        syncNextToRecruit(curYM);
+        var prevD = new Date(now.getFullYear(), now.getMonth()-1, 1);
+        var srcYM = String(prevD.getFullYear())+String(prevD.getMonth()+1).padStart(2,'0');
+        syncNextToRecruit(srcYM);
       }catch(e){}
     });
     loadNextDeadline();
@@ -6076,26 +6080,25 @@ function _saveNext(ym){
 }
 
 // ── 익월후보 → 다음달 신인도입 정시접수 자동 동기화 ──
-// _nextData[ym] 의 배양등록 완료자를 → 신인도입 regList 에 자동 반영
-// (이전에 추가된 이름은 _autoSynced 로 관리하여 중복 제외)
-var _autoSyncedNames = null; // {bi:{name:true}}
+// 5월 신인도입 정시접수자 = 4월(전월)에 입력한 익월후보(_nextData[202604])의 배양등록 ✓
+// (사용자가 4월에 5월 후보자를 익월후보 화면에서 입력했으므로 전월 데이터 = 현재 월 후보)
 function syncNextToRecruit(ym){
-  if(!ym || typeof _nextData==='undefined' || !_nextData[ym]) return;
-  // ym은 익월후보가 다음달용이므로, ym 자체를 신인도입 반영 대상 월로 본다
-  // 익월후보 화면에서 사용자는 "5월 익월후보"를 4월에 입력 → 5월 신인도입에 반영되어야 함
-  // 따라서 _nextData[ym] 데이터는 ym 월 신인도입 정시접수자로 동기화
-  
-  if(!_autoSyncedNames) _autoSyncedNames={};
-  if(!_autoSyncedNames[ym]) _autoSyncedNames[ym]={};
-  
-  // 현재 신인도입 화면 표시 월과 ym이 일치할 때만 자동 반영
-  var nowYM = String(now.getFullYear()) + String(now.getMonth()+1).padStart(2,'0');
-  if(ym !== nowYM) return; // 다른 월은 반영 안 함
-  
-  var changed = false;
-  var ymData = _nextData[ym] || {};
-  var byBranch = {}; // {bi: Set of names}
-  
+  if(typeof _nextData==='undefined') return;
+
+  // 현재 월
+  var curD = new Date();
+  var curYM = String(curD.getFullYear()) + String(curD.getMonth()+1).padStart(2,'0');
+
+  // 전월(소스) 계산: 현재 월 - 1
+  var prevD = new Date(curD.getFullYear(), curD.getMonth()-1, 1);
+  var srcYM = String(prevD.getFullYear()) + String(prevD.getMonth()+1).padStart(2,'0');
+
+  // ym 호출 시 전월 데이터가 변경된 경우만 동기화 (현재 월은 다음 달에 반영됨)
+  if(ym && ym !== srcYM) return;
+
+  var ymData = (_nextData && _nextData[srcYM]) || {};
+  var byBranch = {}; // {bi: {name:true}}
+
   Object.keys(ymData).forEach(function(dd){
     var dayData = ymData[dd] || {};
     Object.keys(dayData).forEach(function(biStr){
@@ -6110,25 +6113,25 @@ function syncNextToRecruit(ym){
       });
     });
   });
-  
-  // 각 지점 반영
-  Object.keys(byBranch).forEach(function(biStr){
-    var bi = parseInt(biStr);
+
+  // 각 지점 regList = 전월 익월후보 배양등록 완료자만
+  var changed = false;
+  BR.forEach(function(_, bi){
     if(!data[bi]) return;
-    if(!data[bi].regList) data[bi].regList = [];
-    if(!data[bi].passList) data[bi].passList = [];
-    if(!_autoSyncedNames[ym][bi]) _autoSyncedNames[ym][bi] = {};
-    
-    Object.keys(byBranch[bi]).forEach(function(name){
-      // 이미 정시접수/기합격에 있으면 skip
-      if(data[bi].regList.indexOf(name)>=0) return;
-      if(data[bi].passList.indexOf(name)>=0) return;
-      data[bi].regList.push(name);
-      _autoSyncedNames[ym][bi][name] = true;
+    var newReg = byBranch[bi] ? Object.keys(byBranch[bi]) : [];
+    // passList에 이미 있는 이름은 regList에서 제외
+    var passSet = {};
+    (data[bi].passList||[]).forEach(function(n){ passSet[n]=true; });
+    newReg = newReg.filter(function(n){ return !passSet[n]; });
+    var oldReg = data[bi].regList || [];
+    var oldStr = JSON.stringify(oldReg.slice().sort());
+    var newStr = JSON.stringify(newReg.slice().sort());
+    if(oldStr !== newStr){
+      data[bi].regList = newReg;
       changed = true;
-    });
+    }
   });
-  
+
   if(changed){
     if(dbRef){
       dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
