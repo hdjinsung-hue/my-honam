@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1777852027">
-<meta name="version" content="1777852027">
+<meta http-equiv="Expires" content="1777853335">
+<meta name="version" content="1777853335">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v1.02</title>
+<title>호남 지역단 신인도입 현황판 v1.10</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -333,6 +333,7 @@ input[type=file].xf{display:none}
 
 @media(max-width:600px){
   .kpi-row{grid-template-columns:repeat(3,1fr)}
+  #rcard-info{grid-template-columns:1fr !important}
   .att-sum{grid-template-columns:repeat(3,1fr);gap:6px}
   .podium{gap:6px}.pod-cnt{font-size:26px}
   thead th,tbody td{padding:6px 4px;font-size:11px}
@@ -344,7 +345,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.02</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.10</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -368,6 +369,26 @@ input[type=file].xf{display:none}
       <div class="kpi-row" id="kpi-row"></div>
       <div class="ach-lbl">목표달성 지점</div>
       <div class="ach-wrap" id="ach-wrap"></div>
+
+      <!-- 📅 특시 시험일자 + 📝 월별 공지사항 -->
+      <div id="rcard-info" style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.15);display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <!-- 특시 시험일자 -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.95)">📅 특시 시험일자</span>
+            <button onclick="noticeAddExam()" style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)">+ 추가</button>
+          </div>
+          <div id="rcard-exam-list" style="display:flex;flex-wrap:wrap;gap:5px;min-height:30px;padding:6px 8px;background:rgba(0,0,0,.2);border-radius:8px"></div>
+        </div>
+        <!-- 월별 공지사항 -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.95)">📝 월별 공지사항</span>
+            <span id="rcard-memo-status" style="font-size:9px;color:rgba(255,255,255,.6)"></span>
+          </div>
+          <textarea id="rcard-memo" placeholder="월별 공지사항·특이사항을 입력하세요 (자동 저장)" oninput="noticeMemoChange()" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:rgba(0,0,0,.2);color:#fff;font-size:12px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+        </div>
+      </div>
 
     </div>
   </div>
@@ -1619,6 +1640,153 @@ const now=new Date();
 const dstr=now.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
 document.getElementById('dt').textContent=dstr;
 document.getElementById('rhdt').textContent=dstr+' 기준';
+// ── 📅 특시 시험일자 + 📝 월별 공지사항 (Firebase 실시간) ──
+var _noticeData = {};   // {ym: {exams:[{date,label}], memo:''}}
+var _noticeRef = null;
+var _noticeYM = '';
+var _noticeMemoTimer = null;
+var _noticeMemoLocal = false; // 사용자 입력 중 동기화 무시
+
+function _noticeCurYM(){
+  var d = new Date();
+  return String(d.getFullYear()) + String(d.getMonth()+1).padStart(2,'0');
+}
+
+function loadNoticeData(){
+  if(!db || _noticeRef) return;
+  _noticeYM = _noticeCurYM();
+  _noticeRef = db.ref('honam_notice');
+  _noticeRef.on('value', function(snap){
+    _noticeData = snap.val()||{};
+    renderNotice();
+  });
+}
+
+function renderNotice(){
+  var ym = _noticeYM || _noticeCurYM();
+  var d = _noticeData[ym] || {};
+  // 시험일자 렌더
+  var elList = document.getElementById('rcard-exam-list');
+  if(elList){
+    var exams = (d.exams||[]).slice().sort(function(a,b){
+      return (a.date||'').localeCompare(b.date||'');
+    });
+    if(!exams.length){
+      elList.innerHTML = '<span style="font-size:10px;color:rgba(255,255,255,.5);padding:4px">등록된 시험일이 없습니다</span>';
+    } else {
+      elList.innerHTML = exams.map(function(ex, idx){
+        var lbl = ex.label || _formatExamDate(ex.date);
+        return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);border-radius:14px;font-size:11px;font-weight:700;color:#fff">'
+          +'<span>'+lbl+'</span>'
+          +'<button onclick="noticeRemoveExam('+idx+')" title="삭제" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;padding:0 4px;font-size:13px;line-height:1">×</button>'
+          +'</span>';
+      }).join('');
+    }
+  }
+  // 메모 렌더 (사용자 입력 중이 아닐 때만)
+  var elMemo = document.getElementById('rcard-memo');
+  if(elMemo && !_noticeMemoLocal){
+    var memo = d.memo || '';
+    if(elMemo.value !== memo) elMemo.value = memo;
+  }
+}
+
+function _formatExamDate(dateStr){
+  // 'YYYY-MM-DD' → 'M/D(요일)'
+  if(!dateStr) return '';
+  var parts = dateStr.split('-');
+  if(parts.length<3) return dateStr;
+  var y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
+  var dt = new Date(y, m-1, d);
+  var dow = ['일','월','화','수','목','금','토'][dt.getDay()];
+  return m+'/'+d+'('+dow+')';
+}
+
+function noticeAddExam(){
+  var dateStr = prompt('시험 날짜를 입력하세요 (예: 2026-05-17 또는 5/17)');
+  if(!dateStr) return;
+  dateStr = dateStr.trim();
+
+  // 날짜 정규화: '5/17' → '2026-05-17'
+  var iso = '';
+  var m1 = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  var m2 = dateStr.match(/^(\d{1,2})[\/-](\d{1,2})$/);
+  var m3 = dateStr.match(/^(\d{1,2})월\s*(\d{1,2})일?$/);
+
+  var ym = _noticeYM || _noticeCurYM();
+  var defaultY = parseInt(ym.slice(0,4));
+
+  if(m1){
+    iso = m1[1]+'-'+String(parseInt(m1[2])).padStart(2,'0')+'-'+String(parseInt(m1[3])).padStart(2,'0');
+  } else if(m2){
+    iso = defaultY+'-'+String(parseInt(m2[1])).padStart(2,'0')+'-'+String(parseInt(m2[2])).padStart(2,'0');
+  } else if(m3){
+    iso = defaultY+'-'+String(parseInt(m3[1])).padStart(2,'0')+'-'+String(parseInt(m3[2])).padStart(2,'0');
+  } else {
+    alert('날짜 형식이 올바르지 않습니다.\n예: 2026-05-17, 5/17, 5월 17일');
+    return;
+  }
+
+  // 유효성 검증
+  var dParts = iso.split('-');
+  var dt = new Date(parseInt(dParts[0]), parseInt(dParts[1])-1, parseInt(dParts[2]));
+  if(isNaN(dt.getTime())){alert('날짜가 유효하지 않습니다.');return;}
+
+  if(!_noticeData[ym]) _noticeData[ym] = {};
+  if(!_noticeData[ym].exams) _noticeData[ym].exams = [];
+  // 중복 체크
+  if(_noticeData[ym].exams.some(function(x){return x.date===iso;})){
+    alert('이미 등록된 날짜입니다.');
+    return;
+  }
+  _noticeData[ym].exams.push({ date: iso });
+  if(_noticeRef) _noticeRef.child(ym+'/exams').set(_noticeData[ym].exams);
+  renderNotice();
+}
+
+function noticeRemoveExam(idx){
+  var ym = _noticeYM || _noticeCurYM();
+  var d = _noticeData[ym] || {};
+  if(!d.exams || idx<0 || idx>=d.exams.length) return;
+  // 정렬된 순서 기준으로 idx → 원본 idx 매핑
+  var sorted = d.exams.slice().sort(function(a,b){
+    return (a.date||'').localeCompare(b.date||'');
+  });
+  var target = sorted[idx];
+  if(!confirm((target.label||_formatExamDate(target.date))+' 시험일자를 삭제하시겠습니까?')) return;
+  _noticeData[ym].exams = d.exams.filter(function(x){return x.date!==target.date;});
+  if(_noticeRef) _noticeRef.child(ym+'/exams').set(_noticeData[ym].exams);
+  renderNotice();
+}
+
+function noticeMemoChange(){
+  var el = document.getElementById('rcard-memo');
+  var status = document.getElementById('rcard-memo-status');
+  if(!el) return;
+  _noticeMemoLocal = true;
+  if(status) status.textContent = '입력 중...';
+  if(_noticeMemoTimer) clearTimeout(_noticeMemoTimer);
+  _noticeMemoTimer = setTimeout(function(){
+    var ym = _noticeYM || _noticeCurYM();
+    if(!_noticeData[ym]) _noticeData[ym] = {};
+    _noticeData[ym].memo = el.value || '';
+    if(_noticeRef){
+      _noticeRef.child(ym+'/memo').set(_noticeData[ym].memo).then(function(){
+        if(status) status.textContent = '✓ 저장됨';
+        setTimeout(function(){
+          if(status) status.textContent = '';
+          _noticeMemoLocal = false;
+        }, 1500);
+      }).catch(function(){
+        if(status) status.textContent = '저장 실패';
+        _noticeMemoLocal = false;
+      });
+    } else {
+      _noticeMemoLocal = false;
+    }
+  }, 700);
+}
+
 // 신인도입 현황 타이틀 — 월별 표시
 var _rcardTitle = document.getElementById('rcard-title');
 if(_rcardTitle){ _rcardTitle.textContent = '📊 '+(now.getMonth()+1)+'월 신인도입 현황'; }
@@ -2005,6 +2173,8 @@ function initFirebaseApp(){
     loadEligData();
     // 합격통계 데이터 로드
     loadFinalData();
+    // 공지사항·시험일자 데이터 로드
+    loadNoticeData();
   }catch(e){
     console.error('Firebase 초기화 오류:',e);
     setLive('','연결 실패 - 새로고침 하세요');
