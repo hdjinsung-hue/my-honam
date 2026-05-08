@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1778213285">
-<meta name="version" content="1778213285">
+<meta http-equiv="Expires" content="1778215874">
+<meta name="version" content="1778215874">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v1.11</title>
+<title>호남 지역단 신인도입 현황판 v1.20</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -345,7 +345,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.11</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.20</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -4900,7 +4900,7 @@ function closePwModal(){
   if(pwModal) pwModal.style.display='none';
 }
 function switchAdminTab(tab,el){
-  ['goal','branch','reset','dates','attend','log','examstat','nextmonth','sms','finalstat'].forEach(function(t){var p=document.getElementById('admin-'+t);if(p)p.style.display=t===tab?'block':'none';});
+  ['goal','branch','reset','dates','attend','log','examstat','nextmonth','sms','finalstat','roster'].forEach(function(t){var p=document.getElementById('admin-'+t);if(p)p.style.display=t===tab?'block':'none';});
   if(tab==='branch')renderAdminBranch();
   if(tab==='attend')renderAdminAttend();
   if(tab==='dates')initCalendar();
@@ -4910,6 +4910,7 @@ function switchAdminTab(tab,el){
   if(tab==='sms'){renderAdminSmsTab();}
   if(tab==='reset'){renderAdminResetList();renderAdminAttNames();}
   if(tab==='finalstat'){initFinalStat();}
+  if(tab==='roster')renderAdminRoster();
   document.querySelectorAll('.admin-tab').forEach(function(b){b.style.background='var(--bg3)';b.style.color='var(--t2)';b.style.border='1px solid var(--bd)';});
   el.style.background='#7c3aed';el.style.color='#fff';el.style.border='none';
   if(tab==='log')loadLog();
@@ -8810,6 +8811,297 @@ function finalPrint(previewOnly){
   if(!previewOnly) setTimeout(function(){w.print();},600);
 }
 
+// ══════════════════════════════════════════
+// 👥 관리자 명단관리 — 신인도입 + 익월후보
+// ══════════════════════════════════════════
+function renderAdminRoster(){
+  var sel = document.getElementById('roster-branch-sel');
+  if(sel && sel.options.length === 0){
+    BR.forEach(function(b, i){
+      var o = document.createElement('option');
+      o.value = i;
+      o.textContent = b.name + (b.mgr?' ('+b.mgr+')':'');
+      sel.appendChild(o);
+    });
+    sel.value = 0;
+  }
+  var bi = sel ? parseInt(sel.value) : 0;
+  if(isNaN(bi) || !BR[bi]) return;
+
+  var b = BR[bi];
+  var passList = (data[bi] && data[bi].passList) || [];
+  var regList  = (data[bi] && data[bi].regList) || [];
+
+  // 익월후보 - 다음달 데이터 (현재 월 입력 = 다음달 후보)
+  var curD = new Date();
+  var nextD = new Date(curD.getFullYear(), curD.getMonth()+1, 1);
+  var nextYM = String(nextD.getFullYear())+String(nextD.getMonth()+1).padStart(2,'0');
+  var nextY = nextD.getFullYear(), nextM = nextD.getMonth()+1;
+
+  // 익월후보 명단 모으기 (배양등록 ✓만)
+  var nextNames = [];
+  var nextNamesAll = [];
+  if(typeof _nextData !== 'undefined' && _nextData[nextYM]){
+    Object.keys(_nextData[nextYM]||{}).forEach(function(dd){
+      var cell = ((_nextData[nextYM][dd]||{})[bi]) || {};
+      var registered = cell.registered || {};
+      var nameList = cell.nameList || '';
+      // 배양등록 ✓
+      Object.keys(registered).forEach(function(n){
+        if(registered[n] && nextNames.indexOf(n)<0) nextNames.push(n);
+      });
+      // 전체 명단 (등록 X 포함)
+      if(typeof _parseNames === 'function'){
+        _parseNames(nameList).forEach(function(p){
+          if(nextNamesAll.indexOf(p.name)<0) nextNamesAll.push(p.name);
+        });
+      }
+    });
+  }
+
+  var html = '';
+
+  // ─── 신인도입 명단 ───
+  html += '<div style="background:var(--bg2);border:1.5px solid var(--or);border-radius:12px;padding:12px;margin-bottom:12px">';
+  html += '<div style="font-size:13px;font-weight:900;color:var(--or);margin-bottom:10px">📊 '+b.name+' 신인도입 명단</div>';
+
+  // 기합격자
+  html += '<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:10px;border:1px solid rgba(62,207,142,.3)">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+  html += '<span style="font-size:12px;font-weight:700;color:#3ecf8e">✅ 기합격자 ('+passList.length+'명)</span>';
+  html += '<button onclick="rosterAddOne('+bi+',\'pass\')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.4)">+ 추가</button>';
+  html += '</div>';
+  if(passList.length === 0){
+    html += '<div style="font-size:11px;color:var(--t3);padding:6px">기합격자가 없습니다</div>';
+  } else {
+    html += '<div style="display:flex;flex-wrap:wrap;gap:5px">';
+    passList.forEach(function(name, idx){
+      html += '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;background:rgba(62,207,142,.12);border:1px solid rgba(62,207,142,.3);border-radius:14px;font-size:11px;font-weight:700;color:#3ecf8e">'
+        +'<span>'+name+'</span>'
+        +'<button onclick="rosterRemove('+bi+',\'pass\','+idx+')" title="삭제" style="background:none;border:none;color:#3ecf8e;cursor:pointer;padding:0 4px;font-size:13px;line-height:1">×</button>'
+        +'</span>';
+    });
+    html += '</div>';
+  }
+  html += '<textarea id="roster-pass-paste-'+bi+'" rows="2" placeholder="여러 명 일괄 추가 (한 줄에 한 명 또는 콤마/공백 구분)" style="width:100%;margin-top:8px;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t);font-size:11px;font-family:inherit;resize:vertical"></textarea>';
+  html += '<button onclick="rosterPasteAdd('+bi+',\'pass\')" style="width:100%;margin-top:4px;padding:5px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.4)">📋 일괄 추가</button>';
+  html += '</div>';
+
+  // 정시접수자
+  html += '<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid rgba(255,107,43,.3)">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+  html += '<span style="font-size:12px;font-weight:700;color:var(--or)">📝 정시접수자 ('+regList.length+'명)</span>';
+  html += '<button onclick="rosterAddOne('+bi+',\'reg\')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,107,43,.15);color:var(--or);border:1px solid rgba(255,107,43,.4)">+ 추가</button>';
+  html += '</div>';
+  if(regList.length === 0){
+    html += '<div style="font-size:11px;color:var(--t3);padding:6px">정시접수자가 없습니다</div>';
+  } else {
+    html += '<div style="display:flex;flex-wrap:wrap;gap:5px">';
+    regList.forEach(function(name, idx){
+      html += '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;background:rgba(255,107,43,.12);border:1px solid rgba(255,107,43,.3);border-radius:14px;font-size:11px;font-weight:700;color:var(--or)">'
+        +'<span>'+name+'</span>'
+        +'<button onclick="rosterRemove('+bi+',\'reg\','+idx+')" title="삭제" style="background:none;border:none;color:var(--or);cursor:pointer;padding:0 4px;font-size:13px;line-height:1">×</button>'
+        +'</span>';
+    });
+    html += '</div>';
+  }
+  html += '<textarea id="roster-reg-paste-'+bi+'" rows="2" placeholder="여러 명 일괄 추가 (한 줄에 한 명 또는 콤마/공백 구분)" style="width:100%;margin-top:8px;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t);font-size:11px;font-family:inherit;resize:vertical"></textarea>';
+  html += '<button onclick="rosterPasteAdd('+bi+',\'reg\')" style="width:100%;margin-top:4px;padding:5px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,107,43,.15);color:var(--or);border:1px solid rgba(255,107,43,.4)">📋 일괄 추가</button>';
+  html += '</div>';
+  html += '</div>';
+
+  // ─── 익월후보 명단 ───
+  html += '<div style="background:var(--bg2);border:1.5px solid #a78bfa;border-radius:12px;padding:12px">';
+  html += '<div style="font-size:13px;font-weight:900;color:#a78bfa;margin-bottom:10px">📅 '+b.name+' 익월후보 ('+nextY+'년 '+nextM+'월)</div>';
+
+  html += '<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid rgba(167,139,250,.3)">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+  html += '<span style="font-size:12px;font-weight:700;color:#a78bfa">배양등록 ✓ ('+nextNames.length+'명) · 전체 입력 '+nextNamesAll.length+'명</span>';
+  html += '<button onclick="rosterAddNext('+bi+')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.4)">+ 추가</button>';
+  html += '</div>';
+
+  if(nextNamesAll.length === 0){
+    html += '<div style="font-size:11px;color:var(--t3);padding:6px">'+nextM+'월 후보자가 없습니다</div>';
+  } else {
+    html += '<div style="display:flex;flex-wrap:wrap;gap:5px">';
+    nextNamesAll.forEach(function(name){
+      var isReg = nextNames.indexOf(name)>=0;
+      var bg = isReg?'rgba(167,139,250,.12)':'rgba(167,139,250,.04)';
+      var bdc = isReg?'rgba(167,139,250,.3)':'rgba(167,139,250,.15)';
+      var col = isReg?'#a78bfa':'rgba(167,139,250,.6)';
+      var icon = isReg?'✓ ':'';
+      html += '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;background:'+bg+';border:1px solid '+bdc+';border-radius:14px;font-size:11px;font-weight:700;color:'+col+'">'
+        +'<span>'+icon+name+'</span>'
+        +'<button onclick="rosterRemoveNext('+bi+',\''+name.replace(/'/g,"\\'")+'\')" title="삭제" style="background:none;border:none;color:'+col+';cursor:pointer;padding:0 4px;font-size:13px;line-height:1">×</button>'
+        +'</span>';
+    });
+    html += '</div>';
+  }
+
+  html += '<textarea id="roster-next-paste-'+bi+'" rows="3" placeholder="여러 명 일괄 추가 (한 줄에 한 명)" style="width:100%;margin-top:8px;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t);font-size:11px;font-family:inherit;resize:vertical"></textarea>';
+  html += '<button onclick="rosterPasteAddNext('+bi+')" style="width:100%;margin-top:4px;padding:5px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.4)">📋 일괄 추가 (배양등록 자동 ✓)</button>';
+  html += '</div>';
+  html += '</div>';
+
+  var el = document.getElementById('roster-content');
+  if(el) el.innerHTML = html;
+}
+
+// 신인도입 명단 1명 추가
+function rosterAddOne(bi, type){
+  var name = prompt(type==='pass'?'기합격자 이름:':'정시접수자 이름:');
+  if(!name) return;
+  name = name.trim();
+  if(!name) return;
+  if(!data[bi]) return;
+  var key = type==='pass'?'passList':'regList';
+  if(!data[bi][key]) data[bi][key] = [];
+  if(data[bi][key].indexOf(name)>=0){alert('이미 등록된 명단입니다.');return;}
+  // 다른쪽 명단에서는 자동 제거 (passList ↔ regList 중복 방지)
+  var otherKey = type==='pass'?'regList':'passList';
+  if(data[bi][otherKey] && data[bi][otherKey].indexOf(name)>=0){
+    data[bi][otherKey] = data[bi][otherKey].filter(function(n){return n!==name;});
+  }
+  data[bi][key].push(name);
+  rosterSave();
+  renderAdminRoster();
+}
+
+// 신인도입 명단 1명 삭제
+function rosterRemove(bi, type, idx){
+  var key = type==='pass'?'passList':'regList';
+  var name = (data[bi]&&data[bi][key])?data[bi][key][idx]:'';
+  if(!name) return;
+  if(!confirm(name+' 삭제?')) return;
+  data[bi][key].splice(idx,1);
+  rosterSave();
+  renderAdminRoster();
+}
+
+// 일괄 추가 (붙여넣기)
+function rosterPasteAdd(bi, type){
+  var ta = document.getElementById('roster-'+type+'-paste-'+bi);
+  if(!ta || !ta.value.trim()){alert('내용을 입력하세요.');return;}
+  var names = ta.value.split(/[\n,;\t]+/).map(function(s){return s.trim();}).filter(Boolean);
+  if(!names.length){alert('인식된 이름이 없습니다.');return;}
+  var key = type==='pass'?'passList':'regList';
+  var otherKey = type==='pass'?'regList':'passList';
+  if(!data[bi][key]) data[bi][key] = [];
+  if(!data[bi][otherKey]) data[bi][otherKey] = [];
+  var added = 0, skipped = 0;
+  names.forEach(function(n){
+    if(data[bi][key].indexOf(n)>=0){skipped++;return;}
+    // 다른쪽에서 자동 제거
+    if(data[bi][otherKey].indexOf(n)>=0){
+      data[bi][otherKey] = data[bi][otherKey].filter(function(x){return x!==n;});
+    }
+    data[bi][key].push(n);
+    added++;
+  });
+  ta.value = '';
+  rosterSave();
+  alert('추가: '+added+'명, 중복 제외: '+skipped+'명');
+  renderAdminRoster();
+}
+
+// 신인도입 데이터 저장
+function rosterSave(){
+  if(typeof dbRef !== 'undefined' && dbRef){
+    dbRef.set(data.map(function(d){return {passList:d.passList||[],regList:d.regList||[],goal:d.goal};}));
+  }
+  if(typeof render === 'function') render(-1, false);
+}
+
+// 익월후보 1명 추가 (다음 달 ym, 첫 번째 빈 일자에 추가)
+function rosterAddNext(bi){
+  var name = prompt('익월후보 이름:');
+  if(!name) return;
+  name = name.trim();
+  if(!name) return;
+  _rosterAddNextNames(bi, [name]);
+}
+
+// 익월후보 일괄 추가
+function rosterPasteAddNext(bi){
+  var ta = document.getElementById('roster-next-paste-'+bi);
+  if(!ta || !ta.value.trim()){alert('내용을 입력하세요.');return;}
+  var names = ta.value.split(/[\n,;\t]+/).map(function(s){return s.trim();}).filter(Boolean);
+  if(!names.length){alert('인식된 이름이 없습니다.');return;}
+  ta.value = '';
+  _rosterAddNextNames(bi, names);
+}
+
+function _rosterAddNextNames(bi, names){
+  if(typeof _nextData === 'undefined') _nextData = {};
+  var curD = new Date();
+  var nextD = new Date(curD.getFullYear(), curD.getMonth()+1, 1);
+  var nextYM = String(nextD.getFullYear())+String(nextD.getMonth()+1).padStart(2,'0');
+
+  if(!_nextData[nextYM]) _nextData[nextYM] = {};
+  // 첫 번째 일자 또는 '01' 일자 사용
+  var dd = '01';
+  // 기존 사용 일자 중 첫 번째 사용
+  var existingDays = Object.keys(_nextData[nextYM]||{});
+  if(existingDays.length > 0) dd = existingDays.sort()[0];
+
+  if(!_nextData[nextYM][dd]) _nextData[nextYM][dd] = {};
+  if(!_nextData[nextYM][dd][bi]) _nextData[nextYM][dd][bi] = {};
+  var cell = _nextData[nextYM][dd][bi];
+  if(!cell.nameList) cell.nameList = '';
+  if(!cell.registered) cell.registered = {};
+
+  // 기존 명단 파싱
+  var existingLines = cell.nameList ? cell.nameList.split('\n').map(function(s){return s.trim();}).filter(Boolean) : [];
+  var existingSet = {};
+  existingLines.forEach(function(line){
+    // "이름 (전화)" 형식 파싱
+    var m = line.match(/^([^(\s]+)/);
+    if(m) existingSet[m[1].trim()] = true;
+  });
+
+  var added = 0, skipped = 0;
+  names.forEach(function(n){
+    if(existingSet[n]){skipped++;return;}
+    existingLines.push(n);
+    cell.registered[n] = true;
+    existingSet[n] = true;
+    added++;
+  });
+  cell.nameList = existingLines.join('\n');
+  cell.noEntry = false;
+
+  if(typeof _saveNext === 'function') _saveNext(nextYM);
+  alert('추가: '+added+'명' + (skipped>0?', 중복 제외: '+skipped+'명':''));
+  renderAdminRoster();
+}
+
+// 익월후보 명단 1명 삭제
+function rosterRemoveNext(bi, name){
+  if(!confirm(name+' 삭제?')) return;
+  var curD = new Date();
+  var nextD = new Date(curD.getFullYear(), curD.getMonth()+1, 1);
+  var nextYM = String(nextD.getFullYear())+String(nextD.getMonth()+1).padStart(2,'0');
+  if(!_nextData || !_nextData[nextYM]) return;
+
+  // 모든 일자에서 해당 이름 제거
+  Object.keys(_nextData[nextYM]||{}).forEach(function(dd){
+    var cell = ((_nextData[nextYM][dd]||{})[bi]) || null;
+    if(!cell) return;
+    if(cell.nameList){
+      var lines = cell.nameList.split('\n').filter(function(line){
+        var m = line.trim().match(/^([^(\s]+)/);
+        return !m || m[1].trim() !== name;
+      });
+      cell.nameList = lines.join('\n');
+    }
+    if(cell.registered) delete cell.registered[name];
+    if(cell.cards) delete cell.cards[name];
+  });
+
+  if(typeof _saveNext === 'function') _saveNext(nextYM);
+  renderAdminRoster();
+}
+
 function renderAdminNextMonth(){
   var yEl=document.getElementById('anm-year');
   var mEl=document.getElementById('anm-month');
@@ -8959,6 +9251,7 @@ function adminNextClearBranch(ym,bi){
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px">
       <button class="admin-tab" onclick="switchAdminTab('goal',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:#7c3aed;color:#fff;border:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent">🎯 목표</button>
       <button class="admin-tab" onclick="switchAdminTab('branch',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">🏢 지점</button>
+      <button class="admin-tab" onclick="switchAdminTab('roster',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">👥 명단관리</button>
       <button class="admin-tab" onclick="switchAdminTab('reset',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">🗑️ 초기화</button>
       <button class="admin-tab" onclick="switchAdminTab('dates',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📅 날짜</button>
       <button class="admin-tab" onclick="switchAdminTab('attend',this)" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--bg3);color:var(--t2);border:1px solid var(--bd);touch-action:manipulation;-webkit-tap-highlight-color:transparent">📋 출결현황</button>
@@ -9198,6 +9491,23 @@ function adminNextClearBranch(ym,bi){
       <textarea id="admin-sms-preview" rows="11" readonly
         style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg3);color:var(--t);font-size:13px;font-family:inherit;resize:vertical;line-height:1.7"></textarea>
       <div style="font-size:10px;color:var(--t3);margin-top:4px">복사 후 문자앱 / 카카오톡에 붙여넣기 하세요.</div>
+    </div>
+
+    <!-- 👥 명단관리 -->
+    <div id="admin-roster" style="display:none">
+      <!-- 지점 선택 -->
+      <div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:12px;border:1px solid var(--bd)">
+        <div style="font-size:11px;font-weight:700;color:var(--or2);margin-bottom:6px">🏢 지점 선택</div>
+        <select id="roster-branch-sel" onchange="renderAdminRoster()" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t);font-size:13px;font-family:inherit"></select>
+      </div>
+
+      <!-- 두 영역: 신인도입 명단 / 익월후보 명단 -->
+      <div id="roster-content"></div>
+
+      <div style="font-size:10px;color:var(--t3);margin-top:10px;padding:6px 8px;background:var(--bg3);border-radius:6px;line-height:1.6">
+        💡 <b>신인도입</b>: 기합격자(passList)·정시접수자(regList) — 즉시 Firebase 저장<br>
+        💡 <b>익월후보</b>: 다음 달 후보자 — 일자별 자동 분배 (선택한 일자에 추가)
+      </div>
     </div>
 
     <!-- 📊 합격통계 -->
