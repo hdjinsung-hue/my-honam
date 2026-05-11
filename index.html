@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1778477223">
+<meta http-equiv="Expires" content="1778479916">
 <meta name="version" content="1778215874">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v1.22</title>
+<title>호남 지역단 신인도입 현황판 v1.23</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -345,7 +345,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.22</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.23</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -2393,8 +2393,9 @@ function showBanner(nm){
 }
 function showSetup(){alert('Firebase 설정이 이미 완료되어 있습니다.');}
 
-// ─ 신인도입 계산 ─
-const pc=d=>d.passList.length, rc=d=>d.regList.length;
+// ─ 신인도입 계산 (탈락 처리된 인원 제외) ─
+const pc=d=>(d.passList||[]).filter(n=>!(att[d.id]&&att[d.id].eliminated&&att[d.id].eliminated[n])).length;
+const rc=d=>(d.regList||[]).filter(n=>!(att[d.id]&&att[d.id].eliminated&&att[d.id].eliminated[n])).length;
 const sc=d=>pc(d)+rc(d)*0.5;
 const tot=d=>pc(d)+rc(d);
 const pct=d=>d.goal>0?Math.round(sc(d)/d.goal*100):0;
@@ -2558,7 +2559,7 @@ function renderAtt(){
   }
   _lastRenderDate=_rdKey;
   const open=getOpen();
-  const totAtt=att.reduce((a,b)=>a+b.attendees.length,0);
+  const totAtt=att.reduce((a,b)=>a+b.attendees.filter(n=>!(b.eliminated&&b.eliminated[n])).length,0);
   const allDay=DATES.reduce((s,d)=>s+att.reduce((a,b)=>a+(b.attendance[d.key]||[]).filter(n=>!b.eliminated[n]).length,0),0);
   const maxDay=Math.max(...DATES.map(d=>att.reduce((a,b)=>a+(b.attendance[d.key]||[]).filter(n=>!b.eliminated[n]).length,0)),0);
   const totElim=att.reduce((a,b)=>a+Object.values(b.eliminated||{}).filter(v=>v).length,0);
@@ -2597,7 +2598,8 @@ function renderAtt(){
   const dHdr=DATES.map(d=>`<th>${d.lbl}</th>`).join('');
   const rows=BR.map((b,i)=>{
     const a=att[i];
-    const ttl=a.attendees.length;
+    const elim=a.eliminated||{};
+    const ttl=a.attendees.filter(n=>!elim[n]).length;
     const dCols=DATES.map(d=>{
       const n=(a.attendance[d.key]||[]).filter(x=>!a.eliminated[x]).length;
       return n>0?`<td class="cnt">${n}</td>`:`<td class="zt">-</td>`;
@@ -2915,7 +2917,8 @@ function doneAttPanel(i){
 
   // 기합격 인원 + 당일 출석 인원 합산 >= 목표 여부
   var _d=data[i];
-  var _passCnt=(_d.passList||[]).length;
+  var _elimAtt=(att[i]&&att[i].eliminated)||{};
+  var _passCnt=(_d.passList||[]).filter(n=>!_elimAtt[n]).length;
   var _combined=_passCnt+todayCnt2; // 기합격 + 당일출석
   var _rate=_d.goal>0?Math.round(_combined/_d.goal*100):0;
   var isAchieved=(_rate>=100)&&(!isWarn);
