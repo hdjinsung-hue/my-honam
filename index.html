@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1778479916">
+<meta http-equiv="Expires" content="1778481357">
 <meta name="version" content="1778215874">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v1.23</title>
+<title>호남 지역단 신인도입 현황판 v1.25</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -345,7 +345,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.23</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.25</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -2321,6 +2321,8 @@ function startSyncData(){
     // ※ 여기서 dbRef.set 호출 금지 — dbRef.on ↔ attRef.on 무한 루프 방지
     // att 로드 완료 → honam_completed 기준으로 completed/doneMap 재계산 (반드시 renderAtt 전에)
     _rebuildDoneMap();
+    // att 로드 후 신인도입현황도 재렌더 → 탈락자 반영 (pc/rc가 att.eliminated 참조)
+    render(-1, false);
     if(document.getElementById('tab-att').classList.contains('on')){
       var _openBefore=getOpen();
       renderAtt();
@@ -2662,8 +2664,9 @@ function renderAtt(){
     rowItems.forEach(function(i){
       var b=BR[i], a=att[i], bn=sn(b.name);
       var elim=a.eliminated||{};
-      var ttl=a.attendees.length;
+      var allCnt=a.attendees.length;  // 전체 등록 인원
       var elimCnt=Object.values(elim).filter(function(v){return v;}).length;
+      var ttl=allCnt-elimCnt;  // 실접수 인원 (탈락 제외)
       var todayCnt=(a.attendance[_tkey]||[]).filter(function(n){return !elim[n];}).length;
       // isDone: 실제 오늘 날짜에 완료저장 + 오늘 교육날짜에 출석 있어야 완료
       var isDone=!!(a.completed&&a.completed[_todayRealKey])&&todayCnt>0&&!!_tdm;
@@ -2743,14 +2746,13 @@ function renderAtt(){
           })()
           // 지점장 이름
           +'<div style="font-size:11px;color:#c0c8d8;font-weight:600;margin-bottom:8px">'+b.mgr+'</div>'
-          // 접수 숫자
-          +'<div style="font-size:28px;font-weight:900;letter-spacing:-1px;line-height:1;color:'+numColor+';margin-bottom:4px">'+ttl+'<span style="font-size:13px;font-weight:700;margin-left:1px">명</span></div>'
+          // 접수 숫자 (실접수 = 전체 - 탈락)
+          +'<div style="font-size:28px;font-weight:900;letter-spacing:-1px;line-height:1;color:'+numColor+';margin-bottom:4px">'+ttl+'<span style="font-size:13px;font-weight:700;margin-left:1px">명</span>'+(elimCnt>0?'<span style="font-size:10px;font-weight:700;color:#f5605a;margin-left:6px;background:rgba(245,96,90,.15);padding:2px 6px;border-radius:6px;border:1px solid rgba(245,96,90,.3)">탈락'+elimCnt+'</span>':'')+'</div>'
           // 출석 행
           +'<div style="display:flex;align-items:center;gap:4px">'
             +'<span style="font-size:10px;color:#6688aa;font-weight:600">출석</span>'
             +'<span style="font-size:16px;font-weight:900;color:'+numColor+'">'+(attNum==='-'?'―':attNum)+'</span>'
             +(attNum!=='-'?'<span style="font-size:10px;color:'+numColor+';font-weight:700">명</span>':'')
-            +(elimCnt>0?'<span style="font-size:9px;color:#f5605a;margin-left:auto">탈락'+elimCnt+'</span>':'')
           +'</div>'
         +'</div>'
       +'</button>';
@@ -2897,8 +2899,9 @@ function doneAttPanel(i){
   var _dm2=DATES.find(function(d){return d.key===_dk2;});
   var _tkey2=_dm2?_dm2.key:DATES[DATES.length-1].key;
   var a2=att[i];
-  var ttl2=a2.attendees.length;
   var elim2=a2.eliminated||{};
+  var _elimCnt2=Object.values(elim2).filter(function(v){return v;}).length;
+  var ttl2=a2.attendees.length - _elimCnt2;  // 실접수 (탈락 제외)
   var todayCnt2=(a2.attendance[_tkey2]||[]).filter(function(n){return !elim2[n];}).length;
 
   // 접수자는 있지만 출석 0명인 경우: 미출석 사유가 모두 입력되어 있으면 경고 아님
