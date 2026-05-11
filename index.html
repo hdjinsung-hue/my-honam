@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1778476117">
+<meta http-equiv="Expires" content="1778477223">
 <meta name="version" content="1778215874">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v1.21</title>
+<title>호남 지역단 신인도입 현황판 v1.22</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -345,11 +345,11 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.21</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.22</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
-    <span><span class="live-dot" id="ldot"></span> <span id="lst">연결 중...</span></span>
+    <span><span class="live-dot" id="ldot"></span> <span id="lst">연결 중...</span> <button id="reconnect-btn" onclick="manualReconnect()" title="재연결" style="display:none;margin-left:6px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(245,96,90,.2);color:#f5605a;border:1px solid rgba(245,96,90,.4)">🔄 재연결</button></span>
   </div>
 </div>
 <div class="tabs" style="display:flex;align-items:center">
@@ -2242,11 +2242,12 @@ function startSync(){
   db.ref('.info/connected').on('value', function(snap){
     if(snap.val() === true){
       setLive('on','실시간 연결됨');
-    } else {
-      setLive('','연결 중...');
     }
   });
   loadBranchConfig();
+  startSyncData();
+}
+function startSyncData(){
   dbRef.on('value',snap=>{
     const rem=snap.val();
     if(!rem){dbRef.set(data.map(()=>({passList:[],regList:[]})));return;}
@@ -2266,7 +2267,18 @@ function startSync(){
     if(isFirst){isFirst=false;render(-1,false);}
     else if(ci>=0&&ci!==lastOi){showBanner(data[ci].name);render(ci,true);}
     else{render(-1,false);}
-  },()=>setLive('','연결 오류'));
+  },function(err){
+    console.warn('Firebase 연결 오류:', err);
+    setLive('','연결 오류 — 재시도 중...');
+    // 5초 후 자동 재연결 시도
+    setTimeout(function(){
+      setLive('sy','재연결 중...');
+      try{
+        dbRef.off();
+        startSyncData();
+      }catch(e){ setLive('','연결 실패 — 새로고침 필요'); }
+    }, 5000);
+  });
 
   // 완료 상태 별도 로드 (honam_completed) - att 데이터는 절대 건드리지 않음
   db.ref('honam_completed').on('value',function(snap){
@@ -2356,6 +2368,23 @@ function syncAttNames(){
 function setLive(cls,txt){
   document.getElementById('ldot').className='live-dot'+(cls?' '+cls:'');
   document.getElementById('lst').textContent=txt;
+  // 연결 오류 시 재연결 버튼 표시
+  var btn=document.getElementById('reconnect-btn');
+  if(btn) btn.style.display=(txt.indexOf('오류')>=0||txt.indexOf('실패')>=0)?'inline-block':'none';
+}
+
+// 수동 재연결
+function manualReconnect(){
+  setLive('sy','재연결 중...');
+  var btn=document.getElementById('reconnect-btn');
+  if(btn) btn.style.display='none';
+  try{
+    dbRef.off();
+    setTimeout(function(){ startSyncData(); }, 500);
+  }catch(e){
+    setLive('','재연결 실패');
+    if(btn) btn.style.display='inline-block';
+  }
 }
 let bt;
 function showBanner(nm){
