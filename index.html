@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Expires" content="1778481357">
+<meta http-equiv="Expires" content="1778482528">
 <meta name="version" content="1778215874">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <meta name="theme-color" content="#0b1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="호남신인도입">
 <link rel="manifest" id="manifest-link">
-<title>호남 지역단 신인도입 현황판 v1.25</title>
+<title>호남 지역단 신인도입 현황판 v1.26</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -345,7 +345,7 @@ input[type=file].xf{display:none}
 <div id="sync-banner"></div>
 <div class="hdr">
   <div class="hdr-badge">현대해상 호남 지역단</div>
-  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.25</span></h1>
+  <h1>신인도입 <span>현황판</span> <span style="font-size:11px;color:#a78bfa;font-weight:700;background:rgba(167,139,250,.15);padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px">v1.26</span></h1>
   <div class="hdr-meta">
     <span id="dt"></span>
     <span>|</span>
@@ -5395,6 +5395,59 @@ function writeLog(branchName, category, detail){
   db.ref('honam_log').push(entry);
 }
 
+// ── 로그 엑셀 다운로드 ──
+function xlsLog(){
+  if(!db){ alert('Firebase 연결 후 다시 시도해주세요.'); return; }
+  var filterBranch=(document.getElementById('log-filter-branch')||{}).value||'';
+  var filterType=(document.getElementById('log-filter-type')||{}).value||'';
+
+  db.ref('honam_log').orderByChild('ts').limitToLast(1000).once('value', function(snap){
+    if(!snap.val()){ alert('로그 데이터가 없습니다.'); return; }
+
+    var allItems=[];
+    snap.forEach(function(child){ allItems.unshift(child.val()); });
+
+    // 필터 적용
+    var items=allItems.filter(function(l){
+      if(filterBranch && l.branchName!==filterBranch) return false;
+      if(filterType && (!l.category || l.category.indexOf(filterType)<0)) return false;
+      return true;
+    });
+
+    if(!items.length){ alert('해당 조건의 기록이 없습니다.'); return; }
+
+    // BOM + CSV 생성
+    var BOM='\uFEFF';
+    var header=['번호','일시','지점명','유형','상세내용','이름/대상','입력자'].join(',');
+    var rows=items.map(function(l, idx){
+      var no=idx+1;
+      var time=l.time||'';
+      var branch=l.branchName||'-';
+      var cat=l.category||'기타';
+      var msg=(l.msg||'').replace(/,/g,'，').replace(/\n/g,' ');
+      var name=(l.name||l.personName||'').replace(/,/g,'，');
+      var author=(l.author||'').replace(/,/g,'，');
+      return [no,time,branch,cat,msg,name,author].join(',');
+    });
+
+    var now=new Date();
+    var ymd=now.getFullYear()+'.'+(now.getMonth()+1)+'.'+(now.getDate());
+    var fname='호남_로그_'+ymd
+      +(filterBranch?'_'+filterBranch:'')
+      +(filterType?'_'+filterType:'')
+      +'.csv';
+
+    var csv=BOM+header+'\n'+rows.join('\n');
+    var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url; a.download=fname;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+}
+
 function loadLog(retryCount){
   var el=document.getElementById('admin-log-list');
   var sumEl=document.getElementById('log-summary');
@@ -9442,8 +9495,9 @@ function adminNextClearBranch(ym,bi){
           <option value="reg">등록</option>
           <option value="att">출결</option>
         </select>
+        <button onclick="xlsLog()" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.4);white-space:nowrap;touch-action:manipulation">📥 엑셀</button>
       </div>
-      <div id="log-summary" style="margin-bottom:8px;font-size:11px;color:var(--t2)"></div>
+      <div id="log-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;font-size:11px;color:var(--t2)"></div>
       <div id="admin-log-list" style="font-size:11px;max-height:350px;overflow-y:auto"></div>
     </div>
 
