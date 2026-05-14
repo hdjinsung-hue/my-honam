@@ -3192,9 +3192,9 @@ function reloadFirebaseForCourse(){
     if(val.D&&Array.isArray(val.D)){val.D.forEach(function(row,i){if(D[i]){if(row[5])D[i][5]=row[5];if(typeof row[8]==='number')D[i][8]=row[8];D[i][9]=row[9]||0;D[i][10]=row[10]||0;D[i][11]=typeof row[11]==='number'?row[11]:(D[i][9]-D[i][8]);D[i][12]=row[12]||0;D[i][13]=row[13]||0;}});syncGroupsFromD();renderAll();renderGrpTable();}
     showSyncStatus('✅ Master '+(CURRENT_COURSE==='2'?'Ⅱ':'Ⅰ')+' 연동 '+new Date().toLocaleTimeString('ko-KR'),'#1a8a40');
   });
-  // meta·award 리스너도 재바인딩
-  if(typeof loadMeta==='function')loadMeta();
-  if(typeof loadAward==='function')loadAward();
+  // meta·award 리스너도 재바인딩 (과정 전환 시 award 리스너 재attach 필수)
+  if(typeof loadMeta==='function'){if(typeof _metaLoaded!=='undefined')_metaLoaded=false;loadMeta();}
+  if(typeof loadAward==='function'){_awardLoaded=false;loadAward();}
   // 시상안 편집 과정 배지 갱신
   var badge=document.getElementById('award-course-badge');
   if(badge)badge.textContent=CURRENT_COURSE==='2'?'Master Ⅱ':'Master Ⅰ';
